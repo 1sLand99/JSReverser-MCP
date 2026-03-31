@@ -21,12 +21,12 @@ describe('parameter workflow contribution docs', () => {
     const readmeEn = await readRepoFile('README.en.md');
     const guide = await readRepoFile('docs/guides/parameter-workflow-contribution.md');
 
-    assert.ok(readme.includes('docs/knowledge/parameter-workflows/'));
-    assert.ok(readme.includes('参数工作流知识库'));
+    assert.ok(readme.includes('docs/knowledge/parameter-blueprints/'));
+    assert.ok(readme.includes('参数蓝图库'));
     assert.ok(readme.includes('--list-parameter-workflows'));
     assert.ok(readme.includes('docs/guides/parameter-workflow-contribution.md'));
 
-    assert.ok(readmeEn.includes('parameter workflow knowledge base'));
+    assert.ok(readmeEn.includes('parameter blueprint knowledge base'));
     assert.ok(readmeEn.includes('--show-parameter-workflow jd-h5st'));
     assert.ok(readmeEn.includes('docs/guides/parameter-workflow-contribution.md'));
 

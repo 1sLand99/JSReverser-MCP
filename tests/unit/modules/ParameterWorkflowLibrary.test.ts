@@ -24,6 +24,8 @@ describe('ParameterWorkflowLibrary', () => {
     const workflow = await library.getWorkflow('jd-h5st');
     assert.strictEqual(workflow.metadata.id, 'jd-h5st');
     assert.ok(workflow.workflow.includes('## 适用范围'));
+    assert.ok(workflow.parts);
+    assert.ok(workflow.mutations);
 
     const exact = await library.recommendWorkflow('h5st');
     assert.strictEqual(exact.metadata.id, 'jd-h5st');

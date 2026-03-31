@@ -15,26 +15,61 @@ const KNOWLEDGE_ROOT = path.join(
   BUILD_DIR,
   'docs',
   'knowledge',
-  'parameter-workflows',
+  'parameter-blueprints',
 );
 
 const TEMPLATE_METADATA = {
   id: 'replace-me',
-  title: 'Replace Me Workflow',
+  title: 'Replace Me Blueprint',
   aliases: ['replace-me'],
   keywords: ['replace-me'],
   category: 'header-signature',
   status: 'draft',
   version: '0.1.0',
   lastUpdated: 'YYYY-MM-DD',
-  summary: '一句话说明该 workflow 适用的参数或链路。',
+  summary: '一句话说明该 blueprint 适用的参数或链路。',
 };
 
-const TEMPLATE_WORKFLOW = `# Replace Me Workflow
+const TEMPLATE_PARTS = {
+  parameter: 'replace-me',
+  parts: [
+    {
+      index: 1,
+      name: 'segment_name',
+      role: 'time|digest|env|constant|payload|encoding',
+      source: 'runtime|request|header|query|body|cookie|storage|bundle',
+      how_to_get: '写清这一段从哪里观察、用什么证据确认。',
+      confidence: 'confirmed|inferred',
+    },
+  ],
+};
+
+const TEMPLATE_MUTATIONS = {
+  parameter: 'replace-me',
+  mutations: [
+    {
+      id: 'example-mutation',
+      applies_to_part: 1,
+      kind: 'encoding-variant',
+      base_algorithm: 'base64',
+      mutation_summary: '写清魔改发生在哪一步。',
+      logic: ['先做什么', '再做什么'],
+      reproduce_hint: '复现时不要直接套标准库。',
+      upgrade_watch: ['算法升级时优先检查的点'],
+      confidence: 'inferred',
+    },
+  ],
+};
+
+const TEMPLATE_WORKFLOW = `# Replace Me Blueprint
 
 ## 适用范围
 
-- 描述该 workflow 适用于什么参数/链路
+- 描述该 blueprint 适用于什么参数/链路
+
+## 目标契约
+
+- 参数位置、伴生字段、成功判定
 
 ## 识别特征
 
@@ -45,29 +80,33 @@ const TEMPLATE_WORKFLOW = `# Replace Me Workflow
 - 请求样本
 - MCP 页面上下文
 
-## 分阶段流程
+## 推荐工具顺序
 
-### 1. Request Identify
+- 写清推荐工具顺序
 
-- 记录目标请求与输入边界
+## 步骤清单
 
-### 2. Script Locate
+### Step 1
 
-- 定位脚本入口和 initiator
-
-### 3. Hook Capture
-
-- 捕获输入、中间值和输出
+- 写清第一步要做什么
 
 ## 常见分叉
 
 - 记录升级或迁移的常见分叉
+
+## 失败分支与转向
+
+- 写清失败后优先转向
 
 ## 最小 artifacts 契约
 
 - request-summary.json
 - network.jsonl
 - hooks.jsonl
+
+## 验收标准
+
+- 写清通过与失败的业务标准
 
 ## 成功判定
 
@@ -148,12 +187,28 @@ export class ParameterWorkflowLibrary {
       'utf8',
     );
     await writeFile(path.join(targetDir, 'workflow.md'), workflow.workflow, 'utf8');
+    if (workflow.parts) {
+      await writeFile(
+        path.join(targetDir, 'parts.json'),
+        `${JSON.stringify(workflow.parts, null, 2)}\n`,
+        'utf8',
+      );
+    }
+    if (workflow.mutations) {
+      await writeFile(
+        path.join(targetDir, 'mutations.json'),
+        `${JSON.stringify(workflow.mutations, null, 2)}\n`,
+        'utf8',
+      );
+    }
   }
 
   async validateWorkflowDirectory(targetDir: string): Promise<{valid: boolean; errors: string[]}> {
     const errors: string[] = [];
     const metadataPath = path.join(targetDir, 'metadata.json');
     const workflowPath = path.join(targetDir, 'workflow.md');
+    const partsPath = path.join(targetDir, 'parts.json');
+    const mutationsPath = path.join(targetDir, 'mutations.json');
 
     try {
       await access(metadataPath);
@@ -186,6 +241,26 @@ export class ParameterWorkflowLibrary {
       }
     }
 
+    try {
+      await access(partsPath);
+      const parts = await readJsonFile<{parameter?: string; parts?: unknown[]}>(partsPath);
+      if (!parts.parameter || !Array.isArray(parts.parts)) {
+        errors.push('parts.json 缺少 parameter 或 parts 数组');
+      }
+    } catch {
+      // optional
+    }
+
+    try {
+      await access(mutationsPath);
+      const mutations = await readJsonFile<{parameter?: string; mutations?: unknown[]}>(mutationsPath);
+      if (!mutations.parameter || !Array.isArray(mutations.mutations)) {
+        errors.push('mutations.json 缺少 parameter 或 mutations 数组');
+      }
+    } catch {
+      // optional
+    }
+
     return {valid: errors.length === 0, errors};
   }
 
@@ -193,10 +268,20 @@ export class ParameterWorkflowLibrary {
     const baseDir = path.join(this.rootDir, entry.path);
     const metadata = await readJsonFile<ParameterWorkflowMetadata>(path.join(baseDir, 'metadata.json'));
     const workflow = await readFile(path.join(baseDir, 'workflow.md'), 'utf8');
+    let parts: ParameterWorkflowDocument['parts'];
+    let mutations: ParameterWorkflowDocument['mutations'];
+    try {
+      parts = await readJsonFile<NonNullable<ParameterWorkflowDocument['parts']>>(path.join(baseDir, 'parts.json'));
+    } catch {}
+    try {
+      mutations = await readJsonFile<NonNullable<ParameterWorkflowDocument['mutations']>>(path.join(baseDir, 'mutations.json'));
+    } catch {}
     return {
       metadata,
       workflow,
       path: entry.path,
+      parts,
+      mutations,
     };
   }
 }
@@ -220,6 +305,16 @@ export async function exportParameterWorkflowTemplate(targetDir: string): Promis
     'utf8',
   );
   await writeFile(path.join(targetDir, 'workflow.md'), TEMPLATE_WORKFLOW, 'utf8');
+  await writeFile(
+    path.join(targetDir, 'parts.json'),
+    `${JSON.stringify(TEMPLATE_PARTS, null, 2)}\n`,
+    'utf8',
+  );
+  await writeFile(
+    path.join(targetDir, 'mutations.json'),
+    `${JSON.stringify(TEMPLATE_MUTATIONS, null, 2)}\n`,
+    'utf8',
+  );
 }
 
 export async function listParameterWorkflows() {
@@ -236,6 +331,8 @@ export async function showParameterWorkflow(id: string) {
     aliases: doc.metadata.aliases,
     category: doc.metadata.category,
     summary: doc.metadata.summary,
+    parts: doc.parts,
+    mutations: doc.mutations,
     workflow: doc.workflow,
   };
 }

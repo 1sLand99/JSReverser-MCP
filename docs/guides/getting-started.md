@@ -58,7 +58,7 @@ npm run start
 
 能正常看到当前页面、请求和脚本，说明基础链路已经通了。
 
-## 6. 可选：查看内置参数工作流知识库
+## 6. 可选：查看内置参数蓝图库
 
 如果你希望按参数流程来使用 MCP，而不是手动组织工具顺序，可以直接查看内置 workflow：
 
@@ -69,7 +69,7 @@ node build/src/index.js --show-parameter-workflow jd-h5st
 
 公开知识库存放在：
 
-- `docs/knowledge/parameter-workflows/`
+- `docs/knowledge/parameter-blueprints/`
 
 贡献方式可看：
 

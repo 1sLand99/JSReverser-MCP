@@ -19,7 +19,7 @@ describe('reverse workflow docs', () => {
   it('documents task artifacts, local rebuild, and Codex workflow guidance', async () => {
     const readme = await readRepoFile('README.md');
     const caseIndex = await readRepoFile('scripts/cases/README.md');
-    const workflowIndex = await readRepoFile('docs/knowledge/parameter-workflows/index.json');
+    const workflowIndex = await readRepoFile('docs/knowledge/parameter-blueprints/index.json');
     const reverseIndex = await readRepoFile('docs/reference/reverse-task-index.md');
     const artifactsDoc = await readRepoFile('docs/reference/reverse-artifacts.md');
     const caseSafetyPolicy = await readRepoFile('docs/reference/case-safety-policy.md');
@@ -45,13 +45,13 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('参考项目'));
     assert.ok(readme.includes('某东 `h5st` 参数'));
     assert.ok(readme.includes('[scripts/cases/README.md](scripts/cases/README.md)'));
-    assert.ok(readme.includes('参数工作流知识库'));
-    assert.ok(readme.includes('[docs/knowledge/parameter-workflows/'));
+    assert.ok(readme.includes('参数蓝图库'));
+    assert.ok(readme.includes('[docs/knowledge/parameter-blueprints/'));
     assert.ok(readme.includes('Git 默认只提交 `artifacts/tasks/_TEMPLATE/`'));
     assert.deepStrictEqual(docsRootFiles, []);
     assert.ok(caseIndex.includes('某东 `h5st` 参数'));
     assert.ok(caseIndex.includes('迁移状态'));
-    assert.ok(caseIndex.includes('docs/knowledge/parameter-workflows/'));
+    assert.ok(caseIndex.includes('docs/knowledge/parameter-blueprints/'));
     assert.ok(caseIndex.includes('[scripts/cases/jd-h5st-pure-node.mjs](jd-h5st-pure-node.mjs)'));
     assert.ok(caseIndex.includes('某手 `falcon` 风控参数'));
     assert.ok(!caseIndex.includes('mcp-reverse-pure-node-workflow.mjs'));

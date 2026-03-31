@@ -35,6 +35,8 @@ export const getParameterWorkflow = defineTool({
       aliases: doc.metadata.aliases,
       category: doc.metadata.category,
       summary: doc.metadata.summary,
+      parts: doc.parts,
+      mutations: doc.mutations,
       workflow: doc.workflow,
     }, null, 2));
     response.appendResponseLine('```');
@@ -58,6 +60,8 @@ export const recommendParameterWorkflow = defineTool({
       aliases: doc.metadata.aliases,
       category: doc.metadata.category,
       summary: doc.metadata.summary,
+      parts: doc.parts,
+      mutations: doc.mutations,
       workflow: doc.workflow,
     }, null, 2));
     response.appendResponseLine('```');

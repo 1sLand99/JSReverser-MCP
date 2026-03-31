@@ -190,13 +190,13 @@ function copyParameterWorkflowKnowledgeBase(): void {
     process.cwd(),
     'docs',
     'knowledge',
-    'parameter-workflows',
+    'parameter-blueprints',
   );
   const destinationDir = path.join(
     BUILD_DIR,
     'docs',
     'knowledge',
-    'parameter-workflows',
+    'parameter-blueprints',
   );
 
   if (!fs.existsSync(sourceDir)) {

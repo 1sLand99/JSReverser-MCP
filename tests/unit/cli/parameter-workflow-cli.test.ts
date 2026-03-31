@@ -53,8 +53,12 @@ describe('parameter workflow cli', () => {
 
       const metadata = await readFile(path.join(tempDir, 'metadata.json'), 'utf8');
       const workflow = await readFile(path.join(tempDir, 'workflow.md'), 'utf8');
+      const parts = await readFile(path.join(tempDir, 'parts.json'), 'utf8');
+      const mutations = await readFile(path.join(tempDir, 'mutations.json'), 'utf8');
       assert.ok(metadata.includes('"id"'));
-      assert.ok(workflow.includes('## 适用范围'));
+      assert.ok(workflow.includes('## 目标契约'));
+      assert.ok(parts.includes('"parts"'));
+      assert.ok(mutations.includes('"mutations"'));
 
       handled = await executeKnowledgeCliCommand(
         {

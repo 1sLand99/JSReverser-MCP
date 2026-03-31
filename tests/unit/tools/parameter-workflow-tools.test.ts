@@ -59,6 +59,8 @@ describe('parameter workflow tools', () => {
     const payload = extractJson(response.lines);
     assert.strictEqual(payload.id, 'jd-h5st');
     assert.ok(typeof payload.workflow === 'string');
+    assert.ok(payload.parts);
+    assert.ok(payload.mutations);
   });
 
   it('recommends a workflow from keyword', async () => {

@@ -28,11 +28,12 @@ In practice, that means:
 
 The following parameter chains already have public in-repo entry points:
 
-### parameter workflow knowledge base
+### parameter blueprint knowledge base
 
-- Main entry: [docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
-- Template: [docs/reference/parameter-workflow-template.md](docs/reference/parameter-workflow-template.md)
+- Main entry: [docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
+- Template: [docs/reference/parameter-blueprint-template.md](docs/reference/parameter-blueprint-template.md)
 - Contribution guide: [docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
+- Note: blueprint is the main asset; `workflow.md` is only one execution-oriented file inside a blueprint
 - CLI:
   - `node build/src/index.js --list-parameter-workflows`
   - `node build/src/index.js --show-parameter-workflow jd-h5st`
@@ -192,7 +193,7 @@ Full client examples and detailed configuration are documented in:
 
 Detailed task layout, execution flow, environment-patching boundaries, and safety rules live in:
 
-- [docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
+- [docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
 - [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
 - [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
 - [docs/reference/env-patching.md](docs/reference/env-patching.md)

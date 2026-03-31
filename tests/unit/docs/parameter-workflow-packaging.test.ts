@@ -20,12 +20,14 @@ describe('parameter workflow packaging', () => {
   it('copies knowledge base docs into build/docs output', async () => {
     const index = await readJson<{
       workflows: Array<{id: string; path: string}>;
-    }>('build/docs/knowledge/parameter-workflows/index.json');
+    }>('build/docs/knowledge/parameter-blueprints/index.json');
 
     assert.ok(index.workflows.length >= 3);
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-workflows/generic-header-sign/metadata.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-workflows/generic-header-sign/workflow.md'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-workflows/jd-h5st/metadata.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-workflows/jd-h5st/workflow.md'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/generic-header-sign/metadata.json'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/generic-header-sign/workflow.md'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/metadata.json'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/workflow.md'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/parts.json'));
+    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/mutations.json'));
   });
 });

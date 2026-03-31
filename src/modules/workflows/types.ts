@@ -31,4 +31,12 @@ export interface ParameterWorkflowDocument {
   metadata: ParameterWorkflowMetadata;
   workflow: string;
   path: string;
+  parts?: {
+    parameter: string;
+    parts: Array<Record<string, unknown>>;
+  };
+  mutations?: {
+    parameter: string;
+    mutations: Array<Record<string, unknown>>;
+  };
 }

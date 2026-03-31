@@ -28,11 +28,12 @@
 
 以下参数链路已有公开索引，可作为仓库内复用入口：
 
-### 参数工作流知识库
+### 参数蓝图库
 
-- 主入口：[docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
-- 模板规范：[docs/reference/parameter-workflow-template.md](docs/reference/parameter-workflow-template.md)
+- 主入口：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
+- 模板规范：[docs/reference/parameter-blueprint-template.md](docs/reference/parameter-blueprint-template.md)
 - 贡献指南：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
+- 说明：蓝图是主体资产，`workflow.md` 只是蓝图中的执行步骤文件
 - CLI：
   - `node build/src/index.js --list-parameter-workflows`
   - `node build/src/index.js --show-parameter-workflow jd-h5st`
@@ -289,8 +290,8 @@ args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 - 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
 - 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
 - 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-- 参数工作流知识库：[docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
-- 参数工作流贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
+- 参数蓝图库：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
+- 参数蓝图贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
 - 工作流入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
 - 工具参数总表：[docs/reference/tool-reference.md](docs/reference/tool-reference.md)
 - 任务产物说明：[docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)

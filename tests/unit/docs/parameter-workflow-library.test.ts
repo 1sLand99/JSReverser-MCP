@@ -16,13 +16,13 @@ async function readJson<T>(relativePath: string): Promise<T> {
   return JSON.parse(content) as T;
 }
 
-describe('parameter workflow knowledge base docs', () => {
+describe('parameter blueprint knowledge base docs', () => {
   it('defines the workflow library index and starter workflows', async () => {
     const index = await readJson<{
       schemaVersion: string;
       libraryVersion: string;
       workflows: Array<{id: string; path: string}>;
-    }>('docs/knowledge/parameter-workflows/index.json');
+    }>('docs/knowledge/parameter-blueprints/index.json');
 
     assert.strictEqual(index.schemaVersion, '1.0');
     assert.ok(index.libraryVersion);
@@ -46,9 +46,9 @@ describe('parameter workflow knowledge base docs', () => {
         version: string;
         lastUpdated: string;
         summary: string;
-      }>(`docs/knowledge/parameter-workflows/${item.path}/metadata.json`);
+      }>(`docs/knowledge/parameter-blueprints/${item.path}/metadata.json`);
       const workflow = await readFile(
-        path.join(repoRoot, `docs/knowledge/parameter-workflows/${item.path}/workflow.md`),
+        path.join(repoRoot, `docs/knowledge/parameter-blueprints/${item.path}/workflow.md`),
         'utf8',
       );
 
@@ -61,8 +61,28 @@ describe('parameter workflow knowledge base docs', () => {
       assert.ok(metadata.lastUpdated);
       assert.ok(metadata.summary);
       assert.ok(workflow.includes('## 适用范围'));
+      assert.ok(workflow.includes('## 目标契约'));
+      assert.ok(workflow.includes('## 推荐工具顺序'));
+      assert.ok(workflow.includes('## 步骤清单'));
+      assert.ok(workflow.includes('## 失败分支与转向'));
+      assert.ok(workflow.includes('## 验收标准'));
       assert.ok(workflow.includes('## 成功判定'));
       assert.ok(workflow.includes('## 禁止事项'));
     }
+
+    const h5stParts = await readJson<{
+      parameter: string;
+      parts: Array<{index: number; name: string}>;
+    }>('docs/knowledge/parameter-blueprints/jd-h5st/parts.json');
+    const h5stMutations = await readJson<{
+      parameter: string;
+      mutations: Array<{id: string; applies_to_part: number}>;
+    }>('docs/knowledge/parameter-blueprints/jd-h5st/mutations.json');
+
+    assert.strictEqual(h5stParts.parameter, 'h5st');
+    assert.strictEqual(h5stParts.parts.length, 10);
+    assert.ok(h5stParts.parts.some((item) => item.name === 'body_digest'));
+    assert.strictEqual(h5stMutations.parameter, 'h5st');
+    assert.ok(h5stMutations.mutations.some((item) => item.id === 'field-ordering-normalization'));
   });
 });

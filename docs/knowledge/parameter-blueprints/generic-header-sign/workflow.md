@@ -1,5 +1,11 @@
 # Generic Header Signature Workflow
 
+## 目标契约
+
+- 目标字段：header 中的 `sign` / `x-sign` / `signature`
+- 常见伴生输入：时间戳、nonce、body 摘要、cookie、UA
+- 目标结果：确认 header 签名的输入边界、写入点和 first divergence
+
 ## 适用范围
 
 - 请求头中存在 `sign`、`x-sign`、`signature`、自定义校验头
@@ -19,39 +25,69 @@
 - 页面已被 MCP 接管
 - 能调用 `list_scripts`、`search_in_scripts`、hook / network 相关工具
 
-## 分阶段流程
+## 推荐工具顺序
 
-### 1. Request Identify
+1. `network_request(action="list")`
+2. `network_request(action="get")`
+3. `get_request_initiator`
+4. `list_scripts`
+5. `search_in_scripts`
+6. `hook_function` / `create_hook` / `inject_hook`
+7. `record_reverse_evidence`
+8. `export_rebuild_bundle`
+
+## 步骤清单
+
+### Step 1：固定 header 签名请求
 
 - 锁定带签名头的请求
 - 记录 URL、method、headers、query、body、cookie、时间相关字段
 
-### 2. Script Locate
+### Step 2：找 initiator 与脚本入口
 
 - 先 `list_scripts`
 - 再 `search_in_scripts` 搜索字段名、摘要关键词、请求封装函数名
 - 必要时结合 `get_request_initiator`
 
-### 3. Hook Capture
+### Step 3：抓 header 写入前后值
 
 - 优先 hook 请求发送前的拼接点
 - 优先观察 `JSON.stringify`、编码函数、摘要入口、request wrapper
 - 记录输入对象、排序、拼接顺序、中间摘要值
 
-### 4. Dependency Trace
+### Step 4：确认依赖来源
 
 - 确认时间戳、nonce、cookie、UA、storage、navigator 等来源
 - 只接受页面证据，不猜环境
 
-### 5. Local Rebuild
+### Step 5：最小本地复现
 
 - 基于页面证据构建最小输入
 - 仅搬运必要依赖，不直接复制整段业务代码
 
-### 6. First Divergence
+### Step 6：定位 first divergence
 
 - 比较页面链路与本地链路
 - 找到最早不一致的输入、排序、编码、摘要或环境读取点
+
+## 观察点清单
+
+- header 写入前原始输入
+- 摘要前文本
+- header 字段顺序
+- 时间戳 / nonce 来源
+- cookie / UA 是否参与签名
+
+## 失败分支与转向
+
+- **关键字搜索噪音太大**  
+  先回 initiator 链缩小脚本范围，再继续搜摘要入口。
+
+- **本地结果不一致**  
+  先比输入集合、排序和编码，再比摘要函数。
+
+- **环境读取报错**  
+  先记 first divergence，不要一次补全浏览器环境。
 
 ## 常见分叉
 
@@ -69,6 +105,12 @@
 - `hooks.jsonl`
 - `notes.md`
 - `divergence.md`
+
+## 验收标准
+
+- 已固定一条 header 签名请求
+- 已记录至少一组中间值
+- 已指出最早不一致点或说明通过原因
 
 ## 成功判定
 
