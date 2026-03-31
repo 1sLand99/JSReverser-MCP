@@ -5,7 +5,7 @@
  * 覆盖所有主流浏览器指纹检测维度
  */
 
-import type { Page } from 'puppeteer';
+import type { Page } from 'puppeteer-core';
 import { logger } from '../../logger.js';
 
 // ==================== 类型定义 ====================

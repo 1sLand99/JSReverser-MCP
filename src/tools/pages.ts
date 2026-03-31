@@ -82,6 +82,14 @@ export const navigatePage = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    pageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Optional page index to navigate. Defaults to the currently selected page.',
+      ),
     type: zod
       .enum(['url', 'back', 'forward', 'reload'])
       .optional()
@@ -96,7 +104,7 @@ export const navigatePage = defineTool({
     ...timeoutSchema,
   },
   handler: async (request, response, context) => {
-    const page = context.getSelectedPage();
+    const page = context.getPageByOptionalIdx(request.params.pageIdx);
     const options = {
       timeout: request.params.timeout ?? DEFAULT_NAV_TIMEOUT,
     };

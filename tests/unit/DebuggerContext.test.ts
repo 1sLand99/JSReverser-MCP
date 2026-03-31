@@ -44,6 +44,33 @@ class FakeCDPSession {
 }
 
 describe('DebuggerContext auto recovery', () => {
+  it('resolves waitForPause after Debugger.paused event', async () => {
+    const context = new DebuggerContext();
+    const client = new FakeCDPSession();
+    await context.enable(client as any);
+
+    const waitPromise = context.waitForPause(1000);
+
+    client.emit('Debugger.paused', {
+      reason: 'other',
+      hitBreakpoints: ['bp-1'],
+      callFrames: [
+        {
+          callFrameId: 'cf-1',
+          functionName: 'fn',
+          url: 'https://a.js',
+          location: {scriptId: 's1', lineNumber: 1, columnNumber: 0},
+          scopeChain: [],
+          this: {type: 'object'},
+        },
+      ],
+    });
+
+    const pausedState = await waitPromise;
+    assert.strictEqual(pausedState.isPaused, true);
+    assert.strictEqual(pausedState.callFrames[0]?.functionName, 'fn');
+  });
+
   it('auto resumes and removes breakpoint when same breakpoint loops', async () => {
     const context = new DebuggerContext();
     const client = new FakeCDPSession();

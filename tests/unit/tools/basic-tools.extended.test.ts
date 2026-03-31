@@ -6,7 +6,7 @@
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
-import { getNetworkRequest, listNetworkRequests } from '../../../src/tools/network.js';
+import { networkRequest } from '../../../src/tools/network.js';
 import { listPages, navigatePage, newPage, selectPage } from '../../../src/tools/pages.js';
 import { getJSHookRuntime } from '../../../src/tools/runtime.js';
 import { screenshot } from '../../../src/tools/screenshot.js';
@@ -68,6 +68,7 @@ interface TestFrameHarness {
 
 interface PageToolContextHarness {
   getPageByIdx(idx: number): TestPageHarness;
+  getPageByOptionalIdx(idx?: number): TestPageHarness;
   selectPage(page: TestPageHarness): void;
   newPage(): Promise<TestPageHarness>;
   waitForEventsAfterAction(action: () => Promise<void>): Promise<void>;
@@ -81,6 +82,7 @@ interface NetworkContextHarness {
 
 interface ScreenshotContextHarness {
   getSelectedPage(): TestPageHarness;
+  getPageByOptionalIdx(idx?: number): TestPageHarness;
   saveFile(data: Uint8Array, filename: string): Promise<{ filename: string }>;
   saveTemporaryFile(data: Uint8Array, mimeType: 'image/png' | 'image/jpeg' | 'image/webp'): Promise<{ filename: string }>;
 }
@@ -144,6 +146,7 @@ describe('tools extended coverage', () => {
 
     const context: PageToolContextHarness = {
       getPageByIdx: () => page,
+      getPageByOptionalIdx: () => page,
       selectPage: (p: TestPageHarness) => {
         selected.idx = p === page ? 2 : -2;
       },
@@ -203,6 +206,25 @@ describe('tools extended coverage', () => {
       };
       await navigatePage.handler({ params: { type: 'reload', ignoreCache: true } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
       assert.ok(response.lines.some((x) => x.includes('Unable to reload')));
+
+      const explicitPage: TestPageHarness = {
+        ...page,
+        currentUrl: 'https://explicit.example',
+        goto: async (url: string) => {
+          explicitPage.currentUrl = url;
+        },
+      };
+      context.getPageByIdx = (idx: number) => {
+        assert.strictEqual(idx, 1);
+        return explicitPage;
+      };
+      context.getPageByOptionalIdx = (idx?: number) => idx === undefined ? page : explicitPage;
+      await navigatePage.handler(
+        { params: { pageIdx: 1, url: 'https://target.example' } },
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.strictEqual(explicitPage.currentUrl, 'https://target.example');
     } finally {
       runtime.syncPageContext = originalSyncPageContext;
     }
@@ -216,34 +238,35 @@ describe('tools extended coverage', () => {
       resolveCdpRequestId: (id: string) => (id === 'abc' ? 12 : undefined),
     };
 
-    await listNetworkRequests.handler(
+    await networkRequest.handler(
       {
         params: {
+          action: 'list',
           pageSize: 10,
           pageIdx: 1,
           resourceTypes: ['xhr'],
           includePreservedRequests: true,
         },
       },
-      response as unknown as Parameters<typeof listNetworkRequests.handler>[1],
-      context as unknown as Parameters<typeof listNetworkRequests.handler>[2],
+      response as unknown as Parameters<typeof networkRequest.handler>[1],
+      context as unknown as Parameters<typeof networkRequest.handler>[2],
     );
 
     assert.strictEqual(response.state.includeNetwork, true);
     assert.ok(response.state.includeNetworkOpts);
     assert.strictEqual(response.state.includeNetworkOpts.networkRequestIdInDevToolsUI, 12);
 
-    await getNetworkRequest.handler({ params: { reqid: 33 } }, response as unknown as Parameters<typeof getNetworkRequest.handler>[1], context as unknown as Parameters<typeof getNetworkRequest.handler>[2]);
+    await networkRequest.handler({ params: { action: 'get', reqid: 33 } }, response as unknown as Parameters<typeof networkRequest.handler>[1], context as unknown as Parameters<typeof networkRequest.handler>[2]);
     assert.ok(response.attached.some((x) => 'reqid' in x && x.reqid === 33));
 
-    await getNetworkRequest.handler({ params: {} }, response as unknown as Parameters<typeof getNetworkRequest.handler>[1], context as unknown as Parameters<typeof getNetworkRequest.handler>[2]);
+    await networkRequest.handler({ params: { action: 'get' } }, response as unknown as Parameters<typeof networkRequest.handler>[1], context as unknown as Parameters<typeof networkRequest.handler>[2]);
     assert.ok(response.attached.some((x) => 'reqid' in x && x.reqid === 12));
 
     const contextNoReq: NetworkContextHarness = {
       getDevToolsData: async () => ({}),
       resolveCdpRequestId: () => undefined,
     };
-    await getNetworkRequest.handler({ params: {} }, response as unknown as Parameters<typeof getNetworkRequest.handler>[1], contextNoReq as unknown as Parameters<typeof getNetworkRequest.handler>[2]);
+    await networkRequest.handler({ params: { action: 'get' } }, response as unknown as Parameters<typeof networkRequest.handler>[1], contextNoReq as unknown as Parameters<typeof networkRequest.handler>[2]);
     assert.ok(response.lines.some((x) => x.includes('Nothing is currently selected')));
   });
 
@@ -271,6 +294,7 @@ describe('tools extended coverage', () => {
 
     const context: ScreenshotContextHarness = {
       getSelectedPage: () => page,
+      getPageByOptionalIdx: () => page,
       saveFile: async (_data: Uint8Array, filename: string) => ({ filename }),
       saveTemporaryFile: async () => ({ filename: '/tmp/shot.png' }),
     };

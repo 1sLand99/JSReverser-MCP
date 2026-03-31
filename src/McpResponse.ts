@@ -46,20 +46,25 @@ export class McpResponse implements Response {
     resourceTypes?: ResourceType[];
     includePreservedRequests?: boolean;
     networkRequestIdInDevToolsUI?: number;
+    targetPageIdx?: number;
   };
   #consoleDataOptions?: {
     include: boolean;
     pagination?: PaginationOptions;
     types?: string[];
     includePreservedMessages?: boolean;
+    targetPageIdx?: number;
   };
   #webSocketOptions?: {
     include: boolean;
     pagination?: PaginationOptions;
     urlFilter?: string;
     includePreservedConnections?: boolean;
+    targetPageIdx?: number;
   };
   #attachedWebSocketId?: number;
+  #attachedWebSocketPageIdx?: number;
+  #attachedNetworkRequestPageIdx?: number;
 
   setIncludePages(value: boolean): void {
     this.#includePages = value;
@@ -71,6 +76,7 @@ export class McpResponse implements Response {
       resourceTypes?: ResourceType[];
       includePreservedRequests?: boolean;
       networkRequestIdInDevToolsUI?: number;
+      targetPageIdx?: number;
     },
   ): void {
     if (!value) {
@@ -90,6 +96,7 @@ export class McpResponse implements Response {
       resourceTypes: options?.resourceTypes,
       includePreservedRequests: options?.includePreservedRequests,
       networkRequestIdInDevToolsUI: options?.networkRequestIdInDevToolsUI,
+      targetPageIdx: options?.targetPageIdx,
     };
   }
 
@@ -98,6 +105,7 @@ export class McpResponse implements Response {
     options?: PaginationOptions & {
       types?: string[];
       includePreservedMessages?: boolean;
+      targetPageIdx?: number;
     },
   ): void {
     if (!value) {
@@ -116,15 +124,24 @@ export class McpResponse implements Response {
           : undefined,
       types: options?.types,
       includePreservedMessages: options?.includePreservedMessages,
+      targetPageIdx: options?.targetPageIdx,
     };
   }
 
-  attachNetworkRequest(reqid: number): void {
+  attachNetworkRequest(reqid: number, targetPageIdx?: number): void {
     this.#attachedNetworkRequestId = reqid;
+    this.#attachedNetworkRequestPageIdx = targetPageIdx;
   }
 
-  attachConsoleMessage(msgid: number): void {
+  attachConsoleMessage(msgid: number, targetPageIdx?: number): void {
     this.#attachedConsoleMessageId = msgid;
+    if (targetPageIdx !== undefined) {
+      this.#consoleDataOptions = {
+        ...this.#consoleDataOptions,
+        include: this.#consoleDataOptions?.include ?? false,
+        targetPageIdx,
+      };
+    }
   }
 
   setIncludeWebSocketConnections(
@@ -132,6 +149,7 @@ export class McpResponse implements Response {
     options?: PaginationOptions & {
       urlFilter?: string;
       includePreservedConnections?: boolean;
+      targetPageIdx?: number;
     },
   ): void {
     if (!value) {
@@ -150,11 +168,13 @@ export class McpResponse implements Response {
           : undefined,
       urlFilter: options?.urlFilter,
       includePreservedConnections: options?.includePreservedConnections,
+      targetPageIdx: options?.targetPageIdx,
     };
   }
 
-  attachWebSocket(wsid: number): void {
+  attachWebSocket(wsid: number, targetPageIdx?: number): void {
     this.#attachedWebSocketId = wsid;
+    this.#attachedWebSocketPageIdx = targetPageIdx;
   }
 
   get includePages(): boolean {
@@ -219,6 +239,7 @@ export class McpResponse implements Response {
     if (this.#attachedNetworkRequestId) {
       const request = context.getNetworkRequestById(
         this.#attachedNetworkRequestId,
+        this.#attachedNetworkRequestPageIdx,
       );
 
       bodies.requestBody = await getFormattedRequestBody(request);
@@ -236,6 +257,7 @@ export class McpResponse implements Response {
     if (this.#attachedConsoleMessageId) {
       const message = context.getConsoleMessageById(
         this.#attachedConsoleMessageId,
+        this.#consoleDataOptions?.targetPageIdx,
       );
       const consoleMessageStableId = this.#attachedConsoleMessageId;
       if ('args' in message) {
@@ -280,6 +302,7 @@ export class McpResponse implements Response {
     if (this.#consoleDataOptions?.include) {
       let messages = context.getConsoleData(
         this.#consoleDataOptions.includePreservedMessages,
+        this.#consoleDataOptions.targetPageIdx,
       );
 
       if (this.#consoleDataOptions.types?.length) {
@@ -395,6 +418,7 @@ export class McpResponse implements Response {
     if (this.#networkRequestsOptions?.include) {
       let requests = context.getNetworkRequests(
         this.#networkRequestsOptions?.includePreservedRequests,
+        this.#networkRequestsOptions?.targetPageIdx,
       );
 
       // Apply resource type filtering if specified
@@ -452,6 +476,7 @@ export class McpResponse implements Response {
     if (this.#webSocketOptions?.include) {
       let connections = context.getWebSocketConnections(
         this.#webSocketOptions.includePreservedConnections,
+        this.#webSocketOptions.targetPageIdx,
       );
 
       // Apply URL filter if specified
@@ -489,7 +514,10 @@ export class McpResponse implements Response {
 
     // Single WebSocket connection details
     if (this.#attachedWebSocketId !== undefined) {
-      const ws = context.getWebSocketById(this.#attachedWebSocketId);
+      const ws = context.getWebSocketById(
+        this.#attachedWebSocketId,
+        this.#attachedWebSocketPageIdx,
+      );
       response.push(
         ...formatWebSocketConnectionVerbose(ws, this.#attachedWebSocketId),
       );
@@ -571,7 +599,10 @@ export class McpResponse implements Response {
       return response;
     }
 
-    const httpRequest = context.getNetworkRequestById(id);
+    const httpRequest = context.getNetworkRequestById(
+      id,
+      this.#attachedNetworkRequestPageIdx,
+    );
     response.push(`## Request ${httpRequest.url()}`);
     response.push(`Method: ${httpRequest.method()}`);
     response.push(`Resource Type: ${httpRequest.resourceType()}`);

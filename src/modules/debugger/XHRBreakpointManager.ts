@@ -12,7 +12,7 @@
  * - 提供断点命中统计
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -144,4 +144,3 @@ export class XHRBreakpointManager {
     }
   }
 }
-

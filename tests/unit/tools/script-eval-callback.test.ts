@@ -15,6 +15,7 @@ interface HandleLike {
 }
 
 interface PageLike {
+  mainFrame?(): FrameLike;
   evaluateHandle(): Promise<HandleLike>;
   evaluate(
     callback: (fn: () => Promise<{ok: boolean}>) => Promise<string>,
@@ -26,6 +27,7 @@ interface FrameLike extends PageLike {}
 
 interface ContextLike {
   getSelectedPage(): PageLike;
+  getPageByOptionalIdx?(idx?: number): PageLike;
   getSelectedFrame(): FrameLike;
   waitForEventsAfterAction(action: () => Promise<void>): Promise<void>;
 }
@@ -204,5 +206,132 @@ describe('evaluate_script callback path', () => {
     assert.strictEqual(pageUsed, false);
     assert.strictEqual(frameUsed, true);
     assert.ok(lines.some((line) => line.includes('{"ok":true}')));
+  });
+
+  it('uses explicit pageIdx main frame when provided', async () => {
+    const lines: string[] = [];
+    let selectedFrameUsed = false;
+    let targetFrameUsed = false;
+
+    const targetHandle = {
+      dispose: async () => undefined,
+    } satisfies HandleLike;
+
+    const targetFrame: FrameLike = {
+      evaluateHandle: async () => {
+        targetFrameUsed = true;
+        return targetHandle;
+      },
+      evaluate: async (callback) => {
+        targetFrameUsed = true;
+        if (typeof callback !== 'function') {
+          throw new Error('expected callback evaluate path');
+        }
+        return callback(async () => ({ok: true}));
+      },
+    };
+
+    const selectedFrame: FrameLike = {
+      evaluateHandle: async () => {
+        selectedFrameUsed = true;
+        throw new Error('selected frame should not be used');
+      },
+      evaluate: async () => {
+        selectedFrameUsed = true;
+        throw new Error('selected frame should not be used');
+      },
+    };
+
+    const targetPage: PageLike = {
+      mainFrame: () => targetFrame,
+      evaluateHandle: async () => targetHandle,
+      evaluate: async (callback, passedFn) => callback(passedFn ?? (async () => ({ok: true}))),
+    };
+
+    const response: ResponseLike = {
+      appendResponseLine: (v: string) => lines.push(v),
+      setIncludePages: () => undefined,
+      setIncludeNetworkRequests: () => undefined,
+      setIncludeConsoleData: () => undefined,
+      attachImage: () => undefined,
+      attachNetworkRequest: () => undefined,
+      attachConsoleMessage: () => undefined,
+      setIncludeWebSocketConnections: () => undefined,
+      attachWebSocket: () => undefined,
+    };
+
+    await evaluateScript.handler(
+      { params: { function: '() => ({ ok: true })', pageIdx: 1 } } as Parameters<typeof evaluateScript.handler>[0],
+      response as Parameters<typeof evaluateScript.handler>[1],
+      {
+        getSelectedPage: () => ({
+          evaluateHandle: async () => targetHandle,
+          evaluate: async (
+            callback: (fn: () => Promise<{ok: boolean}>) => Promise<string>,
+            passedFn?: () => Promise<{ok: boolean}>,
+          ) => callback(passedFn ?? (async () => ({ok: true}))),
+        }),
+        getPageByOptionalIdx: (idx?: number) => {
+          assert.strictEqual(idx, 1);
+          return targetPage;
+        },
+        getSelectedFrame: () => selectedFrame,
+        waitForEventsAfterAction: async (action: () => Promise<void>) => {
+          await action();
+        },
+      } as unknown as Parameters<typeof evaluateScript.handler>[2],
+    );
+
+    assert.strictEqual(selectedFrameUsed, false);
+    assert.strictEqual(targetFrameUsed, true);
+    assert.ok(lines.some((line) => line.includes('{"ok":true}')));
+  });
+
+  it('propagates script execution errors instead of returning an empty response', async () => {
+    const lines: string[] = [];
+    let disposed = 0;
+
+    const handle = {
+      dispose: async () => {
+        disposed += 1;
+      },
+    } satisfies HandleLike;
+
+    const frame: FrameLike = {
+      evaluateHandle: async () => handle,
+      evaluate: async () => {
+        throw new Error('mcp-eval-throw');
+      },
+    };
+
+    const response: ResponseLike = {
+      appendResponseLine: (v: string) => lines.push(v),
+      setIncludePages: () => undefined,
+      setIncludeNetworkRequests: () => undefined,
+      setIncludeConsoleData: () => undefined,
+      attachImage: () => undefined,
+      attachNetworkRequest: () => undefined,
+      attachConsoleMessage: () => undefined,
+      setIncludeWebSocketConnections: () => undefined,
+      attachWebSocket: () => undefined,
+    };
+
+    await assert.rejects(
+      () => evaluateScript.handler(
+        { params: { function: '() => { throw new Error("mcp-eval-throw"); }' } } as Parameters<typeof evaluateScript.handler>[0],
+        response as Parameters<typeof evaluateScript.handler>[1],
+        {
+          getSelectedPage: () => frame,
+          getSelectedFrame: () => frame,
+          waitForEventsAfterAction: async (action: () => Promise<void>) => {
+            await action();
+          },
+        } as unknown as Parameters<typeof evaluateScript.handler>[2],
+      ),
+      /mcp-eval-throw/,
+    );
+
+    assert.strictEqual(disposed, 1);
+    assert.strictEqual(lines.length, 0);
   });
 });

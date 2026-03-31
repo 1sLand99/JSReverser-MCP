@@ -4,12 +4,374 @@
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
+import {readFile} from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
 import {zod} from '../third_party/index.js';
 import {TokenBudgetManager} from '../utils/TokenBudgetManager.js';
 
 import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
 import {defineTool} from './ToolDefinition.js';
+
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const BUILD_DIR = path.resolve(MODULE_DIR, '..', '..');
+const PACKAGE_ROOT = path.resolve(BUILD_DIR, '..');
+const DOCS_MANIFEST_PATH = path.join(BUILD_DIR, 'docs-manifest.json');
+
+type ReferenceDocsManifest = {
+  core: Record<string, string>;
+  extra: Record<string, string>;
+};
+
+const referenceDocIds = [
+  'case-safety-policy',
+  'env-patching',
+  'pure-extraction',
+  'reverse-bootstrap',
+  'reverse-task-index',
+  'reverse-workflow',
+  'tool-io-contract',
+  'algorithm-upgrade-template',
+  'reverse-artifacts',
+  'reverse-report-template',
+  'reverse-update-prompt-template',
+  'tool-reference',
+] as const;
+
+type ReferenceDocId = typeof referenceDocIds[number];
+
+async function readReferenceDocsManifest(): Promise<ReferenceDocsManifest> {
+  return JSON.parse(await readFile(DOCS_MANIFEST_PATH, 'utf8')) as ReferenceDocsManifest;
+}
+
+async function resolveReferenceDoc(docId: string): Promise<{
+  group: 'core' | 'extra';
+  path: string;
+  content: string;
+}> {
+  const manifest = await readReferenceDocsManifest();
+
+  for (const group of ['core', 'extra'] as const) {
+    const relativePath = manifest[group][docId];
+    if (!relativePath) {
+      continue;
+    }
+    const absolutePath = path.resolve(PACKAGE_ROOT, relativePath);
+    const content = await readFile(absolutePath, 'utf8');
+    return {
+      group,
+      path: relativePath,
+      content,
+    };
+  }
+
+  throw new Error(`Unknown packaged reference doc: ${docId}`);
+}
+
+function summarizeReferenceContent(content: string, maxSections: number): {
+  summary: string;
+  highlights: string[];
+} {
+  const lines = content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const headings = lines.filter((line) => /^#+\s+/.test(line)).slice(0, Math.max(1, maxSections));
+  const bullets = lines.filter((line) => /^[-*]\s+/.test(line)).slice(0, Math.max(2, maxSections * 2));
+  const summaryParts = [...headings, ...bullets].slice(0, Math.max(3, maxSections + 2));
+
+  return {
+    summary: summaryParts.join(' | '),
+    highlights: [...new Set([...headings, ...bullets])].slice(0, Math.max(3, maxSections * 2)),
+  };
+}
+
+const stageToDocsMap: Record<string, Array<{docId: ReferenceDocId; reason: string}>> = {
+  Observe: [
+    {docId: 'reverse-bootstrap', reason: '新任务开场先读入口协议与硬边界。'},
+    {docId: 'reverse-workflow', reason: '确认当前阶段、目标和禁止事项。'},
+    {docId: 'reverse-task-index', reason: '按逆向目标快速定位对应工具。'},
+  ],
+  Capture: [
+    {docId: 'reverse-workflow', reason: '确认 Capture 阶段的最小侵入采样要求。'},
+    {docId: 'tool-reference', reason: '按工具说明选择 hook、network、script 工具。'},
+    {docId: 'tool-io-contract', reason: '确认采集数据写到哪里，避免读写错位。'},
+  ],
+  Rebuild: [
+    {docId: 'reverse-workflow', reason: '确认进入 Rebuild 的前提与产物。'},
+    {docId: 'reverse-artifacts', reason: '明确 task-local 产物结构。'},
+    {docId: 'env-patching', reason: '开始本地运行前先看补环境边界。'},
+  ],
+  Patch: [
+    {docId: 'env-patching', reason: 'Patch 阶段核心规范，先代理日志和 first divergence。'},
+    {docId: 'reverse-workflow', reason: '确认 Patch 完成判据与阶段切换红线。'},
+    {docId: 'tool-io-contract', reason: '确认证据面和 hook 数据来源。'},
+  ],
+  PureExtraction: [
+    {docId: 'pure-extraction', reason: '纯算法提纯阶段的主协议。'},
+    {docId: 'reverse-workflow', reason: '确认 PureExtraction 的进入条件。'},
+    {docId: 'reverse-artifacts', reason: '明确 fixture 与 pure 产物沉淀位置。'},
+  ],
+  Port: [
+    {docId: 'pure-extraction', reason: 'Port 前先确认 Node pure 已稳定。'},
+    {docId: 'reverse-report-template', reason: '迁移时按报告模板说明输入边界与对齐结果。'},
+    {docId: 'algorithm-upgrade-template', reason: '若迁移中出现分叉，可按 first divergence 模板回溯。'},
+  ],
+  Upgrade: [
+    {docId: 'algorithm-upgrade-template', reason: '版本漂移与 first divergence 追踪主模板。'},
+    {docId: 'reverse-workflow', reason: '确认当前分叉属于哪一阶段。'},
+    {docId: 'env-patching', reason: '若漂移发生在 env rebuild，回到 Patch 规范。'},
+  ],
+};
+
+const topicToDocsMap: Record<string, Array<{docId: ReferenceDocId; reason: string}>> = {
+  'workflow-entry': [
+    {docId: 'reverse-bootstrap', reason: '新任务入口、必读顺序与第一条正式回复要求。'},
+    {docId: 'reverse-workflow', reason: '总阶段协议与阶段切换规则。'},
+    {docId: 'case-safety-policy', reason: '仓库与 task-local 产物边界。'},
+  ],
+  websocket: [
+    {docId: 'tool-reference', reason: '查看 websocket 相关工具参数与能力。'},
+    {docId: 'tool-io-contract', reason: '确认 websocket 数据的读取平面。'},
+    {docId: 'reverse-task-index', reason: '按逆向目标回溯 websocket 相关工具。'},
+  ],
+  hook: [
+    {docId: 'tool-reference', reason: '查看 hook、inject、get_hook_data 等工具说明。'},
+    {docId: 'tool-io-contract', reason: '确认 hook 数据写入与读取口径。'},
+    {docId: 'reverse-workflow', reason: '明确 Hook-preferred 的阶段性要求。'},
+  ],
+  breakpoint: [
+    {docId: 'tool-reference', reason: '查看 breakpoint、pause、step 等工具说明。'},
+    {docId: 'reverse-workflow', reason: '确认 Breakpoint-last 原则，避免过早断点。'},
+    {docId: 'tool-io-contract', reason: '确认调试相关数据面与读取路径。'},
+  ],
+  'env-rebuild': [
+    {docId: 'env-patching', reason: '补环境主规范，先代理日志与 first divergence。'},
+    {docId: 'reverse-workflow', reason: '确认 Rebuild/Patch 阶段目标与完成判据。'},
+    {docId: 'reverse-artifacts', reason: '确认 env、run、report 等 task-local 产物位置。'},
+  ],
+  'algorithm-upgrade': [
+    {docId: 'algorithm-upgrade-template', reason: '升级/漂移问题的主模板。'},
+    {docId: 'reverse-workflow', reason: '确认当前 first divergence 属于哪一阶段。'},
+    {docId: 'env-patching', reason: '若漂移发生在本地复现链路，回到 Patch 规范。'},
+  ],
+  artifacts: [
+    {docId: 'reverse-artifacts', reason: '任务证据、env、run、report 的正式结构说明。'},
+    {docId: 'case-safety-policy', reason: '确认哪些产物能进仓库，哪些只能留 task-local。'},
+    {docId: 'reverse-report-template', reason: '最终对外报告的内容结构。'},
+  ],
+  reporting: [
+    {docId: 'reverse-report-template', reason: '完整结果报告模板。'},
+    {docId: 'reverse-update-prompt-template', reason: '继续迭代时的更新提示模板。'},
+    {docId: 'reverse-artifacts', reason: '报告里需要引用哪些任务产物。'},
+  ],
+};
+
+function inferRecommendation(query: string): {
+  topic: keyof typeof topicToDocsMap;
+  stage: 'Observe' | 'Capture' | 'Rebuild' | 'Patch' | 'PureExtraction' | 'Port' | 'Upgrade';
+  reason: string;
+} {
+  const normalized = query.toLowerCase();
+
+  if (
+    normalized.includes('升级') ||
+    normalized.includes('漂移') ||
+    normalized.includes('first divergence') ||
+    normalized.includes('不一致')
+  ) {
+    return {
+      topic: 'algorithm-upgrade',
+      stage: 'Upgrade',
+      reason: '提到升级、漂移、first divergence 或结果不一致，优先走升级排查模板。',
+    };
+  }
+
+  if (
+    normalized.includes('补环境') ||
+    normalized.includes('env') ||
+    normalized.includes('rebuild')
+  ) {
+    return {
+      topic: 'env-rebuild',
+      stage: 'Patch',
+      reason: '提到补环境或 rebuild，优先查看 Patch/Rebuild 相关规范。',
+    };
+  }
+
+  if (
+    normalized.includes('websocket') ||
+    normalized.includes('ws')
+  ) {
+    return {
+      topic: 'websocket',
+      stage: 'Capture',
+      reason: '提到 websocket，优先查看网络采样与 websocket 工具说明。',
+    };
+  }
+
+  if (
+    normalized.includes('hook') ||
+    normalized.includes('preload')
+  ) {
+    return {
+      topic: 'hook',
+      stage: 'Capture',
+      reason: '提到 hook/preload，优先走 Capture 阶段的最小侵入采样流程。',
+    };
+  }
+
+  if (
+    normalized.includes('断点') ||
+    normalized.includes('breakpoint') ||
+    normalized.includes('pause') ||
+    normalized.includes('step')
+  ) {
+    return {
+      topic: 'breakpoint',
+      stage: 'Capture',
+      reason: '提到断点调试，先确认 Breakpoint-last 原则与调试工具约束。',
+    };
+  }
+
+  if (
+    normalized.includes('报告') ||
+    normalized.includes('总结') ||
+    normalized.includes('report')
+  ) {
+    return {
+      topic: 'reporting',
+      stage: 'Port',
+      reason: '提到报告/总结，优先读取报告模板与产物说明。',
+    };
+  }
+
+  if (
+    normalized.includes('artifact') ||
+    normalized.includes('产物') ||
+    normalized.includes('task')
+  ) {
+    return {
+      topic: 'artifacts',
+      stage: 'Rebuild',
+      reason: '提到 task/artifact，优先确认 task-local 产物结构与边界。',
+    };
+  }
+
+  return {
+    topic: 'workflow-entry',
+    stage: 'Observe',
+    reason: '默认回到工作流入口，先确认阶段、边界和入口文档。',
+  };
+}
+
+const referenceModeValues = ['doc', 'summary'] as const;
+const referenceRouteModeValues = ['stage', 'topic', 'recommend'] as const;
+const referenceStageValues = ['Observe', 'Capture', 'Rebuild', 'Patch', 'PureExtraction', 'Port', 'Upgrade'] as const;
+const referenceTopicValues = [
+  'workflow-entry',
+  'websocket',
+  'hook',
+  'breakpoint',
+  'env-rebuild',
+  'algorithm-upgrade',
+  'artifacts',
+  'reporting',
+] as const;
+
+export const getReference = defineTool({
+  name: 'get_reference',
+  description: 'Read one packaged reference doc, or return its compact summary.',
+  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
+  schema: {
+    mode: zod.enum(referenceModeValues),
+    docId: zod.enum(referenceDocIds),
+    maxSections: zod.number().int().positive().max(12).default(5).optional(),
+  },
+  handler: async (request, response) => {
+    const doc = await resolveReferenceDoc(request.params.docId);
+    response.appendResponseLine('```json');
+    if (request.params.mode === 'summary') {
+      const summary = summarizeReferenceContent(doc.content, request.params.maxSections ?? 5);
+      response.appendResponseLine(JSON.stringify({
+        mode: request.params.mode,
+        docId: request.params.docId,
+        group: doc.group,
+        path: doc.path,
+        summary: summary.summary,
+        highlights: summary.highlights,
+      }, null, 2));
+    } else {
+      response.appendResponseLine(JSON.stringify({
+        mode: request.params.mode,
+        docId: request.params.docId,
+        group: doc.group,
+        path: doc.path,
+        content: doc.content,
+      }, null, 2));
+    }
+    response.appendResponseLine('```');
+  },
+});
+
+export const getReferenceRoute = defineTool({
+  name: 'get_reference_route',
+  description: 'Route by stage, topic, or natural-language query to the most relevant reference docs.',
+  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
+  schema: {
+    mode: zod.enum(referenceRouteModeValues),
+    stage: zod.enum(referenceStageValues).optional(),
+    topic: zod.enum(referenceTopicValues).optional(),
+    query: zod.string().optional(),
+  },
+  handler: async (request, response) => {
+    const route =
+      request.params.mode === 'recommend'
+        ? inferRecommendation(request.params.query ?? '')
+        : request.params.mode === 'topic'
+          ? {
+              topic: request.params.topic ?? 'workflow-entry',
+              stage: undefined,
+              reason: `按 topic=${request.params.topic ?? 'workflow-entry'} 路由。`,
+            }
+          : {
+              topic: undefined,
+              stage: request.params.stage ?? 'Observe',
+              reason: `按 stage=${request.params.stage ?? 'Observe'} 路由。`,
+            };
+
+    const sourceEntries =
+      request.params.mode === 'stage'
+        ? (stageToDocsMap[route.stage ?? 'Observe'] ?? [])
+        : (topicToDocsMap[route.topic ?? 'workflow-entry'] ?? []);
+
+    const recommendedDocs = await Promise.all(sourceEntries.map(async (entry) => {
+      const resolved = await resolveReferenceDoc(entry.docId);
+      const summary = summarizeReferenceContent(resolved.content, 3);
+      return {
+        docId: entry.docId,
+        group: resolved.group,
+        path: resolved.path,
+        reason: entry.reason,
+        summary: summary.summary,
+      };
+    }));
+
+    response.appendResponseLine('```json');
+    response.appendResponseLine(JSON.stringify({
+      mode: request.params.mode,
+      ...(route.stage ? {stage: route.stage} : {}),
+      ...(route.topic ? {topic: route.topic} : {}),
+      ...(request.params.query ? {query: request.params.query} : {}),
+      reason: route.reason,
+      recommendedDocs,
+    }, null, 2));
+    response.appendResponseLine('```');
+  },
+});
 
 
 export const deobfuscateCode = defineTool({

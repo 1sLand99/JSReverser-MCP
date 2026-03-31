@@ -1,5 +1,5 @@
-import type { Browser, Page } from 'puppeteer';
-import puppeteer from 'puppeteer';
+import type { Browser, Page } from 'puppeteer-core';
+import puppeteer from 'puppeteer-core';
 import { spawn, type ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { logger } from '../../utils/logger.js';

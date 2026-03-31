@@ -12,7 +12,7 @@
  * - 支持自定义模式
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -150,4 +150,3 @@ export class BlackboxManager {
     }
   }
 }
-

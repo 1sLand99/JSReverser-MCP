@@ -10,6 +10,7 @@ import type {ConsoleMessageType} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
+
 type ConsoleResponseType = ConsoleMessageType | 'issue';
 
 const FILTERABLE_MESSAGE_TYPES: [
@@ -42,22 +43,34 @@ if (features.issues) {
   FILTERABLE_MESSAGE_TYPES.push('issue');
 }
 
-export const listConsoleMessages = defineTool({
-  name: 'list_console_messages',
-  description:
-    'List all console messages for the currently selected page since the last navigation.',
+export const consoleMessage = defineTool({
+  name: 'console_message',
+  description: 'List console messages, or get one message by msgid.',
   annotations: {
     category: ToolCategory.DEBUGGING,
     readOnlyHint: true,
   },
   schema: {
+    action: zod.enum(['list', 'get']),
+    msgid: zod
+      .number()
+      .optional()
+      .describe('Message id for action=get.'),
+    targetPageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Browser page index to inspect (0-based). When omitted, uses the currently selected page.',
+      ),
     pageSize: zod
       .number()
       .int()
       .positive()
       .optional()
       .describe(
-        'Maximum number of messages to return. When omitted, returns all requests.',
+        'Maximum number of messages to return for action=list. When omitted, returns all messages.',
       ),
     pageIdx: zod
       .number()
@@ -65,47 +78,41 @@ export const listConsoleMessages = defineTool({
       .min(0)
       .optional()
       .describe(
-        'Page number to return (0-based). When omitted, returns the first page.',
+        'Page number to return for action=list (0-based). When omitted, returns the first page.',
       ),
     types: zod
       .array(zod.enum(FILTERABLE_MESSAGE_TYPES))
       .optional()
       .describe(
-        'Filter messages to only return messages of the specified resource types. When omitted or empty, returns all messages.',
+        'Filter action=list results by message type. When omitted or empty, returns all messages.',
       ),
     includePreservedMessages: zod
       .boolean()
       .default(false)
       .optional()
       .describe(
-        'Set to true to return the preserved messages over the last 3 navigations.',
+        'Set true for action=list to include preserved messages from the last 3 navigations.',
       ),
   },
   handler: async (request, response) => {
-    response.setIncludeConsoleData(true, {
-      pageSize: request.params.pageSize,
-      pageIdx: request.params.pageIdx,
-      types: request.params.types,
-      includePreservedMessages: request.params.includePreservedMessages,
-    });
-  },
-});
+    if (request.params.action === 'list') {
+      response.setIncludeConsoleData(true, {
+        targetPageIdx: request.params.targetPageIdx,
+        pageSize: request.params.pageSize,
+        pageIdx: request.params.pageIdx,
+        types: request.params.types,
+        includePreservedMessages: request.params.includePreservedMessages,
+      });
+      return;
+    }
 
-export const getConsoleMessage = defineTool({
-  name: 'get_console_message',
-  description: `Gets a console message by its ID. You can get all messages by calling ${listConsoleMessages.name}.`,
-  annotations: {
-    category: ToolCategory.DEBUGGING,
-    readOnlyHint: true,
-  },
-  schema: {
-    msgid: zod
-      .number()
-      .describe(
-        'The msgid of a console message on the page from the listed console messages',
-      ),
-  },
-  handler: async (request, response) => {
-    response.attachConsoleMessage(request.params.msgid);
+    if (request.params.msgid === undefined) {
+      throw new Error('msgid is required for action=get.');
+    }
+
+    response.attachConsoleMessage(
+      request.params.msgid,
+      request.params.targetPageIdx,
+    );
   },
 });

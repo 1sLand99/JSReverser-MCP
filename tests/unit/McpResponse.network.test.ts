@@ -111,4 +111,75 @@ describe('McpResponse network detail formatting', () => {
     assert.ok(text.text.includes('### Request Failure'));
     assert.ok(text.text.includes('net::ERR_ABORTED'));
   });
+
+  it('uses targetPageIdx when formatting network and websocket data', async () => {
+    const response = new McpResponse();
+    response.setIncludeNetworkRequests(true, {targetPageIdx: 3});
+    response.attachNetworkRequest(11, 3);
+    response.setIncludeWebSocketConnections(true, {targetPageIdx: 3});
+    response.attachWebSocket(15, 3);
+
+    const calls: string[] = [];
+    const context = {
+      getNetworkRequests(_includePreserved?: boolean, targetPageIdx?: number) {
+        calls.push(`list-network:${targetPageIdx}`);
+        return [];
+      },
+      getNetworkRequestById(_id: number, targetPageIdx?: number) {
+        calls.push(`get-network:${targetPageIdx}`);
+        return {
+          url: () => 'https://api.example.com/item',
+          method: () => 'GET',
+          resourceType: () => 'xhr',
+          headers: () => ({}),
+          hasPostData: () => false,
+          postData: () => undefined,
+          fetchPostData: async () => undefined,
+          response: () => null,
+          failure: () => null,
+          redirectChain: () => [],
+        };
+      },
+      getWebSocketConnections(_includePreserved?: boolean, targetPageIdx?: number) {
+        calls.push(`list-ws:${targetPageIdx}`);
+        return [];
+      },
+      getWebSocketById(_id: number, targetPageIdx?: number) {
+        calls.push(`get-ws:${targetPageIdx}`);
+        return {
+          connection: {
+            url: 'wss://socket.example',
+            status: 'open',
+            createdAt: Date.now(),
+            requestHeaders: {},
+            responseHeaders: {},
+          },
+          frames: [],
+        };
+      },
+      getNetworkRequestStableId: () => 11,
+      getWebSocketStableId: () => 15,
+      getNetworkConditions: () => undefined,
+      getCpuThrottlingRate: () => 1,
+      getPages: () => [],
+      isPageSelected: () => false,
+      getConsoleData: () => [],
+      getConsoleMessageById: () => {
+        throw new Error('not used');
+      },
+      getConsoleMessageStableId: () => 0,
+      createPagesSnapshot: async () => undefined,
+      getNavigationTimeout: () => 30_000,
+    };
+
+    await response.handle('mixed_response', context as never);
+
+    assert.deepStrictEqual(calls, [
+      'get-network:3',
+      'get-network:3',
+      'list-network:3',
+      'list-ws:3',
+      'get-ws:3',
+    ]);
+  });
 });

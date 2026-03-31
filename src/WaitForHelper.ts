@@ -126,6 +126,8 @@ export class WaitForHelper {
   async waitForEventsAfterAction(
     action: () => Promise<unknown>,
   ): Promise<void> {
+    let fatalError: unknown;
+
     // Overall timeout to prevent infinite hanging (15 seconds max)
     const overallTimeout = new Promise<void>((_, reject) => {
       const id = setTimeout(() => {
@@ -175,7 +177,12 @@ export class WaitForHelper {
       await Promise.race([doAction(), overallTimeout]);
     } catch (error) {
       logger(error);
+      fatalError = error;
       this.#abortController.abort();
+    }
+
+    if (fatalError) {
+      throw fatalError;
     }
   }
 }

@@ -12,7 +12,7 @@
  * - 维护断点和暂停状态的映射
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import type { CodeCollector } from '../collector/CodeCollector.js';
 import { logger } from '../../utils/logger.js';
 import type {

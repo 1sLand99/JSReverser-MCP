@@ -12,7 +12,7 @@
  * - 支持自定义事件名称
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -236,4 +236,3 @@ export class EventBreakpointManager {
     }
   }
 }
-

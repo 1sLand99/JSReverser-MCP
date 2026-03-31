@@ -24,14 +24,9 @@ import { findClickableElements, getDomStructure, queryDom } from '../../../src/t
 import { createHook, getHookData, injectHook, removeHook } from '../../../src/tools/hook.js';
 import {
   checkBrowserHealth,
-  deleteSessionState,
-  dumpSessionState,
   clickElement,
   getPerformanceMetrics,
-  listSessionStates,
-  loadSessionState,
-  restoreSessionState,
-  saveSessionState,
+  sessionState,
   typeText,
   waitForElement,
 } from '../../../src/tools/page.js';
@@ -491,56 +486,61 @@ describe('jshook tools handlers', () => {
       await invokeTool(typeText as unknown as ToolDefinitionHarness, { selector: '#x', text: 'abc', delay: 10 }, res);
       await invokeTool(waitForElement as unknown as ToolDefinitionHarness, { selector: '#x', timeout: 100 }, res);
       await invokeTool(getPerformanceMetrics as unknown as ToolDefinitionHarness, {}, res);
-      await invokeTool(saveSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1' }, res);
-      await invokeTool(saveSessionState as unknown as ToolDefinitionHarness, {
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'save', sessionId: 's1' }, res);
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, {
+        action: 'save',
         sessionId: 's-empty',
         includeCookies: false,
         includeLocalStorage: false,
         includeSessionStorage: false,
       }, res);
-      await invokeTool(restoreSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1', clearStorageBeforeRestore: true }, res);
-      await invokeTool(restoreSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1', navigateToSavedUrl: false }, res);
-      await invokeTool(listSessionStates as unknown as ToolDefinitionHarness, {}, res);
-      await invokeTool(dumpSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1', pretty: false }, res);
-      const tempDir = await mkdtemp(join(tmpdir(), 'js-reverse-mcp-'));
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'restore', sessionId: 's1', clearStorageBeforeRestore: true }, res);
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'restore', sessionId: 's1', navigateToSavedUrl: false }, res);
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'list' }, res);
+      await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'dump', sessionId: 's1', pretty: false }, res);
+      const tempDir = await mkdtemp(join(tmpdir(), 'jsreverser-mcp-'));
       const snapshotPath = join(tempDir, 'session-s1.json');
       const encryptedSnapshotPath = join(tempDir, 'session-s1.encrypted.json');
       const originalEncryptionKey = process.env.SESSION_STATE_ENCRYPTION_KEY;
       try {
-        await invokeTool(dumpSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1', path: snapshotPath }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'dump', sessionId: 's1', path: snapshotPath }, res);
         const snapshotJson = await readFile(snapshotPath, 'utf8');
         process.env.SESSION_STATE_ENCRYPTION_KEY = 'unit-test-session-key';
-        await invokeTool(dumpSessionState as unknown as ToolDefinitionHarness, {
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, {
+          action: 'dump',
           sessionId: 's1',
           path: encryptedSnapshotPath,
           encrypt: true,
         }, res);
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, {
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, {
+          action: 'load',
           path: encryptedSnapshotPath,
           sessionId: 's1-encrypted',
           overwrite: true,
         }, res);
         process.env.SESSION_STATE_ENCRYPTION_KEY = '';
         await assert.rejects(async () => {
-          await invokeTool(dumpSessionState as unknown as ToolDefinitionHarness, {
+          await invokeTool(sessionState as unknown as ToolDefinitionHarness, {
+            action: 'dump',
             sessionId: 's1',
             path: encryptedSnapshotPath,
             encrypt: true,
           }, res);
         });
         await assert.rejects(async () => {
-          await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, {
+          await invokeTool(sessionState as unknown as ToolDefinitionHarness, {
+            action: 'load',
             path: encryptedSnapshotPath,
             sessionId: 's1-encrypted-2',
             overwrite: true,
           }, res);
         });
-        await invokeTool(deleteSessionState as unknown as ToolDefinitionHarness, { sessionId: 's1' }, res);
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { snapshotJson, sessionId: 's1' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'delete', sessionId: 's1' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', snapshotJson, sessionId: 's1' }, res);
         await assert.rejects(async () => {
-          await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { snapshotJson, sessionId: 's1' }, res);
+          await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', snapshotJson, sessionId: 's1' }, res);
         });
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { path: snapshotPath, sessionId: 's1', overwrite: true }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', path: snapshotPath, sessionId: 's1', overwrite: true }, res);
 
         const expiredSnapshotJson = JSON.stringify({
           id: 'expired-one',
@@ -552,26 +552,26 @@ describe('jshook tools handlers', () => {
           localStorage: {},
           sessionStorage: {},
         });
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { snapshotJson: expiredSnapshotJson, overwrite: true }, res);
-        await invokeTool(listSessionStates as unknown as ToolDefinitionHarness, {}, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', snapshotJson: expiredSnapshotJson, overwrite: true }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'list' }, res);
       } finally {
         process.env.SESSION_STATE_ENCRYPTION_KEY = originalEncryptionKey;
         await rm(tempDir, {recursive: true, force: true});
       }
       await assert.rejects(async () => {
-        await invokeTool(restoreSessionState as unknown as ToolDefinitionHarness, { sessionId: 'missing-session' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'restore', sessionId: 'missing-session' }, res);
       });
       await assert.rejects(async () => {
-        await invokeTool(dumpSessionState as unknown as ToolDefinitionHarness, { sessionId: 'missing-session' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'dump', sessionId: 'missing-session' }, res);
       });
       await assert.rejects(async () => {
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, {}, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load' }, res);
       });
       await assert.rejects(async () => {
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { snapshotJson: '{bad json}' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', snapshotJson: '{bad json}' }, res);
       });
       await assert.rejects(async () => {
-        await invokeTool(loadSessionState as unknown as ToolDefinitionHarness, { snapshotJson: '1' }, res);
+        await invokeTool(sessionState as unknown as ToolDefinitionHarness, { action: 'load', snapshotJson: '1' }, res);
       });
       await invokeTool(checkBrowserHealth as unknown as ToolDefinitionHarness, {}, res);
       runtime.browserManager.getBrowser = () => ({isConnected: () => false});

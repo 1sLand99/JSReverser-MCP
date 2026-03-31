@@ -13,7 +13,7 @@
  * - 提供友好的数据格式化
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import type { CodeCollector } from '../collector/CodeCollector.js';
 import type { DebuggerManager, CallFrame, Scope } from './DebuggerManager.js';
 import { logger } from '../../utils/logger.js';
@@ -462,4 +462,3 @@ export class RuntimeInspector {
     logger.info('Runtime inspector closed');
   }
 }
-

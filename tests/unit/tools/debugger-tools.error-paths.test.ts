@@ -7,7 +7,7 @@ import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
 import {
-  breakOnXhr,
+  breakpoint,
   evaluateOnCallframe,
   findInScript,
   getPausedInfo,
@@ -15,16 +15,12 @@ import {
   getScriptSource,
   hookFunction,
   inspectObject,
-  listBreakpoints,
   listHooks,
   listScripts,
   monitorEvents,
   pause,
-  removeBreakpoint,
-  removeXhrBreakpoint,
   resume,
   searchInSources,
-  setBreakpoint,
   setBreakpointOnText,
   stepInto,
   stepOut,
@@ -33,6 +29,7 @@ import {
   traceFunction,
   unhookFunction,
   getStorage,
+  xhrBreakpoint,
 } from '../../../src/tools/debugger.js';
 
 interface DebuggerResponseHarness {
@@ -155,9 +152,9 @@ describe('debugger tools error paths', () => {
     await getScriptSource.handler({params: {scriptId: '1', length: 1000}}, response as unknown as Parameters<typeof getScriptSource.handler>[1], context as unknown as Parameters<typeof getScriptSource.handler>[2]);
     await findInScript.handler({params: {scriptId: '1', query: 'x', contextChars: 100, occurrence: 1, caseSensitive: true}}, response as unknown as Parameters<typeof findInScript.handler>[1], context as unknown as Parameters<typeof findInScript.handler>[2]);
     await searchInSources.handler({params: {query: 'x', caseSensitive: false, isRegex: false, maxResults: 30, maxLineLength: 150, excludeMinified: true}}, response as unknown as Parameters<typeof searchInSources.handler>[1], context as unknown as Parameters<typeof searchInSources.handler>[2]);
-    await setBreakpoint.handler({params: {url: 'a.js', lineNumber: 1, columnNumber: 0, isRegex: false}}, response as unknown as Parameters<typeof setBreakpoint.handler>[1], context as unknown as Parameters<typeof setBreakpoint.handler>[2]);
-    await removeBreakpoint.handler({params: {breakpointId: 'bp'}}, response as unknown as Parameters<typeof removeBreakpoint.handler>[1], context as unknown as Parameters<typeof removeBreakpoint.handler>[2]);
-    await listBreakpoints.handler({params: {}} as EmptyRequestHarness, response as unknown as Parameters<typeof listBreakpoints.handler>[1], context as unknown as Parameters<typeof listBreakpoints.handler>[2]);
+    await breakpoint.handler({params: {action: 'set', url: 'a.js', lineNumber: 1, columnNumber: 0, isRegex: false}}, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
+    await breakpoint.handler({params: {action: 'remove', breakpointId: 'bp'}}, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
+    await breakpoint.handler({params: {action: 'list'}}, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
     await getPausedInfo.handler({params: {includeScopes: false, maxScopeDepth: 3}}, response as unknown as Parameters<typeof getPausedInfo.handler>[1], context as unknown as Parameters<typeof getPausedInfo.handler>[2]);
     await resume.handler({params: {}} as EmptyRequestHarness, response as unknown as Parameters<typeof resume.handler>[1], context as unknown as Parameters<typeof resume.handler>[2]);
     await pause.handler({params: {}} as EmptyRequestHarness, response as unknown as Parameters<typeof pause.handler>[1], context as unknown as Parameters<typeof pause.handler>[2]);
@@ -166,8 +163,8 @@ describe('debugger tools error paths', () => {
     await stepOut.handler({params: {}} as EmptyRequestHarness, response as unknown as Parameters<typeof stepOut.handler>[1], context as unknown as Parameters<typeof stepOut.handler>[2]);
     await evaluateOnCallframe.handler({params: {expression: 'x', frameIndex: 0}}, response as unknown as Parameters<typeof evaluateOnCallframe.handler>[1], context as unknown as Parameters<typeof evaluateOnCallframe.handler>[2]);
     await setBreakpointOnText.handler({params: {text: 'token', occurrence: 1}}, response as unknown as Parameters<typeof setBreakpointOnText.handler>[1], context as unknown as Parameters<typeof setBreakpointOnText.handler>[2]);
-    await breakOnXhr.handler({params: {url: '/api'}}, response as unknown as Parameters<typeof breakOnXhr.handler>[1], context as unknown as Parameters<typeof breakOnXhr.handler>[2]);
-    await removeXhrBreakpoint.handler({params: {url: '/api'}}, response as unknown as Parameters<typeof removeXhrBreakpoint.handler>[1], context as unknown as Parameters<typeof removeXhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({params: {action: 'set', url: '/api'}}, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({params: {action: 'remove', url: '/api'}}, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
     await traceFunction.handler({params: {functionName: 'sign', pause: false, logArgs: true, logThis: false}}, response as unknown as Parameters<typeof traceFunction.handler>[1], context as unknown as Parameters<typeof traceFunction.handler>[2]);
 
     assert.ok(response.lines.filter((line) => line.includes('Debugger is not enabled')).length >= 10);
@@ -236,8 +233,8 @@ describe('debugger tools error paths', () => {
     await getStorage.handler({params: {type: 'all'}}, response as unknown as Parameters<typeof getStorage.handler>[1], context as unknown as Parameters<typeof getStorage.handler>[2]);
     await monitorEvents.handler({params: {selector: '#missing', monitorId: 'm1'}}, response as unknown as Parameters<typeof monitorEvents.handler>[1], context as unknown as Parameters<typeof monitorEvents.handler>[2]);
     await stopMonitor.handler({params: {monitorId: 'm1'}}, response as unknown as Parameters<typeof stopMonitor.handler>[1], context as unknown as Parameters<typeof stopMonitor.handler>[2]);
-    await breakOnXhr.handler({params: {url: '/api'}}, response as unknown as Parameters<typeof breakOnXhr.handler>[1], context as unknown as Parameters<typeof breakOnXhr.handler>[2]);
-    await removeXhrBreakpoint.handler({params: {url: '/api'}}, response as unknown as Parameters<typeof removeXhrBreakpoint.handler>[1], context as unknown as Parameters<typeof removeXhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({params: {action: 'set', url: '/api'}}, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({params: {action: 'remove', url: '/api'}}, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
 
     assert.ok(response.lines.some((line) => line.includes('Error getting initiator')));
     assert.ok(response.lines.some((line) => line.includes('Hook already exists')));

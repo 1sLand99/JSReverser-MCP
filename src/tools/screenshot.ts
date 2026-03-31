@@ -18,6 +18,12 @@ export const screenshot = defineTool({
     readOnlyHint: false,
   },
   schema: {
+    pageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('Optional browser page index. Defaults to the currently selected page.'),
     format: zod
       .enum(['png', 'jpeg', 'webp'])
       .default('png')
@@ -44,7 +50,9 @@ export const screenshot = defineTool({
       ),
   },
   handler: async (request, response, context) => {
-    const page = context.getSelectedPage();
+    const page = request.params.pageIdx === undefined
+      ? context.getSelectedPage()
+      : context.getPageByOptionalIdx(request.params.pageIdx);
 
     const format = request.params.format;
     const quality = format === 'png' ? undefined : request.params.quality;

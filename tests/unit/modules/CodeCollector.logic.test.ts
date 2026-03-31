@@ -141,10 +141,10 @@ function makeCollector(browserManagerOverrides: Partial<BrowserManagerHarness> =
 }
 
 describe('CodeCollector logic', () => {
-  it('returns cached collect result immediately when cache hit', async () => {
+  it('hydrates collected file cache when returning cached collect result', async () => {
     const collector = makeCollector();
     const cached = {
-      files: [{ url: 'https://a.js', content: 'x', size: 1, type: 'external' }],
+      files: [{ url: 'https://a.js', content: 'x', size: 1, type: 'external' as const }],
       dependencies: { nodes: [], edges: [] },
       totalSize: 1,
       collectTime: 1,
@@ -160,6 +160,10 @@ describe('CodeCollector logic', () => {
 
     const out = await collector.collect({ url: 'https://example.com' });
     assert.strictEqual(out, cached);
+    assert.strictEqual(collector.getFileByUrl('https://a.js')?.content, 'x');
+    const matched = collector.getFilesByPattern('a\\.js');
+    assert.strictEqual(matched.matched, 1);
+    assert.strictEqual(matched.returned, 1);
   });
 
   it('collects external script via mocked CDP and cleans up session', async () => {
@@ -594,6 +598,10 @@ describe('CodeCollector logic', () => {
     const pattern = collector.getFilesByPattern('site\\.com', 2, 10_000);
     assert.strictEqual(pattern.matched, 3);
     assert.strictEqual(pattern.returned, 2);
+
+    const contentPattern = collector.getFilesByPattern('crypto-core', 2, 10_000);
+    assert.strictEqual(contentPattern.matched, 1);
+    assert.strictEqual(contentPattern.files[0]?.url, 'https://site.com/main-app.js');
 
     const top = collector.getTopPriorityFiles(2, 10_000);
     assert.strictEqual(top.totalFiles, 3);

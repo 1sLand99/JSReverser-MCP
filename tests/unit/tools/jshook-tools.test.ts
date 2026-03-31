@@ -8,19 +8,14 @@ import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
 import {zod} from '../../../src/third_party/index.js';
-import {analyzeTarget, riskPanel, summarizeCode, exportSessionReport} from '../../../src/tools/analyzer.js';
+import {analyzeTarget, getReference, getReferenceRoute, riskPanel, summarizeCode, exportSessionReport} from '../../../src/tools/analyzer.js';
 import {collectCode, collectionDiff} from '../../../src/tools/collector.js';
 import {queryDom} from '../../../src/tools/dom.js';
 import {createHook, getHookData} from '../../../src/tools/hook.js';
 import {
   clickElement,
   checkBrowserHealth,
-  deleteSessionState,
-  dumpSessionState,
-  listSessionStates,
-  loadSessionState,
-  restoreSessionState,
-  saveSessionState,
+  sessionState,
 } from '../../../src/tools/page.js';
 import {injectStealth} from '../../../src/tools/stealth.js';
 
@@ -59,6 +54,8 @@ describe('jshook tools schema', () => {
     const riskSchema = zod.object(riskPanel.schema);
     const analyzeSchema = zod.object(analyzeTarget.schema);
     const reportSchema = zod.object(exportSessionReport.schema);
+    const referenceSchema = zod.object(getReference.schema);
+    const referenceRouteSchema = zod.object(getReferenceRoute.schema);
 
     const risk = riskSchema.parse({code: 'md5(x)', includeHookSignals: true});
     const workflow = analyzeSchema.parse({
@@ -70,11 +67,26 @@ describe('jshook tools schema', () => {
       maxFingerprints: 6,
     });
     const report = reportSchema.parse({format: 'markdown', includeHookData: true});
+    const referenceDoc = referenceSchema.parse({mode: 'doc', docId: 'reverse-workflow'});
+    const referenceSummary = referenceSchema.parse({mode: 'summary', docId: 'reverse-workflow', maxSections: 4});
+    const referenceByStage = referenceRouteSchema.parse({mode: 'stage', stage: 'Patch'});
+    const referenceByTopic = referenceRouteSchema.parse({mode: 'topic', topic: 'env-rebuild'});
+    const referenceRecommendation = referenceRouteSchema.parse({mode: 'recommend', query: '我要补环境并定位 first divergence'});
 
     assert.strictEqual(risk.includeHookSignals, true);
     assert.strictEqual(workflow.hookPreset, 'network-core');
     assert.strictEqual(workflow.maxFingerprints, 6);
     assert.strictEqual(report.format, 'markdown');
+    assert.strictEqual(referenceDoc.docId, 'reverse-workflow');
+    assert.strictEqual(referenceDoc.mode, 'doc');
+    assert.strictEqual(referenceSummary.maxSections, 4);
+    assert.strictEqual(referenceSummary.mode, 'summary');
+    assert.strictEqual(referenceByStage.stage, 'Patch');
+    assert.strictEqual(referenceByStage.mode, 'stage');
+    assert.strictEqual(referenceByTopic.topic, 'env-rebuild');
+    assert.strictEqual(referenceByTopic.mode, 'topic');
+    assert.strictEqual(referenceRecommendation.query, '我要补环境并定位 first divergence');
+    assert.strictEqual(referenceRecommendation.mode, 'recommend');
   });
 
   it('validates hook and stealth schemas', () => {
@@ -95,31 +107,31 @@ describe('jshook tools schema', () => {
     const domSchema = zod.object(queryDom.schema);
     const pageSchema = zod.object(clickElement.schema);
     const healthSchema = zod.object(checkBrowserHealth.schema);
-    const saveSessionSchema = zod.object(saveSessionState.schema);
-    const restoreSessionSchema = zod.object(restoreSessionState.schema);
-    const listSessionSchema = zod.object(listSessionStates.schema);
-    const deleteSessionSchema = zod.object(deleteSessionState.schema);
-    const dumpSessionSchema = zod.object(dumpSessionState.schema);
-    const loadSessionSchema = zod.object(loadSessionState.schema);
+    const sessionStateSchema = zod.object(sessionState.schema);
 
     const dom = domSchema.parse({selector: 'button'});
     const page = pageSchema.parse({selector: '#x'});
     const health = healthSchema.parse({});
-    const saveSession = saveSessionSchema.parse({sessionId: 's1', includeCookies: true});
-    const restoreSession = restoreSessionSchema.parse({sessionId: 's1', clearStorageBeforeRestore: true});
-    const listed = listSessionSchema.parse({});
-    const removed = deleteSessionSchema.parse({sessionId: 's1'});
-    const dumped = dumpSessionSchema.parse({sessionId: 's1', pretty: false});
-    const loaded = loadSessionSchema.parse({snapshotJson: '{"id":"s1"}', overwrite: true});
+    const saveSession = sessionStateSchema.parse({action: 'save', sessionId: 's1', includeCookies: true});
+    const restoreSession = sessionStateSchema.parse({action: 'restore', sessionId: 's1', clearStorageBeforeRestore: true});
+    const listed = sessionStateSchema.parse({action: 'list'});
+    const removed = sessionStateSchema.parse({action: 'delete', sessionId: 's1'});
+    const dumped = sessionStateSchema.parse({action: 'dump', sessionId: 's1', pretty: false});
+    const loaded = sessionStateSchema.parse({action: 'load', snapshotJson: '{"id":"s1"}', overwrite: true});
 
     assert.strictEqual(dom.selector, 'button');
     assert.strictEqual(page.selector, '#x');
     assert.deepStrictEqual(health, {});
+    assert.strictEqual(saveSession.action, 'save');
     assert.strictEqual(saveSession.sessionId, 's1');
+    assert.strictEqual(restoreSession.action, 'restore');
     assert.strictEqual(restoreSession.clearStorageBeforeRestore, true);
-    assert.deepStrictEqual(listed, {});
+    assert.strictEqual(listed.action, 'list');
+    assert.strictEqual(removed.action, 'delete');
     assert.strictEqual(removed.sessionId, 's1');
+    assert.strictEqual(dumped.action, 'dump');
     assert.strictEqual(dumped.pretty, false);
+    assert.strictEqual(loaded.action, 'load');
     assert.strictEqual(loaded.overwrite, true);
   });
 });

@@ -15,9 +15,7 @@ import {
   getScriptSource,
   findInScript,
   searchInSources,
-  setBreakpoint,
-  removeBreakpoint,
-  listBreakpoints,
+  breakpoint,
   getRequestInitiator,
   getPausedInfo,
   resume,
@@ -32,8 +30,7 @@ import {
   listHooks,
   inspectObject,
   getStorage,
-  breakOnXhr,
-  removeXhrBreakpoint,
+  xhrBreakpoint,
   monitorEvents,
   stopMonitor,
   traceFunction,
@@ -110,7 +107,10 @@ interface DebuggerContextHarness {
 
 interface ToolContextHarness {
   getSelectedPage(): {evaluate(...args: unknown[]): Promise<unknown>; frames?(): unknown[]; mainFrame?(): unknown};
+  getPageByOptionalIdx?(idx?: number): {evaluate(...args: unknown[]): Promise<unknown>; frames?(): unknown[]; mainFrame?(): unknown};
   getSelectedFrame?(): {evaluate(...args: unknown[]): Promise<unknown>};
+  selectPage?(page: unknown): void;
+  reinitDebugger?(): Promise<void>;
   selectFrame?(frame: unknown): void;
   resetSelectedFrame?(): void;
   getNetworkRequestById(): {url(): string};
@@ -168,7 +168,10 @@ function makeContext(overrides: Partial<ToolContextHarness> = {}): ToolContextHa
 
   return {
     getSelectedPage: () => page,
+    getPageByOptionalIdx: (_idx?: number) => page,
     getSelectedFrame: () => page,
+    selectPage: () => undefined,
+    reinitDebugger: async () => undefined,
     selectFrame: () => undefined,
     resetSelectedFrame: () => undefined,
     getNetworkRequestById: () => ({ url: () => 'https://api.example.com' }),
@@ -244,10 +247,10 @@ describe('debugger tools extended', () => {
       },
     });
 
-    await setBreakpoint.handler({ params: { url: 'a.js', lineNumber: 3, columnNumber: 0, isRegex: false } }, response as unknown as Parameters<typeof setBreakpoint.handler>[1], context as unknown as Parameters<typeof setBreakpoint.handler>[2]);
-    await setBreakpoint.handler({ params: { url: '.*a.js', lineNumber: 3, columnNumber: 0, isRegex: true } }, response as unknown as Parameters<typeof setBreakpoint.handler>[1], context as unknown as Parameters<typeof setBreakpoint.handler>[2]);
-    await listBreakpoints.handler({ params: {} }, response as unknown as Parameters<typeof listBreakpoints.handler>[1], context as unknown as Parameters<typeof listBreakpoints.handler>[2]);
-    await removeBreakpoint.handler({ params: { breakpointId: 'bp-1' } }, response as unknown as Parameters<typeof removeBreakpoint.handler>[1], context as unknown as Parameters<typeof removeBreakpoint.handler>[2]);
+    await breakpoint.handler({ params: { action: 'set', url: 'a.js', lineNumber: 3, columnNumber: 0, isRegex: false } }, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
+    await breakpoint.handler({ params: { action: 'set', url: '.*a.js', lineNumber: 3, columnNumber: 0, isRegex: true } }, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
+    await breakpoint.handler({ params: { action: 'list' } }, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
+    await breakpoint.handler({ params: { action: 'remove', breakpointId: 'bp-1' } }, response as unknown as Parameters<typeof breakpoint.handler>[1], context as unknown as Parameters<typeof breakpoint.handler>[2]);
     await getRequestInitiator.handler({ params: { requestId: 1 } }, response as unknown as Parameters<typeof getRequestInitiator.handler>[1], context as unknown as Parameters<typeof getRequestInitiator.handler>[2]);
 
     assert.ok(response.lines.some((x) => x.includes('Breakpoint set successfully')));
@@ -346,7 +349,7 @@ describe('debugger tools extended', () => {
   });
 
   it('records debugger fallback evidence into reverse task artifacts', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'js-reverse-debugger-evidence-'));
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-debugger-evidence-'));
     const runtime = getJSHookRuntime();
     const originalStore = runtime.reverseTaskStore;
     runtime.reverseTaskStore = new ReverseTaskStore({ rootDir });
@@ -553,9 +556,322 @@ describe('debugger tools extended', () => {
   it('covers XHR breakpoint helpers', async () => {
     const response = makeResponse();
     const context = makeContext();
-    await breakOnXhr.handler({ params: { url: '/api' } }, response as unknown as Parameters<typeof breakOnXhr.handler>[1], context as unknown as Parameters<typeof breakOnXhr.handler>[2]);
-    await removeXhrBreakpoint.handler({ params: { url: '/api' } }, response as unknown as Parameters<typeof removeXhrBreakpoint.handler>[1], context as unknown as Parameters<typeof removeXhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({ params: { action: 'set', url: '/api' } }, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
+    await xhrBreakpoint.handler({ params: { action: 'remove', url: '/api' } }, response as unknown as Parameters<typeof xhrBreakpoint.handler>[1], context as unknown as Parameters<typeof xhrBreakpoint.handler>[2]);
     assert.ok(response.lines.some((x) => x.includes('XHR breakpoint set')));
     assert.ok(response.lines.some((x) => x.includes('XHR breakpoint removed')));
+  });
+
+  it('routes low-risk debugger readers to explicit pageIdx and restores selection', async () => {
+    const response = makeResponse();
+    const selectedPage = {
+      evaluate: async () => ({ localStorage: { from: 'selected' } }),
+      frames: () => [],
+      mainFrame: () => selectedFrame,
+    };
+    const targetFrame = {
+      evaluate: async () => ({ localStorage: { token: 'target' } }),
+    };
+    const selectedFrame = {
+      evaluate: async () => ({ localStorage: { token: 'selected' } }),
+    };
+    const targetPage = {
+      evaluate: async () => ({ localStorage: { from: 'target' } }),
+      frames: () => [],
+      mainFrame: () => targetFrame,
+    };
+    const selectedPages: unknown[] = [];
+    let reinitCount = 0;
+    const context = makeContext({
+      getSelectedPage: () => selectedPage,
+      getPageByOptionalIdx: (idx?: number) => {
+        assert.strictEqual(idx, 1);
+        return targetPage;
+      },
+      getSelectedFrame: () => selectedFrame,
+      selectPage: (page) => {
+        selectedPages.push(page);
+      },
+      reinitDebugger: async () => {
+        reinitCount += 1;
+      },
+      getNetworkRequestById: () => ({ url: () => 'https://api.target.example.com' }),
+      getRequestInitiator: () => ({
+        type: 'script',
+        url: 'https://target.js',
+        stack: { callFrames: [] },
+      }),
+    });
+    context.debuggerContext.getScripts = () => [{ scriptId: '1', url: 'https://target.js' }];
+    context.debuggerContext.getScriptsByUrlPattern = () => [{ scriptId: '1', url: 'https://target.js' }];
+    context.debuggerContext.getScriptSource = async () => 'function sign(){return 1;}';
+    context.debuggerContext.searchInScripts = async () => ({
+      matches: [{ scriptId: '1', url: 'https://target.js', lineNumber: 0, lineContent: 'function sign(){return 1;}' }],
+    });
+
+    await listScripts.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof listScripts.handler>[1],
+      context as unknown as Parameters<typeof listScripts.handler>[2],
+    );
+    await getScriptSource.handler(
+      { params: { scriptId: '1', pageIdx: 1, length: 1000 } },
+      response as unknown as Parameters<typeof getScriptSource.handler>[1],
+      context as unknown as Parameters<typeof getScriptSource.handler>[2],
+    );
+    await findInScript.handler(
+      { params: { scriptId: '1', query: 'sign', pageIdx: 1, contextChars: 10, occurrence: 1, caseSensitive: true } },
+      response as unknown as Parameters<typeof findInScript.handler>[1],
+      context as unknown as Parameters<typeof findInScript.handler>[2],
+    );
+    await searchInSources.handler(
+      { params: { query: 'sign', pageIdx: 1, caseSensitive: false, isRegex: false, maxResults: 30, maxLineLength: 150, excludeMinified: true } },
+      response as unknown as Parameters<typeof searchInSources.handler>[1],
+      context as unknown as Parameters<typeof searchInSources.handler>[2],
+    );
+    await getStorage.handler(
+      { params: { type: 'all', pageIdx: 1 } },
+      response as unknown as Parameters<typeof getStorage.handler>[1],
+      context as unknown as Parameters<typeof getStorage.handler>[2],
+    );
+    await getRequestInitiator.handler(
+      { params: { requestId: 7, pageIdx: 1 } },
+      response as unknown as Parameters<typeof getRequestInitiator.handler>[1],
+      context as unknown as Parameters<typeof getRequestInitiator.handler>[2],
+    );
+    await getPausedInfo.handler(
+      { params: { pageIdx: 1, includeScopes: false, maxScopeDepth: 1 } },
+      response as unknown as Parameters<typeof getPausedInfo.handler>[1],
+      context as unknown as Parameters<typeof getPausedInfo.handler>[2],
+    );
+
+    assert.deepStrictEqual(selectedPages, [
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+    ]);
+    assert.strictEqual(reinitCount, 12);
+    assert.ok(response.lines.some((line) => line.includes('Storage data')));
+    assert.ok(response.lines.some((line) => line.includes('Request initiator for https://api.target.example.com')));
+    assert.ok(response.lines.some((line) => line.includes('Execution is not paused.')));
+  });
+
+  it('routes high-risk debugger controls to explicit pageIdx and restores selection', async () => {
+    const response = makeResponse();
+    let paused = false;
+    let selectedFrameEvalCount = 0;
+    let targetFrameEvalCount = 0;
+    const selectedFrame = {
+      evaluate: async () => {
+        selectedFrameEvalCount += 1;
+        return { success: true, hookId: 'selected-should-not-run' };
+      },
+    };
+    const targetFrame = {
+      evaluate: async () => {
+        targetFrameEvalCount += 1;
+        return { success: true, hookId: 'target-hook' };
+      },
+    };
+    const selectedPage = {
+      evaluate: async () => undefined,
+      frames: () => [],
+      mainFrame: () => selectedFrame,
+    };
+    const targetPage = {
+      evaluate: async () => undefined,
+      frames: () => [],
+      mainFrame: () => targetFrame,
+    };
+    const selectedPages: unknown[] = [];
+    let reinitCount = 0;
+    const sentCommands: Array<{ method: string; params?: unknown }> = [];
+    const context = makeContext({
+      getSelectedPage: () => selectedPage,
+      getPageByOptionalIdx: (idx?: number) => {
+        assert.strictEqual(idx, 1);
+        return targetPage;
+      },
+      getSelectedFrame: () => selectedFrame,
+      selectPage: (page) => {
+        selectedPages.push(page);
+      },
+      reinitDebugger: async () => {
+        reinitCount += 1;
+      },
+    });
+    context.debuggerContext.isPaused = () => paused;
+    context.debuggerContext.resume = async () => {
+      paused = false;
+    };
+    context.debuggerContext.pause = async () => {
+      paused = true;
+    };
+    context.debuggerContext.stepOver = async () => undefined;
+    context.debuggerContext.stepInto = async () => undefined;
+    context.debuggerContext.stepOut = async () => undefined;
+    context.debuggerContext.setBreakpoint = async () => ({ breakpointId: 'bp-target', locations: [{}] });
+    context.debuggerContext.searchInScripts = async () => ({
+      matches: [{ scriptId: '1', url: 'https://target.js', lineNumber: 0, lineContent: 'function targetFn(a){return a;}' }],
+    });
+    context.debuggerContext.getScriptSource = async () => 'function targetFn(a){return a;}';
+    context.debuggerContext.getClient = () => ({
+      send: async (method: string, params?: unknown) => {
+        sentCommands.push({ method, params });
+        return undefined;
+      },
+    });
+
+    await breakpoint.handler(
+      { params: { action: 'set', url: 'target.js', lineNumber: 2, columnNumber: 0, isRegex: false, pageIdx: 1 } },
+      response as unknown as Parameters<typeof breakpoint.handler>[1],
+      context as unknown as Parameters<typeof breakpoint.handler>[2],
+    );
+
+    paused = true;
+    await resume.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof resume.handler>[1],
+      context as unknown as Parameters<typeof resume.handler>[2],
+    );
+
+    paused = false;
+    await pause.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof pause.handler>[1],
+      context as unknown as Parameters<typeof pause.handler>[2],
+    );
+
+    paused = true;
+    await stepOver.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof stepOver.handler>[1],
+      context as unknown as Parameters<typeof stepOver.handler>[2],
+    );
+    await stepInto.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof stepInto.handler>[1],
+      context as unknown as Parameters<typeof stepInto.handler>[2],
+    );
+    await stepOut.handler(
+      { params: { pageIdx: 1 } },
+      response as unknown as Parameters<typeof stepOut.handler>[1],
+      context as unknown as Parameters<typeof stepOut.handler>[2],
+    );
+    await setBreakpointOnText.handler(
+      { params: { text: 'targetFn', occurrence: 1, pageIdx: 1 } },
+      response as unknown as Parameters<typeof setBreakpointOnText.handler>[1],
+      context as unknown as Parameters<typeof setBreakpointOnText.handler>[2],
+    );
+    await xhrBreakpoint.handler(
+      { params: { action: 'set', url: '/api/target', pageIdx: 1 } },
+      response as unknown as Parameters<typeof xhrBreakpoint.handler>[1],
+      context as unknown as Parameters<typeof xhrBreakpoint.handler>[2],
+    );
+    await xhrBreakpoint.handler(
+      { params: { action: 'remove', url: '/api/target', pageIdx: 1 } },
+      response as unknown as Parameters<typeof xhrBreakpoint.handler>[1],
+      context as unknown as Parameters<typeof xhrBreakpoint.handler>[2],
+    );
+    await traceFunction.handler(
+      { params: { functionName: 'targetFn', pause: false, logArgs: true, logThis: false, pageIdx: 1 } },
+      response as unknown as Parameters<typeof traceFunction.handler>[1],
+      context as unknown as Parameters<typeof traceFunction.handler>[2],
+    );
+    await hookFunction.handler(
+      { params: { target: 'window.fetch', logArgs: true, logResult: true, logStack: false, pageIdx: 1 } },
+      response as unknown as Parameters<typeof hookFunction.handler>[1],
+      context as unknown as Parameters<typeof hookFunction.handler>[2],
+    );
+
+    assert.deepStrictEqual(selectedPages, [
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+      targetPage, selectedPage,
+    ]);
+    assert.strictEqual(reinitCount, 20);
+    assert.deepStrictEqual(sentCommands, [
+      { method: 'DOMDebugger.setXHRBreakpoint', params: { url: '/api/target' } },
+      { method: 'DOMDebugger.removeXHRBreakpoint', params: { url: '/api/target' } },
+    ]);
+    assert.strictEqual(selectedFrameEvalCount, 0);
+    assert.strictEqual(targetFrameEvalCount, 1);
+    assert.ok(response.lines.some((line) => line.includes('Breakpoint set successfully')));
+    assert.ok(response.lines.some((line) => line.includes('Execution resumed')));
+    assert.ok(response.lines.some((line) => line.includes('Pause requested')));
+    assert.ok(response.lines.some((line) => line.includes('XHR breakpoint set')));
+    assert.ok(response.lines.some((line) => line.includes('Function trace installed')));
+    assert.ok(response.lines.some((line) => line.includes('Hook installed successfully')));
+  });
+
+  it('routes paused-state inspection to explicit pageIdx and restores selection', async () => {
+    const response = makeResponse();
+    const selectedPage = {
+      evaluate: async () => undefined,
+      frames: () => [],
+      mainFrame: () => undefined,
+    };
+    const targetPage = {
+      evaluate: async () => undefined,
+      frames: () => [],
+      mainFrame: () => undefined,
+    };
+    let currentPage: unknown = selectedPage;
+    const selectedPages: unknown[] = [];
+    let reinitCount = 0;
+    const context = makeContext({
+      getSelectedPage: () => currentPage as ToolContextHarness['getSelectedPage'] extends () => infer T ? T : never,
+      getPageByOptionalIdx: (idx?: number) => {
+        assert.strictEqual(idx, 1);
+        return targetPage as ToolContextHarness['getSelectedPage'] extends () => infer T ? T : never;
+      },
+      selectPage: (page) => {
+        currentPage = page;
+        selectedPages.push(page);
+      },
+      reinitDebugger: async () => {
+        reinitCount += 1;
+      },
+    });
+
+    context.debuggerContext.getPausedState = () => (
+      currentPage === targetPage
+        ? {
+            isPaused: true,
+            reason: 'breakpoint',
+            hitBreakpoints: ['bp-target'],
+            callFrames: [
+              {
+                functionName: 'targetFn',
+                url: 'https://target.js',
+                callFrameId: 'cf-target',
+                location: {scriptId: '1', lineNumber: 2, columnNumber: 3},
+                scopeChain: [],
+              },
+            ],
+          }
+        : {isPaused: false, callFrames: []}
+    );
+
+    await getPausedInfo.handler(
+      { params: {pageIdx: 1, includeScopes: false, maxScopeDepth: 1} },
+      response as unknown as Parameters<typeof getPausedInfo.handler>[1],
+      context as unknown as Parameters<typeof getPausedInfo.handler>[2],
+    );
+
+    assert.deepStrictEqual(selectedPages, [targetPage, selectedPage]);
+    assert.strictEqual(reinitCount, 2);
+    assert.ok(response.lines.some((line) => line.includes('Execution Paused')));
+    assert.ok(response.lines.some((line) => line.includes('bp-target')));
   });
 });

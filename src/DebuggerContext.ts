@@ -133,6 +133,7 @@ export class DebuggerContext {
   #breakpoints = new Map<string, BreakpointInfo>(); // breakpointId -> info
   #enabled = false;
   #pausedState: PausedState = {isPaused: false, callFrames: []};
+  #pauseResolvers: Array<(state: PausedState) => void> = [];
   #breakpointHitWindowMs = 2000;
   #breakpointHitThreshold = 3;
   #breakpointLoopTracker = new Map<string, {breakpointId: string; count: number; firstHitAt: number; lastHitAt: number}>();
@@ -192,6 +193,7 @@ export class DebuggerContext {
     this.#urlToScripts.clear();
     this.#breakpoints.clear();
     this.#pausedState = {isPaused: false, callFrames: []};
+    this.#pauseResolvers = [];
     this.#breakpointLoopTracker.clear();
     this.#lastAutoRecoveryEvent = null;
     this.#enabled = false;
@@ -290,6 +292,11 @@ export class DebuggerContext {
       hitBreakpoints: event.hitBreakpoints,
     };
 
+    const resolvers = this.#pauseResolvers.splice(0);
+    for (const resolve of resolvers) {
+      resolve(this.#pausedState);
+    }
+
     void this.#handlePotentialBreakpointLoop(event);
   };
 
@@ -311,6 +318,27 @@ export class DebuggerContext {
    */
   getPausedState(): PausedState {
     return this.#pausedState;
+  }
+
+  async waitForPause(timeoutMs = 1000): Promise<PausedState> {
+    if (this.#pausedState.isPaused) {
+      return this.#pausedState;
+    }
+
+    return await new Promise<PausedState>((resolve, reject) => {
+      const resolver = (state: PausedState) => {
+        clearTimeout(timer);
+        resolve(state);
+      };
+      const timer = setTimeout(() => {
+        const index = this.#pauseResolvers.indexOf(resolver);
+        if (index >= 0) {
+          this.#pauseResolvers.splice(index, 1);
+        }
+        reject(new Error('Timeout waiting for paused state'));
+      }, timeoutMs);
+      this.#pauseResolvers.push(resolver);
+    });
   }
 
   getLastAutoRecoveryEvent(maxAgeMs = 30000): AutoRecoveryEvent | null {

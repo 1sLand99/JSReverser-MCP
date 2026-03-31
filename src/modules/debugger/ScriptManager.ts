@@ -11,7 +11,7 @@
  * - 依赖CodeCollector获取Page实例
  */
 
-import type { CDPSession } from 'puppeteer';
+import type { CDPSession } from 'puppeteer-core';
 import type { CodeCollector } from '../collector/CodeCollector.js';
 import { logger } from '../../utils/logger.js';
 
@@ -818,4 +818,3 @@ export class ScriptManager {
     }
   }
 }
-

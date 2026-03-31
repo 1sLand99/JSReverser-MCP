@@ -60,6 +60,7 @@ export interface Response {
       resourceTypes?: string[];
       includePreservedRequests?: boolean;
       networkRequestIdInDevToolsUI?: number;
+      targetPageIdx?: number;
     },
   ): void;
   setIncludeConsoleData(
@@ -67,20 +68,22 @@ export interface Response {
     options?: PaginationOptions & {
       types?: string[];
       includePreservedMessages?: boolean;
+      targetPageIdx?: number;
     },
   ): void;
   attachImage(value: ImageContentData): void;
-  attachNetworkRequest(reqid: number): void;
-  attachConsoleMessage(msgid: number): void;
+  attachNetworkRequest(reqid: number, targetPageIdx?: number): void;
+  attachConsoleMessage(msgid: number, targetPageIdx?: number): void;
   // WebSocket methods
   setIncludeWebSocketConnections(
     value: boolean,
     options?: PaginationOptions & {
       urlFilter?: string;
       includePreservedConnections?: boolean;
+      targetPageIdx?: number;
     },
   ): void;
-  attachWebSocket(wsid: number): void;
+  attachWebSocket(wsid: number, targetPageIdx?: number): void;
 }
 
 /**
@@ -92,6 +95,8 @@ export type Context = Readonly<{
   recordedTraces(): TraceResult[];
   storeTraceRecording(result: TraceResult): void;
   getSelectedPage(): Page;
+  getPageByOptionalIdx(idx?: number): Page;
+  reinitDebugger(): Promise<void>;
   getDialog(): Dialog | undefined;
   clearDialog(): void;
   getPageByIdx(idx: number): Page;
@@ -137,15 +142,25 @@ export type Context = Readonly<{
   /**
    * Get network request by ID.
    */
-  getNetworkRequestById(reqid: number): HTTPRequest;
+  getNetworkRequestById(reqid: number, targetPageIdx?: number): HTTPRequest;
+  /**
+   * Get all network requests for a page.
+   */
+  getNetworkRequests(
+    includePreservedRequests?: boolean,
+    targetPageIdx?: number,
+  ): HTTPRequest[];
   /**
    * Get all WebSocket connections for the selected page.
    */
-  getWebSocketConnections(includePreservedData?: boolean): WebSocketData[];
+  getWebSocketConnections(
+    includePreservedData?: boolean,
+    targetPageIdx?: number,
+  ): WebSocketData[];
   /**
    * Get a WebSocket connection by stable ID.
    */
-  getWebSocketById(wsid: number): WebSocketData;
+  getWebSocketById(wsid: number, targetPageIdx?: number): WebSocketData;
   /**
    * Get stable ID for a WebSocket connection.
    */

@@ -8,7 +8,7 @@ import { describe, it } from 'node:test';
 
 import { setIssuesEnabled } from '../../../src/features.js';
 import { zod } from '../../../src/third_party/index.js';
-import { getConsoleMessage, listConsoleMessages } from '../../../src/tools/console.js';
+import { consoleMessage } from '../../../src/tools/console.js';
 
 interface ConsoleIncludeOptions {
   pageSize?: number;
@@ -52,6 +52,7 @@ interface ConsoleResponseHarness {
 
 interface ListConsoleRequestHarness {
   params: {
+    action: 'list';
     pageSize?: number;
     pageIdx?: number;
     types?: ConsoleIncludeOptions['types'];
@@ -61,14 +62,15 @@ interface ListConsoleRequestHarness {
 
 interface GetConsoleRequestHarness {
   params: {
+    action: 'get';
     msgid: number;
   };
 }
 
 describe('console tools', () => {
   it('lists console messages with filters and defaults', async () => {
-    const schema = zod.object(listConsoleMessages.schema);
-    const parsed = schema.parse({ pageSize: 20, pageIdx: 1, types: ['error'] });
+    const schema = zod.object(consoleMessage.schema);
+    const parsed = schema.parse({ action: 'list', pageSize: 20, pageIdx: 1, types: ['error'] });
 
     let include = false;
     let options: ConsoleIncludeOptions | undefined;
@@ -87,10 +89,10 @@ describe('console tools', () => {
       attachWebSocket: () => undefined,
     };
 
-    await listConsoleMessages.handler(
+    await consoleMessage.handler(
       { params: parsed } as unknown as ListConsoleRequestHarness,
-      response as unknown as Parameters<typeof listConsoleMessages.handler>[1],
-      {} as Parameters<typeof listConsoleMessages.handler>[2],
+      response as unknown as Parameters<typeof consoleMessage.handler>[1],
+      {} as Parameters<typeof consoleMessage.handler>[2],
     );
 
     assert.strictEqual(include, true);
@@ -117,10 +119,10 @@ describe('console tools', () => {
       attachWebSocket: () => undefined,
     };
 
-    await getConsoleMessage.handler(
-      { params: { msgid: 42 } } as unknown as GetConsoleRequestHarness,
-      response as unknown as Parameters<typeof getConsoleMessage.handler>[1],
-      {} as Parameters<typeof getConsoleMessage.handler>[2],
+    await consoleMessage.handler(
+      { params: { action: 'get', msgid: 42 } } as unknown as GetConsoleRequestHarness,
+      response as unknown as Parameters<typeof consoleMessage.handler>[1],
+      {} as Parameters<typeof consoleMessage.handler>[2],
     );
     assert.strictEqual(attached, 42);
   });
@@ -130,8 +132,8 @@ describe('console tools', () => {
     try {
       const url = new URL('../../../src/tools/console.js', import.meta.url);
       const mod = await import(`${url.href}?issues=on`);
-      const schema = zod.object(mod.listConsoleMessages.schema);
-      const parsed = schema.parse({ types: ['issue'] });
+      const schema = zod.object(mod.consoleMessage.schema);
+      const parsed = schema.parse({ action: 'list', types: ['issue'] });
       assert.deepStrictEqual(parsed.types, ['issue']);
     } finally {
       setIssuesEnabled(false);

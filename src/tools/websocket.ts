@@ -42,6 +42,14 @@ export const listWebSocketConnections = defineTool({
       .describe(
         'Page number to return (0-based). When omitted, returns the first page.',
       ),
+    targetPageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Browser page index to inspect (0-based). When omitted, uses the currently selected page.',
+      ),
     urlFilter: zod
       .string()
       .optional()
@@ -60,6 +68,7 @@ export const listWebSocketConnections = defineTool({
     response.setIncludeWebSocketConnections(true, {
       pageSize: request.params.pageSize,
       pageIdx: request.params.pageIdx,
+      targetPageIdx: request.params.targetPageIdx,
       urlFilter: request.params.urlFilter,
       includePreservedConnections: request.params.includePreservedConnections,
     });
@@ -98,6 +107,14 @@ export const getWebSocketMessages = defineTool({
       .min(0)
       .optional()
       .describe('Page number (0-based).'),
+    targetPageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Browser page index to inspect (0-based). When omitted, uses the currently selected page.',
+      ),
     show_content: zod
       .boolean()
       .default(false)
@@ -107,7 +124,10 @@ export const getWebSocketMessages = defineTool({
       ),
   },
   handler: async (request, response, context) => {
-    const ws = context.getWebSocketById(request.params.wsid);
+    const ws = context.getWebSocketById(
+      request.params.wsid,
+      request.params.targetPageIdx,
+    );
     let frames = ws.frames;
 
     // Apply direction filter
@@ -194,9 +214,20 @@ export const getWebSocketMessage = defineTool({
       .int()
       .min(0)
       .describe('The frame index (0-based) to retrieve.'),
+    targetPageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Browser page index to inspect (0-based). When omitted, uses the currently selected page.',
+      ),
   },
   handler: async (request, response, context) => {
-    const ws = context.getWebSocketById(request.params.wsid);
+    const ws = context.getWebSocketById(
+      request.params.wsid,
+      request.params.targetPageIdx,
+    );
     const frameIndex = request.params.frameIndex;
 
     if (frameIndex >= ws.frames.length) {
@@ -216,7 +247,7 @@ export const getWebSocketMessage = defineTool({
 
 export const analyzeWebSocketMessages = defineTool({
   name: 'analyze_websocket_messages',
-  description: `Analyzes WebSocket messages and groups them by pattern/fingerprint. Essential for understanding binary/protobuf message types in live streaming scenarios. Returns statistics and sample indices for each message type.`,
+  description: `Group WebSocket messages by pattern/fingerprint and return stats plus sample indices for each type.`,
   annotations: {
     category: ToolCategory.NETWORK,
     readOnlyHint: true,
@@ -229,9 +260,20 @@ export const analyzeWebSocketMessages = defineTool({
       .enum(DIRECTION_OPTIONS)
       .optional()
       .describe('Only analyze messages in this direction.'),
+    targetPageIdx: zod
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        'Browser page index to inspect (0-based). When omitted, uses the currently selected page.',
+      ),
   },
   handler: async (request, response, context) => {
-    const ws = context.getWebSocketById(request.params.wsid);
+    const ws = context.getWebSocketById(
+      request.params.wsid,
+      request.params.targetPageIdx,
+    );
     let frames = ws.frames;
 
     // Apply direction filter

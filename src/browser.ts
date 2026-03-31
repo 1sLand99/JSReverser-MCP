@@ -120,7 +120,7 @@ export async function launch(options: McpLaunchOptions): Promise<Browser> {
     userDataDir = path.join(
       os.homedir(),
       '.cache',
-      'chrome-devtools-mcp',
+      'jsreverser-mcp',
       profileDirName,
     );
     await fs.promises.mkdir(userDataDir, {
@@ -371,7 +371,7 @@ export class BrowserManager {
       userDataDir = path.join(
         os.homedir(),
         '.cache',
-        'chrome-devtools-mcp',
+        'jsreverser-mcp',
         profileDirName,
       );
       await fs.promises.mkdir(userDataDir, {
@@ -409,7 +409,7 @@ export class BrowserManager {
         useStealthScripts,
       });
 
-      this.browser = await puppeteerInstance.launch({
+      const launchedBrowser = await puppeteerInstance.launch({
         channel: puppeteerChannel,
         targetFilter: makeTargetFilter(),
         executablePath,
@@ -421,6 +421,7 @@ export class BrowserManager {
         acceptInsecureCerts: this.config.acceptInsecureCerts,
         handleDevToolsAsPage: true,
       });
+      this.browser = launchedBrowser;
 
       logger('Browser launched successfully');
 
@@ -429,9 +430,8 @@ export class BrowserManager {
 
       // Set viewport if configured
       if (this.config.viewport) {
-        const [page] = await this.browser.pages();
+        const [page] = await launchedBrowser.pages();
         if (page) {
-          // @ts-expect-error internal API for now.
           await page.resize({
             contentWidth: this.config.viewport.width,
             contentHeight: this.config.viewport.height,
@@ -444,7 +444,7 @@ export class BrowserManager {
         this.stealthInjected = true;
       }
 
-      return this.browser;
+      return launchedBrowser;
     } catch (error) {
       if (
         userDataDir &&

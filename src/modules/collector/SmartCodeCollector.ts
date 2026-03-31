@@ -8,7 +8,7 @@
  * 4. 增量收集 - 支持按需获取特定文件
  */
 
-import type { Page } from 'puppeteer';
+import type { Page } from 'puppeteer-core';
 import { logger } from '../../utils/logger.js';
 import type { CodeFile } from '../../types/index.js';
 
@@ -343,4 +343,3 @@ export class SmartCodeCollector {
     return imports;
   }
 }
-

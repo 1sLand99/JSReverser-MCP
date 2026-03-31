@@ -10,7 +10,7 @@
  * - 反检测和资源拦截
  */
 
-import type { Browser, Page, CDPSession } from 'puppeteer';
+import type { Browser, Page, CDPSession } from 'puppeteer-core';
 import type {
   CollectCodeOptions,
   CollectCodeResult,
@@ -182,6 +182,27 @@ export class CodeCollector {
    */
   public getCompressor(): CodeCompressor {
     return this.compressor;
+  }
+
+  /**
+   * 将已收集/已缓存的文件同步到内存索引，供 getFileByUrl / getFilesByPattern 等工具复用。
+   */
+  private hydrateCollectedFilesCache(files: CodeFile[]): void {
+    for (const file of files) {
+      if (!file?.url) {
+        continue;
+      }
+
+      if (this.collectedFilesCache.size >= this.MAX_FILES_CACHE_SIZE) {
+        const firstKey = this.collectedFilesCache.keys().next().value;
+        if (firstKey) {
+          this.collectedFilesCache.delete(firstKey);
+          logger.debug(`[Cache] Removed oldest file to maintain cache limit: ${firstKey}`);
+        }
+      }
+
+      this.collectedFilesCache.set(file.url, file);
+    }
   }
 
   /**
@@ -410,6 +431,7 @@ export class CodeCollector {
     if (this.cacheEnabled) {
       const cached = await this.cache.get(options.url, options as any);
       if (cached) {
+        this.hydrateCollectedFilesCache(cached.files);
         logger.info(`✅ Cache hit for: ${options.url}`);
         return cached;
       }
@@ -713,6 +735,8 @@ export class CodeCollector {
         totalSize,
         collectTime,
       };
+
+      this.hydrateCollectedFilesCache(processedFiles);
 
       // ✅ 保存到缓存
       if (this.cacheEnabled) {
@@ -1187,9 +1211,17 @@ export class CodeCollector {
 
     const matched: CodeFile[] = [];
 
-    // 查找所有匹配的文件
+    const matchesRegex = (value: string | undefined): boolean => {
+      if (!value) {
+        return false;
+      }
+      regex.lastIndex = 0;
+      return regex.test(value);
+    };
+
+    // 查找所有匹配的文件（URL 或内容）
     for (const file of this.collectedFilesCache.values()) {
-      if (regex.test(file.url)) {
+      if (matchesRegex(file.url) || matchesRegex(file.content)) {
         matched.push(file);
       }
     }

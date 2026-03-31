@@ -7,10 +7,11 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 
 import { BrowserModeManager } from '../../../src/modules/browser/BrowserModeManager.js';
 import { StealthScripts2025 } from '../../../src/modules/stealth/StealthScripts2025.js';
+import { logger } from '../../../src/utils/logger.js';
 
 interface BrowserLaunchHarness {
   isConnected(): boolean;
@@ -49,13 +50,29 @@ interface BrowserModeManagerStaticHarness {
 
 describe('BrowserModeManager extended', () => {
   let originalConnect: typeof puppeteer.connect;
+  let originalInfo: typeof logger.info;
+  let originalWarn: typeof logger.warn;
+  let originalError: typeof logger.error;
+  let originalSuccess: typeof logger.success;
 
   beforeEach(() => {
     originalConnect = puppeteer.connect;
+    originalInfo = logger.info.bind(logger);
+    originalWarn = logger.warn.bind(logger);
+    originalError = logger.error.bind(logger);
+    originalSuccess = logger.success.bind(logger);
+    logger.info = () => undefined;
+    logger.warn = () => undefined;
+    logger.error = () => undefined;
+    logger.success = () => undefined;
   });
 
   afterEach(() => {
     puppeteer.connect = originalConnect;
+    logger.info = originalInfo;
+    logger.warn = originalWarn;
+    logger.error = originalError;
+    logger.success = originalSuccess;
     (BrowserModeManager as unknown as BrowserModeManagerStaticHarness).detectedBrowsersCache = null;
     (StealthScripts2025 as unknown as {injectAll: typeof StealthScripts2025.injectAll}).injectAll = originalInjectAll;
   });

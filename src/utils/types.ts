@@ -8,3 +8,7 @@ export interface PaginationOptions {
   pageSize?: number;
   pageIdx?: number;
 }
+
+export interface OptionalPageTarget {
+  pageIdx?: number;
+}
