@@ -12,6 +12,26 @@ import tsConfig from '../tsconfig.json' with {type: 'json'};
 import {sed} from './sed.ts';
 
 const BUILD_DIR = path.join(process.cwd(), 'build');
+const DOCS_REFERENCE_DIR = path.join(process.cwd(), 'docs', 'reference');
+
+const PACKAGED_REFERENCE_DOCS = {
+  core: [
+    'reverse-bootstrap.md',
+    'reverse-workflow.md',
+    'case-safety-policy.md',
+    'env-patching.md',
+    'pure-extraction.md',
+    'tool-io-contract.md',
+    'reverse-task-index.md',
+  ],
+  extra: [
+    'algorithm-upgrade-template.md',
+    'reverse-artifacts.md',
+    'reverse-report-template.md',
+    'reverse-update-prompt-template.md',
+    'tool-reference.md',
+  ],
+} as const;
 
 /**
  * Writes content to a file.
@@ -19,6 +39,7 @@ const BUILD_DIR = path.join(process.cwd(), 'build');
  * @param content The content to write.
  */
 function writeFile(filePath: string, content: string): void {
+  fs.mkdirSync(path.dirname(filePath), {recursive: true});
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
@@ -123,6 +144,8 @@ export const hostConfig = {};
 
   copyThirdPartyLicenseFiles();
   copyDevToolsDescriptionFiles();
+  copyPackagedReferenceDocs();
+  copyParameterWorkflowKnowledgeBase();
 }
 
 function copyDevToolsDescriptionFiles() {
@@ -131,6 +154,57 @@ function copyDevToolsDescriptionFiles() {
   const sourceDir = path.join(process.cwd(), devtoolsIssuesDescriptionPath);
   const destDir = path.join(BUILD_DIR, devtoolsIssuesDescriptionPath);
   fs.cpSync(sourceDir, destDir, {recursive: true});
+}
+
+function copyPackagedReferenceDocs(): void {
+  const packagedDocsRoot = path.join(BUILD_DIR, 'docs');
+  const manifest = {
+    core: {} as Record<string, string>,
+    extra: {} as Record<string, string>,
+  };
+
+  for (const [group, filenames] of Object.entries(PACKAGED_REFERENCE_DOCS)) {
+    const subdir = group === 'core' ? 'reference-core' : 'reference-extra';
+    for (const filename of filenames) {
+      const sourceFile = path.join(DOCS_REFERENCE_DIR, filename);
+      const destinationRelativePath = path
+        .join('build', 'docs', subdir, filename)
+        .replaceAll(path.sep, '/');
+      const destinationFile = path.join(process.cwd(), destinationRelativePath);
+
+      fs.mkdirSync(path.dirname(destinationFile), {recursive: true});
+      fs.copyFileSync(sourceFile, destinationFile);
+      manifest[group as keyof typeof manifest][path.basename(filename, '.md')] =
+        destinationRelativePath;
+    }
+  }
+
+  writeFile(
+    path.join(BUILD_DIR, 'docs-manifest.json'),
+    JSON.stringify(manifest, null, 2) + '\n',
+  );
+}
+
+function copyParameterWorkflowKnowledgeBase(): void {
+  const sourceDir = path.join(
+    process.cwd(),
+    'docs',
+    'knowledge',
+    'parameter-workflows',
+  );
+  const destinationDir = path.join(
+    BUILD_DIR,
+    'docs',
+    'knowledge',
+    'parameter-workflows',
+  );
+
+  if (!fs.existsSync(sourceDir)) {
+    return;
+  }
+
+  fs.mkdirSync(path.dirname(destinationDir), {recursive: true});
+  fs.cpSync(sourceDir, destinationDir, {recursive: true});
 }
 
 main();

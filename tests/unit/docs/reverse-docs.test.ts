@@ -19,6 +19,7 @@ describe('reverse workflow docs', () => {
   it('documents task artifacts, local rebuild, and Codex workflow guidance', async () => {
     const readme = await readRepoFile('README.md');
     const caseIndex = await readRepoFile('scripts/cases/README.md');
+    const workflowIndex = await readRepoFile('docs/knowledge/parameter-workflows/index.json');
     const reverseIndex = await readRepoFile('docs/reference/reverse-task-index.md');
     const artifactsDoc = await readRepoFile('docs/reference/reverse-artifacts.md');
     const caseSafetyPolicy = await readRepoFile('docs/reference/case-safety-policy.md');
@@ -30,7 +31,7 @@ describe('reverse workflow docs', () => {
     const algorithmUpgradeTemplate = await readRepoFile('docs/reference/algorithm-upgrade-template.md');
     const toolReference = await readRepoFile('docs/reference/tool-reference.md');
     const toolIoContract = await readRepoFile('docs/reference/tool-io-contract.md');
-    const outputContract = await readRepoFile('skills/mcp-js-reverse-playbook/references/output-contract.md');
+    const outputContract = await readRepoFile('skills/jsreverser-mcp-playbook/references/output-contract.md');
     const envTemplate = await readRepoFile('artifacts/tasks/_TEMPLATE/env/env.js');
     const polyfillsTemplate = await readRepoFile('artifacts/tasks/_TEMPLATE/env/polyfills.js');
     const entryTemplate = await readRepoFile('artifacts/tasks/_TEMPLATE/env/entry.js');
@@ -44,12 +45,18 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('参考项目'));
     assert.ok(readme.includes('某东 `h5st` 参数'));
     assert.ok(readme.includes('[scripts/cases/README.md](scripts/cases/README.md)'));
+    assert.ok(readme.includes('参数工作流知识库'));
+    assert.ok(readme.includes('[docs/knowledge/parameter-workflows/'));
     assert.ok(readme.includes('Git 默认只提交 `artifacts/tasks/_TEMPLATE/`'));
     assert.deepStrictEqual(docsRootFiles, []);
     assert.ok(caseIndex.includes('某东 `h5st` 参数'));
+    assert.ok(caseIndex.includes('迁移状态'));
+    assert.ok(caseIndex.includes('docs/knowledge/parameter-workflows/'));
     assert.ok(caseIndex.includes('[scripts/cases/jd-h5st-pure-node.mjs](jd-h5st-pure-node.mjs)'));
     assert.ok(caseIndex.includes('某手 `falcon` 风控参数'));
     assert.ok(caseIndex.includes('如果新增公开参数 / 链路入口，统一更新本文件'));
+    assert.ok(workflowIndex.includes('generic-header-sign'));
+    assert.ok(workflowIndex.includes('jd-h5st'));
     assert.ok(caseIndex.includes('Category: 参数签名'));
     assert.ok(caseIndex.includes('Status: abstract-case'));
     assert.ok(caseIndex.includes('Runtime: pure-node'));

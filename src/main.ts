@@ -8,7 +8,7 @@ import './polyfill.js';
 
 import type {Channel} from './browser.js';
 import {ensureBrowserConnected, ensureBrowserLaunched, resolveAutoConnectTarget} from './browser.js';
-import {parseArguments} from './cli.js';
+import {executeKnowledgeCliCommand, parseArguments} from './cli.js';
 import {features} from './features.js';
 import {loadIssueDescriptions} from './issue-descriptions.js';
 import {logger, saveLogsToFile} from './logger.js';
@@ -38,6 +38,7 @@ import * as jshookStealthTools from './tools/stealth.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {ToolRegistry} from './tools/ToolRegistry.js';
 import * as websocketTools from './tools/websocket.js';
+import * as workflowTools from './tools/workflows.js';
 import {ErrorCodes, formatError} from './utils/errors.js';
 import {TokenBudgetManager} from './utils/TokenBudgetManager.js';
 import {ToolExecutionScheduler} from './utils/ToolExecutionScheduler.js';
@@ -49,6 +50,10 @@ const VERSION = '2.0.3';
 // x-release-please-end
 
 export const args = parseArguments(VERSION);
+
+if (await executeKnowledgeCliCommand(args)) {
+  process.exit(0);
+}
 
 const logFile = args.logFile ? saveLogsToFile(args.logFile) : undefined;
 
@@ -107,7 +112,7 @@ async function getContext(): Promise<McpContext> {
 
 const logDisclaimers = () => {
   console.error(
-    `chrome-devtools-mcp exposes content of the browser instance to the MCP clients allowing them to inspect,
+    `JSReverser-MCP exposes content of the browser instance to the MCP clients allowing them to inspect,
 debug, and modify any data in the browser or DevTools.
 Avoid sharing sensitive or personal information that you do not want to share with MCP clients.`,
   );
@@ -229,6 +234,7 @@ const toolSources: Array<{source: string; tools: ToolDefinition[]}> = [
   {source: 'jshookPage', tools: asTools(jshookPageTools)},
   {source: 'jshookRebuild', tools: asTools(jshookRebuildTools)},
   {source: 'websocket', tools: asTools(websocketTools)},
+  {source: 'workflow', tools: asTools(workflowTools)},
 ];
 
 const tools = toolSources.flatMap((entry) =>

@@ -21,8 +21,9 @@ import * as jshookHookTools from '../build/src/tools/hook.js';
 import * as jshookStealthTools from '../build/src/tools/stealth.js';
 import * as jshookDomTools from '../build/src/tools/dom.js';
 import * as jshookPageTools from '../build/src/tools/page.js';
+import * as workflowTools from '../build/src/tools/workflows.js';
 
-const OUTPUT_PATH = './docs/tool-reference.md';
+const OUTPUT_PATH = './docs/reference/tool-reference.md';
 const README_PATH = './README.md';
 
 type ToolDef = {
@@ -47,6 +48,7 @@ function allTools(): ToolDef[] {
     ...Object.values(jshookStealthTools),
     ...Object.values(jshookDomTools),
     ...Object.values(jshookPageTools),
+    ...Object.values(workflowTools),
   ] as ToolDef[];
 }
 
@@ -111,7 +113,7 @@ function generateDocs(): void {
   }
 
   const categoryOrder = Object.values(ToolCategory);
-  let markdown = `<!-- AUTO GENERATED DO NOT EDIT - run 'npm run docs' to update-->\n\n# Chrome DevTools MCP Tool Reference\n\n> 快速按逆向目标查工具，请先看：[\`docs/reverse-task-index.md\`](./reverse-task-index.md)\n\n`;
+  let markdown = `<!-- AUTO GENERATED DO NOT EDIT - run 'npm run docs' to update-->\n\n# Chrome DevTools MCP Tool Reference\n\n> 快速按逆向目标查工具，请先看：[\`docs/reference/reverse-task-index.md\`](./reverse-task-index.md)\n\n`;
 
   for (const category of categoryOrder) {
     const toolsInCategory = categories.get(category) || [];
@@ -150,7 +152,7 @@ function generateDocs(): void {
     .map(([category, categoryTools]) => {
       const lines = [`- **${labels[category as ToolCategory]}** (${categoryTools.length} tools)`];
       for (const tool of categoryTools) {
-        lines.push(`  - [\`${tool.name}\`](docs/tool-reference.md#${tool.name.toLowerCase()})`);
+        lines.push(`  - [\`${tool.name}\`](docs/reference/tool-reference.md#${tool.name.toLowerCase()})`);
       }
       return lines.join('\n');
     })

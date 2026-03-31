@@ -8,6 +8,23 @@ import type {YargsOptions} from './third_party/index.js';
 import {yargs, hideBin} from './third_party/index.js';
 
 export const cliOptions = {
+  listParameterWorkflows: {
+    type: 'boolean',
+    description: 'List packaged parameter workflows and exit.',
+    default: false,
+  },
+  showParameterWorkflow: {
+    type: 'string',
+    description: 'Show one packaged parameter workflow by id or alias and exit.',
+  },
+  exportParameterWorkflowTemplate: {
+    type: 'string',
+    description: 'Export a starter parameter workflow template directory and exit.',
+  },
+  validateParameterWorkflow: {
+    type: 'string',
+    description: 'Validate a parameter workflow directory and exit.',
+  },
   browserUrl: {
     type: 'string',
     description:
@@ -149,7 +166,7 @@ export const cliOptions = {
   chromeArg: {
     type: 'array',
     describe:
-      'Additional arguments for Chrome. Only applies when Chrome is launched by chrome-devtools-mcp.',
+      'Additional arguments for Chrome. Only applies when Chrome is launched by JSReverser-MCP.',
   },
   categoryNetwork: {
     type: 'boolean',
@@ -160,7 +177,7 @@ export const cliOptions = {
 
 export function parseArguments(version: string, argv = process.argv) {
   const yargsInstance = yargs(hideBin(argv))
-    .scriptName('npx chrome-devtools-mcp@latest')
+    .scriptName('npx jsreverser-mcp@latest')
     .options(cliOptions)
     .check(args => {
       // We can't set default in the options else
@@ -211,4 +228,39 @@ export function parseArguments(version: string, argv = process.argv) {
     .help()
     .version(version)
     .parseSync();
+}
+
+export type CliArguments = ReturnType<typeof parseArguments>;
+
+export async function executeKnowledgeCliCommand(
+  args: Partial<CliArguments>,
+  writeLine: (line: string) => void = (line) => console.log(line),
+): Promise<boolean> {
+  const workflowModule = await import('./modules/workflows/ParameterWorkflowLibrary.js');
+
+  if (args.listParameterWorkflows) {
+    const items = await workflowModule.listParameterWorkflows();
+    writeLine(JSON.stringify(items, null, 2));
+    return true;
+  }
+
+  if (args.showParameterWorkflow) {
+    const workflow = await workflowModule.showParameterWorkflow(String(args.showParameterWorkflow));
+    writeLine(JSON.stringify(workflow, null, 2));
+    return true;
+  }
+
+  if (args.exportParameterWorkflowTemplate) {
+    await workflowModule.exportParameterWorkflowTemplate(String(args.exportParameterWorkflowTemplate));
+    writeLine(`Exported parameter workflow template to ${args.exportParameterWorkflowTemplate}`);
+    return true;
+  }
+
+  if (args.validateParameterWorkflow) {
+    const result = await workflowModule.validateParameterWorkflow(String(args.validateParameterWorkflow));
+    writeLine(JSON.stringify(result, null, 2));
+    return true;
+  }
+
+  return false;
 }

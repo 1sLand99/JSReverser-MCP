@@ -53,19 +53,36 @@ npm run start
 连接成功后，优先验证下面几类工具：
 
 - `list_pages`
-- `list_network_requests`
+- `network_request`
 - `list_scripts`
 
 能正常看到当前页面、请求和脚本，说明基础链路已经通了。
 
-## 6. 可选：配置外部 AI 分析能力
+## 6. 可选：查看内置参数工作流知识库
+
+如果你希望按参数流程来使用 MCP，而不是手动组织工具顺序，可以直接查看内置 workflow：
+
+```bash
+node build/src/index.js --list-parameter-workflows
+node build/src/index.js --show-parameter-workflow jd-h5st
+```
+
+公开知识库存放在：
+
+- `docs/knowledge/parameter-workflows/`
+
+贡献方式可看：
+
+- `docs/guides/parameter-workflow-contribution.md`
+
+## 7. 可选：配置外部 AI 分析能力
 
 如果你要使用 `understand_code`，或者希望 `deobfuscate_code` / `detect_crypto` 拿到更强的 AI 辅助结果，优先在 MCP server 配置里通过 `env` 传入环境变量。
 
 例如在支持 `env` 的 MCP 客户端里，传入：
 
 ```toml
-[mcp_servers.js-reverse.env]
+[mcp_servers.jsreverser-mcp.env]
 DEFAULT_LLM_PROVIDER = "gemini"
 GEMINI_API_KEY = "your_key"
 GEMINI_MODEL = "gemini-2.0-flash-exp"

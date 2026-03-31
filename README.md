@@ -1,4 +1,4 @@
-# JS Reverse MCP
+# JSReverser-MCP
 
 [English README](README.en.md)
 
@@ -27,6 +27,15 @@
 ## 已沉淀链路
 
 以下参数链路已有公开索引，可作为仓库内复用入口：
+
+### 参数工作流知识库
+
+- 主入口：[docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
+- 模板规范：[docs/reference/parameter-workflow-template.md](docs/reference/parameter-workflow-template.md)
+- 贡献指南：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
+- CLI：
+  - `node build/src/index.js --list-parameter-workflows`
+  - `node build/src/index.js --show-parameter-workflow jd-h5st`
 
 - 某东 `h5st` 参数
   - 索引：[scripts/cases/README.md](scripts/cases/README.md)
@@ -71,7 +80,7 @@
 
 当 hook 不够时，再进入暂停式调试。
 
-- `set_breakpoint`：按脚本 URL 和行号设置断点。
+- `breakpoint`：统一管理断点，支持 `set` / `remove` / `list`。
 - `set_breakpoint_on_text`：按代码文本自动定位并设置断点。
 - `resume`：继续执行到下一个断点或执行结束。
 - `pause`：手动暂停当前页面的 JavaScript 执行。
@@ -81,20 +90,28 @@
 
 定位目标请求，确认是谁发起、带了什么参数。
 
-- `list_network_requests`：列出当前页面的网络请求，先找到目标请求。
-- `get_network_request`：查看单个请求的详细内容，包括请求头、响应和载荷。
+- `network_request`：统一查看网络请求，支持 `action=list` 和 `action=get`。
 - `get_request_initiator`：追溯某个请求是谁触发的，帮助定位调用链。
-- `break_on_xhr`：在目标请求发出时中断，适合抓参数生成前的现场。
+- `xhr_breakpoint`：统一管理 XHR / Fetch 断点，支持 `action=set` 和 `action=remove`。
 
 ### 页面状态与运行前检查
 
 补看页面运行状态、控制台输出和本地状态依赖。
 
 - `check_browser_health`：检查浏览器连接和当前页是否可控，适合作为起手验证。
-- `list_console_messages`：查看当前页面 console 输出，适合回看 hook 和 trace 日志。
+- `console_message`：统一查看 console 输出，支持 `action=list` 和 `action=get`。
 - `get_storage`：读取 cookie、`localStorage`、`sessionStorage`，确认状态依赖。
 - `evaluate_script`：在当前选中 frame 内执行一段函数，做小范围运行时验证。
 - `search_in_sources`：在所有已加载源码中搜索关键字，快速缩小可疑代码范围。
+
+说明：
+
+- 上述部分页面级工具已支持显式 `pageIdx`，未传时默认继续使用当前 `select_page` 选中的页面
+- `navigate_page`、`evaluate_script` 也已支持显式 `pageIdx`
+- `list_scripts`、`get_script_source`、`find_in_script`、`search_in_sources`、`get_storage`、`get_request_initiator` 也已支持显式 `pageIdx`
+- `breakpoint`、`set_breakpoint_on_text`、`pause`、`resume`、`step_over`、`step_into`、`step_out`、`xhr_breakpoint`、`trace_function`、`hook_function` 也已支持显式 `pageIdx`
+- `console_message` 使用显式页面参数时请传 `targetPageIdx`，避免和结果分页参数 `pageIdx` 混淆
+- `network_request` 以及 WebSocket 相关工具在需要显式指定浏览器页面时也使用 `targetPageIdx`
 
 ### WebSocket 观察与消息分组
 
@@ -133,10 +150,7 @@
 
 ### 会话与登录态复用
 
-- `save_session_state`：保存当前页面的 cookie 和存储状态到内存快照。
-- `restore_session_state`：把快照恢复到当前页面，复用登录态和现场。
-- `dump_session_state`：把会话快照导出为 JSON 文件，便于持久化。
-- `load_session_state`：从已有 JSON 或字符串重新载入会话快照。
+- `session_state`：统一管理会话快照，支持 `save` / `restore` / `list` / `delete` / `dump` / `load`。
 
 完整参数说明见 [docs/reference/tool-reference.md](docs/reference/tool-reference.md)。
 按逆向流程选工具可继续看 [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)。
@@ -151,165 +165,61 @@
 - `gemini`
 
 配置入口本质上是进程环境变量。  
-通过 MCP 客户端启动时，优先在 MCP server 配置里的 `env` 传入；`.env` 只适合你直接本地运行 `node build/src/index.js` 或 `npm run start` 的场景。
+无论你是源码启动还是 `npx jsreverser-mcp@latest` 启动，**env 都是传给 MCP server 进程的**。
 
-推荐方式示例：
+最小示例：
 
 ```toml
-[mcp_servers.js-reverse]
-command = "node"
-args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
+[mcp_servers.jsreverser-mcp]
+command = "npx"
+args = ["-y", "jsreverser-mcp@latest"]
 
-[mcp_servers.js-reverse.env]
-DEFAULT_LLM_PROVIDER = "anthropic"
-ANTHROPIC_API_KEY = "your_key"
-ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+[mcp_servers.jsreverser-mcp.env]
+DEFAULT_LLM_PROVIDER = "openai"
+OPENAI_API_KEY = "your_key"
+OPENAI_MODEL = "gpt-4o"
 ```
 
-如果你是直接在项目目录本地启动，也可以使用 `.env`：
+如果你接的是兼容 OpenAI API 的模型，可额外传 `OPENAI_BASE_URL`。
 
-```bash
-# 三选一：openai / anthropic / gemini
-DEFAULT_LLM_PROVIDER=gemini
+详细配置、不同客户端示例、`npx` / `node` / `.env` / OpenAI-compatible 用法，统一放在：
 
-# OpenAI
-OPENAI_API_KEY=your_key
-OPENAI_MODEL=gpt-4o
-OPENAI_BASE_URL=
-
-# Anthropic / Claude
-ANTHROPIC_API_KEY=your_key
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
-ANTHROPIC_BASE_URL=
-
-# Gemini
-GEMINI_API_KEY=your_key
-GEMINI_MODEL=gemini-2.0-flash-exp
-
-# 如果不用 API，也可以走本地 CLI
-GEMINI_CLI_PATH=gemini-cli
-```
-
-说明：
-
-- `DEFAULT_LLM_PROVIDER` 决定默认走哪个 provider
-- `gemini` 支持两种模式：有 `GEMINI_API_KEY` 时走 API；没有时会尝试走 `GEMINI_CLI_PATH`
-- `openai` 和 `anthropic` 需要对应 API key
-- 如果你配了多个 provider，实际使用哪个，仍由 `DEFAULT_LLM_PROVIDER` 决定
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/guides/getting-started.md](docs/guides/getting-started.md)
 
 ### 哪些功能依赖外部 AI
 
-强依赖外部 AI 的功能：
+- 强依赖：`understand_code`
+- 可选增强：`detect_crypto`、`analyze_target`、`risk_panel`、`deobfuscate_code`
+- 不依赖外部 AI：浏览器接管、Hook / 断点 / Console / Storage / Network / WebSocket、`collect_code`、`export_rebuild_bundle`、`diff_env_requirements`、`record_reverse_evidence`
 
-- `understand_code`
-  - 内部会调用 LLM 做代码语义理解、业务逻辑提取、安全风险补充
+如果没配外部 AI，最直接的影响通常是：
 
-可选启用外部 AI 的功能：
+- `understand_code` 无法使用
+- 部分 AI 增强分析会退回本地规则或降级运行
 
-- `detect_crypto`
-  - 只有传 `useAI=true` 时才会额外调用 LLM；不传时主要依赖本地规则和 AST 分析
-- `analyze_target`
-  - 传 `useAI=true` 时会在一站式分析里启用更深的 AI 辅助分析
-- `risk_panel`
-  - 参数里有 `useAI`，但当前实现主体仍以本地分析结果聚合为主
+详细说明建议看：
 
-有 AI 时效果更好，但不配也能运行的功能：
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
 
-- `deobfuscate_code`
-  - 本地规则、AST 优化、专项反混淆管线始终可用；配置外部 AI 后，复杂语义清理、VM 结构理解、部分编码型混淆降级分析会更完整
+## 任务与流程文档
 
-完全不依赖外部 AI 的功能：
+详细的 task 目录结构、执行流程、补环境边界、安全规则不再堆在 README 首页，统一看：
 
-- 浏览器接管
-- Hook / 断点 / Console / Storage / Network / WebSocket
-- `collect_code`
-- `export_rebuild_bundle`
-- `diff_env_requirements`
-- `record_reverse_evidence`
-
-如果没配外部 AI，典型影响是：
-
-- `understand_code` 会直接报 provider 未配置
-- `detect_crypto(useAI=true)` 会退回本地分析或忽略 AI 增强
-- `deobfuscate_code` 仍可跑，但某些高难度混淆的解释和清理质量会下降
-
-## 标准任务结构
-
-任务目录统一使用：
-
-- `artifacts/tasks/_TEMPLATE/`
-- `artifacts/tasks/<task-id>/`
-
-推荐目录结构：
-
-- `task.json`
-- `runtime-evidence.jsonl`
-- `network.jsonl`
-- `scripts.jsonl`
-- `env/env.js`
-- `env/polyfills.js`
-- `env/entry.js`
-- `env/capture.json`
-- `run/`
-- `report.md`
-
-职责边界：
-
-- `env.js`
-  - 基础宿主对象和最小 shim
-- `polyfills.js`
-  - 代理诊断层、`watch`、`safeFunction`、`makeFunction`
-- `entry.js`
-  - 运行入口、目标脚本加载、first divergence 输出
-
-## 标准执行流程
-
-推荐流程：
-
-1. 页面观察
-2. 运行时采样
-3. 证据入库
-4. local rebuild
-5. 逐项补环境
-6. first divergence 定位
-7. `env-pass` 后再进入纯算法 / 风控逻辑提纯
-
-默认原则：
-
-- 不要跳过页面证据直接猜环境
-- 不要一次性全量模拟浏览器
-- 不要把真实任务目录直接提交 Git
-
-## 参数沉淀与安全边界
-
-参数链路沉淀遵循以下规则：
-
-1. 先读本地 task artifact
-- `artifacts/tasks/<task-id>/`
-
-2. 本地没有时再读抽象 case
-- `scripts/cases/*`
-
-3. 仍不足时按模板新建
-- `docs/reference/parameter-methodology-template.md`
-- `docs/reference/parameter-site-mapping-template.md`
-
-安全边界：
-
-- case 只保留抽象方法和流程
-- 真实任务目录默认本地保留
-- 敏感值必须脱敏后才允许共享
-- Git 默认只提交 `_TEMPLATE`
-
-详见：
-
-- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
+- [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
 - [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
 - [docs/reference/env-patching.md](docs/reference/env-patching.md)
+- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
 
 ## 3 分钟快速开始
 
-### 1) 安装依赖并构建
+### 1) 最快启动方式
+
+```bash
+npx -y jsreverser-mcp@latest
+```
+
+### 2) 如果你要源码运行
 
 ```bash
 npm install
@@ -322,76 +232,70 @@ npm run build
 build/src/index.js
 ```
 
-### 2) 最简单启动方式
-
-```bash
-npm run start
-```
-
 ### 3) 配置客户端
 
 最小配置示例：
 
-#### Claude Code
+#### Claude Code（`npx`）
 
 ```bash
-claude mcp add js-reverse node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
+claude mcp add jsreverser-mcp npx -y jsreverser-mcp@latest
 ```
 
-#### Cursor
+#### Claude Code（源码版）
+
+```bash
+claude mcp add jsreverser-mcp node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
+```
+
+#### Cursor（`npx`）
+
+- Command: `npx`
+- Args: `["-y", "jsreverser-mcp@latest"]`
+
+#### Cursor（源码版）
 
 - Command: `node`
 - Args: `[/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js]`
 
-#### Codex
+#### Codex（`npx`）
 
 ```toml
-[mcp_servers.js-reverse]
+[mcp_servers.jsreverser-mcp]
+command = "npx"
+args = ["-y", "jsreverser-mcp@latest"]
+```
+
+#### Codex（源码版）
+
+```toml
+[mcp_servers.jsreverser-mcp]
 command = "node"
 args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 ```
 
-如果你需要接管已经打开的浏览器，请继续看：
+更完整的内容请看：
 
-- [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
-- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-
-完整可直接复制的 MCP 配置实例，包括：
-
-- `mcpServers` JSON 结构示例
-- Codex `config.toml` 示例
-- `--browserUrl` 接管浏览器示例
-- Gemini / Claude / OpenAI 的 API `env` 示例
-
-都放在 [docs/guides/client-configuration.md](docs/guides/client-configuration.md)。
+- 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
+- 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
+- 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
 
 ## 文档入口
 
 逆向相关任务开场先读：`docs/reference/reverse-bootstrap.md`。该入口会继续要求模型读取 `docs/reference/case-safety-policy.md`、`docs/reference/reverse-workflow.md`；若已进入 `env-pass` 后的提纯阶段，再读 `docs/reference/pure-extraction.md`。
 
-### Guides
+常用入口：
 
 - 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
 - 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
 - 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-- 逆向工作流：[docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
-- 补环境规范：[docs/reference/env-patching.md](docs/reference/env-patching.md)
-
-### Reference
-
-- 模型首读入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
-- 逆向任务索引：[docs/reference/reverse-task-index.md](docs/reference/reverse-task-index.md)
+- 参数工作流知识库：[docs/knowledge/parameter-workflows/](docs/knowledge/parameter-workflows/)
+- 参数工作流贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
+- 工作流入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
 - 工具参数总表：[docs/reference/tool-reference.md](docs/reference/tool-reference.md)
-- 工具读写契约：[docs/reference/tool-io-contract.md](docs/reference/tool-io-contract.md)
 - 任务产物说明：[docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
-
-### Templates And Supporting Docs
-
-- [docs/reference/reverse-update-prompt-template.md](docs/reference/reverse-update-prompt-template.md)
-- [docs/reference/reverse-report-template.md](docs/reference/reverse-report-template.md)
-- [docs/reference/algorithm-upgrade-template.md](docs/reference/algorithm-upgrade-template.md)
-- [docs/reference/parameter-methodology-template.md](docs/reference/parameter-methodology-template.md)
-- [docs/reference/parameter-site-mapping-template.md](docs/reference/parameter-site-mapping-template.md)
+- 续跑提示模板：`reverse-update-prompt-template`
+- 结果报告模板：`reverse-report-template`
 
 ## 开发与测试
 
@@ -413,7 +317,8 @@ npm run coverage:full
 本项目在设计和实现过程中参考了以下项目，具体协议声明（如 MIT 等）以对应上游仓库为准：
 
 - https://github.com/wuji66dde/jshook-skill
-- https://github.com/zhizhuodemao/js-reverse-mcp
+- https://github.com/NoOne-hub/JSReverser-MCP
+- https://github.com/ChromeDevTools/chrome-devtools-mcp
 
 ## License
 
