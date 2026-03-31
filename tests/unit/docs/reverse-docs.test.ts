@@ -54,6 +54,8 @@ describe('reverse workflow docs', () => {
     assert.ok(caseIndex.includes('docs/knowledge/parameter-workflows/'));
     assert.ok(caseIndex.includes('[scripts/cases/jd-h5st-pure-node.mjs](jd-h5st-pure-node.mjs)'));
     assert.ok(caseIndex.includes('某手 `falcon` 风控参数'));
+    assert.ok(!caseIndex.includes('mcp-reverse-pure-node-workflow.mjs'));
+    assert.ok(!caseIndex.includes('abstract-case-template.mjs'));
     assert.ok(caseIndex.includes('如果新增公开参数 / 链路入口，统一更新本文件'));
     assert.ok(workflowIndex.includes('generic-header-sign'));
     assert.ok(workflowIndex.includes('jd-h5st'));

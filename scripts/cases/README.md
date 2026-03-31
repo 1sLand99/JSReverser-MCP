@@ -13,21 +13,7 @@
 
 ## 已公开链路
 
-### MCP 通用工作流
-
-- Case: [scripts/cases/mcp-reverse-pure-node-workflow.mjs](mcp-reverse-pure-node-workflow.mjs)
-- Category: 工作流
-- Status: abstract-case
-- Runtime: pure-node
-- Notes: 先看工具顺序、每步产物和下一步判定，再映射到具体站点 case
-
-### 高密度抽象骨架模板
-
-- Case: [scripts/cases/abstract-case-template.mjs](abstract-case-template.mjs)
-- Category: 模板
-- Status: abstract-case
-- Runtime: pure-node
-- Notes: 新增站点 case 时先从这份高密度抽象骨架开始，补齐关键字段、hook 点、断点提示、pure extraction 关键点
+> 通用模板与总 workflow 已迁移到 `docs/knowledge/parameter-workflows/`。本目录当前只保留仍在过渡期的参数级旧 case。
 
 
 ### 某东 `h5st` 参数
