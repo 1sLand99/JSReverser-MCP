@@ -155,6 +155,7 @@
 
 - `get_rebuild_health_report`：直接返回 `currentStage`、`firstDivergence`、`patchSuggestions`、`evidenceAggregates` 和 `recommendedNextAction`
 - 这几个 agent-first 工具还会统一返回 `responseSummary` / `diagnostics`，方便模型低 token 判断“这次调用做成了什么、下一轮是否继续”
+- 同时也会统一返回 `outcome` / `shouldResume` / `shouldSwitchStrategy` / `nextBestTool` / `nextBestParams`
 
 如果执行失败，返回里还可能附带：
 

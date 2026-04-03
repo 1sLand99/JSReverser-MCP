@@ -16,6 +16,7 @@ import {getJSHookRuntime} from './runtime.js';
 
 const stageSchema = zod.enum(['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port']);
 type OutputMode = 'compact' | 'verbose';
+type AgentOutcome = 'success' | 'partial' | 'blocked';
 const taskArtifacts = ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'];
 
 function compactManagePayload(
@@ -60,6 +61,43 @@ function buildManageSummary(action: string, payload: Record<string, unknown>): s
     return `已完成任务 ${String(payload.leftTaskId ?? '')} 与 ${String(payload.rightTaskId ?? '')} 的对比。`;
   }
   return `已完成 ${action} 动作。`;
+}
+
+function inferOutcomeFromStatus(status: unknown): AgentOutcome {
+  if (status === 'blocked') {
+    return 'blocked';
+  }
+  if (status === 'partial') {
+    return 'partial';
+  }
+  return 'success';
+}
+
+function buildManageContinuationFields(
+  action: string,
+  payload: Record<string, unknown>,
+): {
+  outcome: AgentOutcome;
+  shouldResume: boolean;
+  shouldSwitchStrategy: boolean;
+  nextBestTool?: string;
+  nextBestParams?: Record<string, unknown>;
+} {
+  const hints = payload.agentGuidance as
+    | {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string}
+    | undefined;
+  const status = payload.status
+    ?? (payload.state && typeof payload.state === 'object' ? (payload.state as Record<string, unknown>).status : undefined);
+  const outcome = action === 'get' || action === 'summarize' || action === 'progress' || action === 'update'
+    ? inferOutcomeFromStatus(status)
+    : 'success';
+  return {
+    outcome,
+    shouldResume: Boolean(action === 'progress' && outcome !== 'blocked' && hints?.recommendedTool),
+    shouldSwitchStrategy: ['rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'].includes(String(hints?.recommendedStrategy ?? '')),
+    ...(hints?.recommendedTool ? {nextBestTool: hints.recommendedTool} : {}),
+    ...(hints?.recommendedParams ? {nextBestParams: hints.recommendedParams} : {}),
+  };
 }
 
 export const manageReverseTaskTool = defineTool({
@@ -124,6 +162,7 @@ export const manageReverseTaskTool = defineTool({
       response.appendResponseLine(JSON.stringify(compactManagePayload(action, {
         responseSummary: buildManageSummary(action, payload),
         diagnostics: buildManageDiagnostics(action, outputMode, typeof payload.taskId === 'string' ? payload.taskId : undefined),
+        ...buildManageContinuationFields(action, payload),
         ...payload,
         outputMode,
       }, outputMode), null, 2));

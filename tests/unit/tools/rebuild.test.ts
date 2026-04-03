@@ -171,6 +171,10 @@ describe('rebuild bridge tools', () => {
       assert.ok((payload.artifacts as string[]).includes('report.md'));
       assert.ok(typeof payload.responseSummary === 'string');
       assert.ok(payload.diagnostics);
+      assert.strictEqual(payload.outcome, 'partial');
+      assert.strictEqual(payload.shouldResume, false);
+      assert.strictEqual(payload.shouldSwitchStrategy, true);
+      assert.strictEqual(payload.nextBestTool, 'diff_env_requirements');
       assert.deepStrictEqual(payload.missingCapabilities, ['window']);
       assert.ok(Array.isArray(payload.patchSuggestions));
       assert.ok((payload.patchSuggestions as Array<Record<string, unknown>>).some((item) => item.capability === 'window'));
@@ -227,6 +231,8 @@ describe('rebuild bridge tools', () => {
       assert.strictEqual(payload.firstDivergence, undefined);
       assert.ok(typeof payload.responseSummary === 'string');
       assert.ok(payload.diagnostics);
+      assert.strictEqual(payload.outcome, 'partial');
+      assert.strictEqual(payload.shouldResume, false);
       assert.deepStrictEqual(payload.missingCapabilities, ['window']);
       assert.ok(payload.agentGuidance);
     } finally {

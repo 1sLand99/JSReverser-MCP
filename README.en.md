@@ -202,6 +202,7 @@ Bring browser evidence back to a local Node workflow.
 - `fallbackPlan` now also exposes `recommendedStrategy` on orchestration failures
 - `manage_reverse_task`, `orchestrate_reverse_task`, and `get_rebuild_health_report` now expose a shared `agentGuidance` block so models can continue with less prompt-side interpretation
 - These three tools now also expose shared top-level `responseSummary` and `diagnostics` fields; `responseSummary` is reserved for agent-facing continuation hints without overwriting business-level `summary` objects.
+- They also expose shared continuation fields: `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, and `nextBestParams`.
 - `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them. Summary/query responses now also expose deduped `evidenceAggregates` for top URLs, top functions, and env blockers.
 
 ### Page Automation

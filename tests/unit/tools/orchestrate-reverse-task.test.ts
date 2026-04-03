@@ -75,6 +75,10 @@ describe('orchestrate_reverse_task tool', () => {
         currentStage: string;
         responseSummary?: string;
         diagnostics?: Record<string, unknown>;
+        outcome?: string;
+        shouldResume?: boolean;
+        shouldSwitchStrategy?: boolean;
+        nextBestTool?: string;
         orchestration: {primaryStep: {tool: string}; suggestedSteps: Array<{tool: string}>};
         agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string; resumeHint?: string; confidence?: number};
       };
@@ -84,6 +88,10 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(payload.orchestration.suggestedSteps[0]?.tool, 'manage_reverse_task');
       assert.ok(payload.responseSummary);
       assert.ok(payload.diagnostics);
+      assert.strictEqual(payload.outcome, 'success');
+      assert.strictEqual(payload.shouldResume, false);
+      assert.strictEqual(payload.shouldSwitchStrategy, false);
+      assert.strictEqual(payload.nextBestTool, 'export_rebuild_bundle');
       assert.strictEqual(payload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
       assert.strictEqual(payload.agentGuidance?.recommendedStrategy, 'rebuild-first');
       assert.deepStrictEqual(payload.agentGuidance?.recommendedParams, {taskId: 'task-orchestrate-001'});
@@ -449,9 +457,17 @@ describe('orchestrate_reverse_task tool', () => {
       }, fallbackResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
 
       const fallbackPayload = JSON.parse(fallbackResponse.lines[1] ?? '{}') as {
+        outcome?: string;
+        shouldResume?: boolean;
+        shouldSwitchStrategy?: boolean;
+        nextBestTool?: string;
         agentGuidance?: {recommendedStrategy?: string};
         fallbackPlan?: {reason: string; recommendedStrategy?: string; steps: Array<{tool: string}>};
       };
+      assert.strictEqual(fallbackPayload.outcome, 'partial');
+      assert.strictEqual(fallbackPayload.shouldResume, true);
+      assert.strictEqual(fallbackPayload.shouldSwitchStrategy, true);
+      assert.strictEqual(fallbackPayload.nextBestTool, 'diff_env_requirements');
       assert.strictEqual(fallbackPayload.agentGuidance?.recommendedStrategy, 'env-fix');
       assert.ok(fallbackPayload.fallbackPlan);
       assert.strictEqual(fallbackPayload.fallbackPlan?.recommendedStrategy, 'env-fix');

@@ -88,11 +88,14 @@ describe('manage_reverse_task tool', () => {
       await manageReverseTaskTool.handler({
         params: {action: 'progress', taskId: 'task-manage-001'},
       }, progressResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
-      const progressPayload = JSON.parse(progressResponse.lines[1] ?? '{}') as {action: string; currentStage: string; responseSummary?: string; diagnostics?: Record<string, unknown>};
+      const progressPayload = JSON.parse(progressResponse.lines[1] ?? '{}') as {action: string; currentStage: string; responseSummary?: string; diagnostics?: Record<string, unknown>; outcome?: string; shouldResume?: boolean; nextBestTool?: string};
       assert.strictEqual(progressPayload.action, 'progress');
       assert.strictEqual(progressPayload.currentStage, 'Rebuild');
       assert.ok(typeof progressPayload.responseSummary === 'string');
       assert.ok(progressPayload.diagnostics);
+      assert.strictEqual(progressPayload.outcome, 'success');
+      assert.strictEqual(progressPayload.shouldResume, true);
+      assert.strictEqual(progressPayload.nextBestTool, 'export_rebuild_bundle');
 
       const updateResponse = makeResponse();
       await manageReverseTaskTool.handler({

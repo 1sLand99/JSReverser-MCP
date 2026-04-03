@@ -6,6 +6,36 @@ import {ToolCategory} from './categories.js';
 import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
 
+function buildOrchestrationContinuationFields(result: {
+  fallbackPlan?: {steps: Array<{tool: string; params: Record<string, unknown>}>; recommendedStrategy?: string};
+  execution?: {failedStep?: unknown; recovery?: {shouldResume?: boolean}};
+  agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>};
+}): {
+  outcome: 'success' | 'partial' | 'blocked';
+  shouldResume: boolean;
+  shouldSwitchStrategy: boolean;
+  nextBestTool?: string;
+  nextBestParams?: Record<string, unknown>;
+} {
+  const shouldResume = Boolean(result.execution?.recovery?.shouldResume);
+  const nextStep = result.fallbackPlan?.steps[0];
+  return {
+    outcome: result.execution?.failedStep
+      ? (shouldResume ? 'partial' : 'blocked')
+      : 'success',
+    shouldResume,
+    shouldSwitchStrategy: Boolean(result.fallbackPlan?.recommendedStrategy),
+    ...(nextStep?.tool
+      ? {nextBestTool: nextStep.tool, nextBestParams: nextStep.params}
+      : result.agentGuidance?.recommendedTool
+        ? {
+          nextBestTool: result.agentGuidance.recommendedTool,
+          ...(result.agentGuidance.recommendedParams ? {nextBestParams: result.agentGuidance.recommendedParams} : {}),
+        }
+        : {}),
+  };
+}
+
 export const orchestrateReverseTaskTool = defineTool({
   name: 'orchestrate_reverse_task',
   description: 'High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.',
@@ -44,6 +74,12 @@ export const orchestrateReverseTaskTool = defineTool({
       executionOverrides: request.params.executionOverrides,
     });
     response.appendResponseLine('```json');
+    const agentGuidance = buildOrchestrationAgentHints({
+      taskId: result.taskId,
+      primaryStep: result.orchestration.primaryStep,
+      execution: result.execution,
+      confidence: result.advice.confidence,
+    });
     response.appendResponseLine(JSON.stringify({
       ok: true,
       responseSummary: request.params.outputMode === 'compact'
@@ -56,13 +92,13 @@ export const orchestrateReverseTaskTool = defineTool({
         hasFallbackPlan: Boolean(result.fallbackPlan),
         executed: Boolean(result.execution?.executed),
       },
-      ...result,
-      agentGuidance: buildOrchestrationAgentHints({
-        taskId: result.taskId,
-        primaryStep: result.orchestration.primaryStep,
+      ...buildOrchestrationContinuationFields({
+        fallbackPlan: result.fallbackPlan,
         execution: result.execution,
-        confidence: result.advice.confidence,
+        agentGuidance,
       }),
+      ...result,
+      agentGuidance,
     }, null, 2));
     response.appendResponseLine('```');
   },
