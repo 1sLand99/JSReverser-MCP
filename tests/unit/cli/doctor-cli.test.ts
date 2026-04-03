@@ -91,12 +91,13 @@ describe('doctor cli', () => {
       const progressLines: string[] = [];
       const progressHandled = await executeKnowledgeCliCommand({manageReverseTask: 'progress', taskId: 'task-cli-001'}, (line) => progressLines.push(line));
       assert.strictEqual(progressHandled, true);
-      const progressPayload = JSON.parse(progressLines[0]) as {action: string; currentStage: string; nextStepHint: string; reasoning: string[]; agentGuidance?: {recommendedTool?: string}};
+      const progressPayload = JSON.parse(progressLines[0]) as {action: string; currentStage: string; nextStepHint: string; reasoning: string[]; agentGuidance?: {recommendedTool?: string; recommendedStrategy?: string}};
       assert.strictEqual(progressPayload.action, 'progress');
       assert.strictEqual(progressPayload.currentStage, 'Rebuild');
       assert.strictEqual(progressPayload.nextStepHint, 'export_rebuild_bundle');
       assert.ok(Array.isArray(progressPayload.reasoning));
       assert.strictEqual(progressPayload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
+      assert.strictEqual(progressPayload.agentGuidance?.recommendedStrategy, 'rebuild-first');
 
       const compactLines: string[] = [];
       const compactHandled = await executeKnowledgeCliCommand(

@@ -175,6 +175,7 @@ describe('rebuild bridge tools', () => {
       assert.ok(String(payload.recommendedNextAction).includes('最小补环境'));
       const guidance = payload.agentGuidance as Record<string, unknown>;
       assert.strictEqual(guidance.recommendedTool, 'diff_env_requirements');
+      assert.strictEqual(guidance.recommendedStrategy, 'env-fix');
       assert.deepStrictEqual(guidance.recommendedParams, {
         runtimeError: 'ReferenceError: window is not defined',
         observedCapabilities: ['window', 'document', 'crypto'],

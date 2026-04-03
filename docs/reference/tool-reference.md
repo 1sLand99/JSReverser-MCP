@@ -628,7 +628,7 @@ so returned values have to JSON-serializable.
 
 **Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.
 
-**Response note:** Returns `agentGuidance` for agent-ready next-step hints. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
+**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
 
 **Parameters:**
 
@@ -678,7 +678,7 @@ so returned values have to JSON-serializable.
 
 **Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.
 
-**Response note:** Returns `agentGuidance` with a recommended next tool / params / resume hint.
+**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint.
 
 **Parameters:**
 
@@ -701,7 +701,7 @@ so returned values have to JSON-serializable.
 
 **Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
 
-**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`.
+**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, and `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template.
 
 **Parameters:**
 

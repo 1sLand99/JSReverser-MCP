@@ -71,6 +71,7 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('skipSteps'));
     assert.ok(readme.includes('get_rebuild_health_report'));
     assert.ok(readme.includes('agentGuidance'));
+    assert.ok(readme.includes('recommendedStrategy'));
     assert.ok(readme.includes('get / summarize'));
     assert.ok(readme.includes('patchSuggestions'));
     assert.ok(readme.includes('evidenceAggregates'));
@@ -129,6 +130,7 @@ describe('reverse workflow docs', () => {
     assert.ok(toolReference.includes('pruneOlderThanDays'));
     assert.ok(toolReference.includes('strategy'));
     assert.ok(toolReference.includes('agentGuidance'));
+    assert.ok(toolReference.includes('recommendedStrategy'));
     assert.ok(toolReference.includes('outputMode'));
     assert.ok(toolReference.includes('fallbackPlan'));
     assert.ok(toolReference.includes('get_rebuild_health_report'));

@@ -75,7 +75,7 @@ describe('orchestrate_reverse_task tool', () => {
         currentStage: string;
         orchestration: {primaryStep: {tool: string}; suggestedSteps: Array<{tool: string}>};
         summary?: {taskId: string};
-        agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>; resumeHint?: string; confidence?: number};
+        agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string; resumeHint?: string; confidence?: number};
       };
       assert.strictEqual(payload.ok, true);
       assert.strictEqual(payload.currentStage, 'Rebuild');
@@ -83,6 +83,7 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(payload.orchestration.suggestedSteps[0]?.tool, 'manage_reverse_task');
       assert.strictEqual(payload.summary?.taskId, 'task-orchestrate-001');
       assert.strictEqual(payload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
+      assert.strictEqual(payload.agentGuidance?.recommendedStrategy, 'rebuild-first');
       assert.deepStrictEqual(payload.agentGuidance?.recommendedParams, {taskId: 'task-orchestrate-001'});
       assert.ok(String(payload.agentGuidance?.resumeHint).includes('--orchestrateReverseTask task-orchestrate-001'));
       assert.ok((payload.agentGuidance?.confidence ?? 0) > 0.8);
@@ -444,8 +445,10 @@ describe('orchestrate_reverse_task tool', () => {
       }, fallbackResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
 
       const fallbackPayload = JSON.parse(fallbackResponse.lines[1] ?? '{}') as {
+        agentGuidance?: {recommendedStrategy?: string};
         fallbackPlan?: {reason: string; steps: Array<{tool: string}>};
       };
+      assert.strictEqual(fallbackPayload.agentGuidance?.recommendedStrategy, 'env-fix');
       assert.ok(fallbackPayload.fallbackPlan);
       assert.ok(fallbackPayload.fallbackPlan?.steps.some((step) => step.tool === 'diff_env_requirements'));
       assert.ok(fallbackPayload.fallbackPlan?.steps.some((step) => step.tool === 'manage_reverse_task'));
