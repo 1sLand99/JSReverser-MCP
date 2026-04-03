@@ -11,6 +11,9 @@ export interface ReverseTaskAgentHints {
   summary: string;
   recommendedNextAction: string;
   recommendedTool?: string;
+  toolClass?: 'task' | 'orchestration' | 'rebuild' | 'analysis';
+  routeHint?: 'stay_on_task_flow' | 'switch_to_orchestration' | 'switch_to_rebuild' | 'switch_to_analysis';
+  avoidTools?: string[];
   recommendedStrategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only';
   recommendedParams?: Record<string, unknown>;
   confidence: number;
@@ -56,6 +59,9 @@ export function buildManageTaskAgentHints(args: {
       summary: `已返回任务列表，可继续选择一个 taskId 深入查看。`,
       recommendedNextAction: '对最相关任务执行 get 或 summarize，压缩上下文后再决定下一步。',
       recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['understand_code', 'collect_code'],
       recommendedStrategy: 'observe-first',
       recommendedParams: {action: 'get'},
       confidence: 0.84,
@@ -71,6 +77,9 @@ export function buildManageTaskAgentHints(args: {
         ? '优先对首个命中任务执行 get 或 summarize。'
         : '当前无命中，建议放宽 query / tag 或改用 list 查看全量任务。',
       recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['understand_code'],
       recommendedStrategy: (itemCount ?? 0) > 0 ? 'observe-first' : undefined,
       recommendedParams: {action: (itemCount ?? 0) > 0 ? 'get' : 'list'},
       confidence: (itemCount ?? 0) > 0 ? 0.87 : 0.72,
@@ -84,6 +93,9 @@ export function buildManageTaskAgentHints(args: {
       summary: `已比较 ${taskId} 与 ${otherTaskId}，可继续回到单任务摘要或健康检查。`,
       recommendedNextAction: '对差异更大的任务执行 summarize 或 get_rebuild_health_report。',
       recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['collect_code'],
       recommendedStrategy: 'evidence-only',
       recommendedParams: {action: 'summarize', taskId},
       confidence: 0.83,
@@ -97,6 +109,17 @@ export function buildManageTaskAgentHints(args: {
       summary: `任务已推进到 ${currentStage ?? '未知阶段'}，当前状态 ${status ?? 'unknown'}。`,
       recommendedNextAction: `按 nextStepHint=${nextStepHint ?? 'recommend_next_step'} 继续执行。`,
       recommendedTool: nextStepHint,
+      toolClass: nextStepHint === 'export_rebuild_bundle' || nextStepHint === 'diff_env_requirements'
+        ? 'rebuild'
+        : nextStepHint?.startsWith('manage_reverse_task:')
+          ? 'task'
+          : 'analysis',
+      routeHint: nextStepHint === 'export_rebuild_bundle' || nextStepHint === 'diff_env_requirements'
+        ? 'switch_to_rebuild'
+        : nextStepHint?.startsWith('manage_reverse_task:')
+          ? 'stay_on_task_flow'
+          : 'switch_to_analysis',
+      avoidTools: nextStepHint ? ['list_pages', 'navigate_page'] : undefined,
       recommendedStrategy: inferStrategyFromStep(nextStepHint),
       recommendedParams: taskId ? {taskId} : undefined,
       confidence: 0.91,
@@ -112,6 +135,17 @@ export function buildManageTaskAgentHints(args: {
         ? `优先按 nextStepHint=${nextStepHint} 执行。`
         : '可先执行 progress，获取系统推断的下一步。',
       recommendedTool: nextStepHint ?? 'manage_reverse_task',
+      toolClass: nextStepHint === 'export_rebuild_bundle' || nextStepHint === 'diff_env_requirements'
+        ? 'rebuild'
+        : nextStepHint && !nextStepHint.startsWith('manage_reverse_task:')
+          ? 'analysis'
+          : 'task',
+      routeHint: nextStepHint === 'export_rebuild_bundle' || nextStepHint === 'diff_env_requirements'
+        ? 'switch_to_rebuild'
+        : nextStepHint && !nextStepHint.startsWith('manage_reverse_task:')
+          ? 'switch_to_analysis'
+          : 'stay_on_task_flow',
+      avoidTools: nextStepHint ? ['list_pages'] : ['understand_code'],
       recommendedStrategy: nextStepHint ? inferStrategyFromStep(nextStepHint) : 'observe-first',
       recommendedParams: nextStepHint
         ? {taskId}
@@ -128,6 +162,9 @@ export function buildManageTaskAgentHints(args: {
       ? '如需继续判断下一步，可执行 summarize / progress / orchestrate_reverse_task。'
       : '如需继续，可回到 list / search 选择任务。',
     recommendedTool: taskId ? 'manage_reverse_task' : 'manage_reverse_task',
+    toolClass: 'task',
+    routeHint: 'stay_on_task_flow',
+    avoidTools: taskId ? ['understand_code'] : ['export_rebuild_bundle'],
     recommendedStrategy: taskId ? 'evidence-only' : 'observe-first',
     recommendedParams: taskId ? {action: 'summarize', taskId} : {action: 'list'},
     confidence: 0.78,
@@ -150,6 +187,21 @@ export function buildOrchestrationAgentHints(args: {
     recommendedNextAction: execution?.recovery?.recommendedNextAction
       ?? `优先执行 ${primaryStep.tool}。`,
     recommendedTool: execution?.failedStep ? 'manage_reverse_task' : primaryStep.tool,
+    toolClass: execution?.failedStep
+      ? 'task'
+      : primaryStep.tool === 'export_rebuild_bundle' || primaryStep.tool === 'diff_env_requirements'
+        ? 'rebuild'
+        : primaryStep.tool === 'manage_reverse_task'
+          ? 'task'
+          : 'analysis',
+    routeHint: execution?.failedStep
+      ? 'stay_on_task_flow'
+      : primaryStep.tool === 'export_rebuild_bundle' || primaryStep.tool === 'diff_env_requirements'
+        ? 'switch_to_rebuild'
+        : primaryStep.tool === 'manage_reverse_task'
+          ? 'stay_on_task_flow'
+          : 'switch_to_analysis',
+    avoidTools: execution?.failedStep ? ['list_pages', 'navigate_page'] : ['search_websocket_messages'],
     recommendedStrategy: execution?.failedStep?.failureType === 'env_error'
       ? 'env-fix'
       : execution?.failedStep?.failureType === 'tool_error'
@@ -180,6 +232,9 @@ export function buildRebuildHealthAgentHints(args: {
       ? '先套用最小补环境片段，再重试 rebuild / orchestration。'
       : '继续补充 runtime evidence，或重新执行 summarize / compare 对齐上下文。',
     recommendedTool: hasPatchSuggestions ? 'diff_env_requirements' : 'manage_reverse_task',
+    toolClass: hasPatchSuggestions ? 'rebuild' : 'task',
+    routeHint: hasPatchSuggestions ? 'switch_to_rebuild' : 'stay_on_task_flow',
+    avoidTools: hasPatchSuggestions ? ['understand_code'] : ['export_rebuild_bundle'],
     recommendedStrategy: hasPatchSuggestions ? 'env-fix' : 'observe-first',
     recommendedParams: hasPatchSuggestions
       ? {runtimeError, observedCapabilities}

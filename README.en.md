@@ -201,11 +201,13 @@ Bring browser evidence back to a local Node workflow.
 - `agentGuidance` now also includes `recommendedStrategy` for direct follow-up orchestration
 - `fallbackPlan` now also exposes `recommendedStrategy` on orchestration failures
 - `manage_reverse_task`, `orchestrate_reverse_task`, and `get_rebuild_health_report` now expose a shared `agentGuidance` block so models can continue with less prompt-side interpretation
+- `agentGuidance` now also includes `toolClass / routeHint / avoidTools` to keep model routing on the reverse-engineering main path.
 - These three tools now also expose shared top-level `responseSummary` and `diagnostics` fields; `responseSummary` is reserved for agent-facing continuation hints without overwriting business-level `summary` objects.
 - They also expose shared continuation fields: `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, and `nextBestParams`.
 - They also expose a shared `continuation` object: `{ ready, reason, tool, params, strategy, resumeCommand }`.
 - They now also expose a shared failure contract: `errorCode`, `errorType`, `retryable`, `blockedBy`, plus `detailLevel` and `continuation.actionKey`.
 - `compact` mode is now slimmer: it keeps `responseSummary`, `diagnostics`, critical status fields, and `continuation`, while trimming redundant next-step blocks and switching `detailLevel` to `minimal`.
+- A shared top-level `routeGuard` is also exposed with `preferredToolClass / routeHint / avoidTools` for routing decisions.
 - `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them. Summary/query responses now also expose deduped `evidenceAggregates` for top URLs, top functions, and env blockers.
 
 ### Page Automation

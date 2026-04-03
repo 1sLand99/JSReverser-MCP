@@ -88,7 +88,7 @@ describe('manage_reverse_task tool', () => {
       await manageReverseTaskTool.handler({
         params: {action: 'progress', taskId: 'task-manage-001'},
       }, progressResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
-      const progressPayload = JSON.parse(progressResponse.lines[1] ?? '{}') as {action: string; currentStage: string; responseSummary?: string; diagnostics?: Record<string, unknown>; outcome?: string; shouldResume?: boolean; nextBestTool?: string; detailLevel?: string; continuation?: {ready?: boolean; tool?: string; actionKey?: string}};
+      const progressPayload = JSON.parse(progressResponse.lines[1] ?? '{}') as {action: string; currentStage: string; responseSummary?: string; diagnostics?: Record<string, unknown>; outcome?: string; shouldResume?: boolean; nextBestTool?: string; detailLevel?: string; routeGuard?: {preferredToolClass?: string; routeHint?: string}; continuation?: {ready?: boolean; tool?: string; actionKey?: string; toolClass?: string; routeHint?: string}};
       assert.strictEqual(progressPayload.action, 'progress');
       assert.strictEqual(progressPayload.currentStage, 'Rebuild');
       assert.ok(typeof progressPayload.responseSummary === 'string');
@@ -97,9 +97,13 @@ describe('manage_reverse_task tool', () => {
       assert.strictEqual(progressPayload.shouldResume, true);
       assert.strictEqual(progressPayload.nextBestTool, 'export_rebuild_bundle');
       assert.strictEqual(progressPayload.detailLevel, 'standard');
+      assert.strictEqual(progressPayload.routeGuard?.preferredToolClass, 'rebuild');
+      assert.strictEqual(progressPayload.routeGuard?.routeHint, 'switch_to_rebuild');
       assert.strictEqual(progressPayload.continuation?.ready, true);
       assert.strictEqual(progressPayload.continuation?.tool, 'export_rebuild_bundle');
       assert.strictEqual(progressPayload.continuation?.actionKey, 'export_rebuild_bundle');
+      assert.strictEqual(progressPayload.continuation?.toolClass, 'rebuild');
+      assert.strictEqual(progressPayload.continuation?.routeHint, 'switch_to_rebuild');
 
       const updateResponse = makeResponse();
       await manageReverseTaskTool.handler({

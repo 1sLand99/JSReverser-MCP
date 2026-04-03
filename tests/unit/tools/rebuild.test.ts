@@ -176,9 +176,14 @@ describe('rebuild bridge tools', () => {
       assert.strictEqual(payload.shouldSwitchStrategy, true);
       assert.strictEqual(payload.nextBestTool, 'diff_env_requirements');
       assert.strictEqual(payload.detailLevel, 'standard');
-      const continuation = payload.continuation as {ready?: boolean; tool?: string} | undefined;
+      const routeGuard = payload.routeGuard as {preferredToolClass?: string; routeHint?: string} | undefined;
+      assert.strictEqual(routeGuard?.preferredToolClass, 'rebuild');
+      assert.strictEqual(routeGuard?.routeHint, 'switch_to_rebuild');
+      const continuation = payload.continuation as {ready?: boolean; tool?: string; toolClass?: string; routeHint?: string} | undefined;
       assert.strictEqual(continuation?.ready, true);
       assert.strictEqual(continuation?.tool, 'diff_env_requirements');
+      assert.strictEqual(continuation?.toolClass, 'rebuild');
+      assert.strictEqual(continuation?.routeHint, 'switch_to_rebuild');
       assert.deepStrictEqual(payload.missingCapabilities, ['window']);
       assert.ok(Array.isArray(payload.patchSuggestions));
       assert.ok((payload.patchSuggestions as Array<Record<string, unknown>>).some((item) => item.capability === 'window'));

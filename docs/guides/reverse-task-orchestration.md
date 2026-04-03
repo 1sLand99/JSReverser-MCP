@@ -12,6 +12,7 @@
 - 直接串行执行 `manage_reverse_task`、`export_rebuild_bundle`、`diff_env_requirements` 等标准步骤
 - 失败后从 checkpoint 续跑，而不是重新手工拼步骤
 - 直接消费返回里的 `agentGuidance`，让大模型少自己推断下一步
+- 同时读 `routeGuard` / `agentGuidance.toolClass` / `agentGuidance.routeHint`，优先停留在 reverse 主链路
 
 只想查状态时，优先继续用 `manage_reverse_task`。
 
@@ -160,6 +161,7 @@
 - 同时也会统一返回 `outcome` / `shouldResume` / `shouldSwitchStrategy` / `nextBestTool` / `nextBestParams`
 - 更进一步时，可直接读取统一的 `continuation.ready / continuation.tool / continuation.params / continuation.strategy / continuation.resumeCommand`
 - 如果是失败/阻塞路径，还可以直接读 `errorType / retryable / blockedBy / continuation.actionKey / detailLevel`
+- 如果想先做工具路由，再执行调用，可优先读 `routeGuard.preferredToolClass / routeGuard.routeHint / routeGuard.avoidTools`
 
 如果执行失败，返回里还可能附带：
 

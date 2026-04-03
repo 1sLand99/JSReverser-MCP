@@ -628,7 +628,7 @@ so returned values have to JSON-serializable.
 
 **Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.
 
-**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`, plus `artifacts` for the main task files touched/read by the action. Also exposes top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, and `continuation` for agent callers. In `outputMode=compact`, redundant next-step fields may be trimmed in favor of `continuation`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
+**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`, plus `artifacts` for the main task files touched/read by the action. Also exposes top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for agent callers. In `outputMode=compact`, redundant next-step fields may be trimmed in favor of `continuation`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
 
 **Parameters:**
 
@@ -678,7 +678,7 @@ so returned values have to JSON-serializable.
 
 **Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.
 
-**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint, plus top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, and `continuation` for low-token continuation. In `outputMode=compact`, prefer `continuation` because duplicate guidance blocks may be omitted.
+**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint, plus top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for low-token continuation. In `outputMode=compact`, prefer `continuation` because duplicate guidance blocks may be omitted.
 
 **Parameters:**
 
@@ -701,7 +701,7 @@ so returned values have to JSON-serializable.
 
 **Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
 
-**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, `artifacts`, `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, and `continuation`; `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template. In `outputMode=compact`, duplicate guidance blocks may be trimmed while `continuation` remains available.
+**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, `artifacts`, `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation`; `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template. In `outputMode=compact`, duplicate guidance blocks may be trimmed while `continuation` remains available.
 
 **Parameters:**
 
