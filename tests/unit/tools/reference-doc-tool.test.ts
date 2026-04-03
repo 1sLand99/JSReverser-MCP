@@ -120,4 +120,22 @@ describe('reference doc tools', () => {
     const recommendedDocs = payload.recommendedDocs as Array<Record<string, unknown>>;
     assert.ok(recommendedDocs.some((item) => item.docId === 'algorithm-upgrade-template'));
   });
+
+  it('tool reference includes startup diagnostics and workflow guidance tools', async () => {
+    const response = makeResponse();
+
+    await getReference.handler({
+      params: {
+        mode: 'doc',
+        docId: 'tool-reference',
+      },
+    } as Parameters<typeof getReference.handler>[0], response as unknown as Parameters<typeof getReference.handler>[1], {} as Parameters<typeof getReference.handler>[2]);
+
+    const payload = extractFirstJsonBlock(response.lines);
+    assert.ok(typeof payload.content === 'string');
+    const content = payload.content as string;
+    assert.ok(content.includes('diagnose_environment'));
+    assert.ok(content.includes('recommend_next_step'));
+    assert.ok(content.includes('explain_reverse_stage'));
+  });
 });

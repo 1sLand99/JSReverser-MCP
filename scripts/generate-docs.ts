@@ -10,6 +10,7 @@ import {cliOptions} from '../build/src/cli.js';
 import {ToolCategory, labels} from '../build/src/tools/categories.js';
 import * as consoleTools from '../build/src/tools/console.js';
 import * as debuggerTools from '../build/src/tools/debugger.js';
+import * as diagnosticsTools from '../build/src/tools/diagnostics.js';
 import * as networkTools from '../build/src/tools/network.js';
 import * as pagesTools from '../build/src/tools/pages.js';
 import * as screenshotTools from '../build/src/tools/screenshot.js';
@@ -21,6 +22,10 @@ import * as jshookHookTools from '../build/src/tools/hook.js';
 import * as jshookStealthTools from '../build/src/tools/stealth.js';
 import * as jshookDomTools from '../build/src/tools/dom.js';
 import * as jshookPageTools from '../build/src/tools/page.js';
+import * as advisorTools from '../build/src/tools/advisor.js';
+import * as orchestratorTools from '../build/src/tools/orchestrator.js';
+import * as taskTools from '../build/src/tools/task.js';
+import * as taskManagerTools from '../build/src/tools/task-manager.js';
 import * as workflowTools from '../build/src/tools/workflows.js';
 
 const OUTPUT_PATH = './docs/reference/tool-reference.md';
@@ -37,6 +42,7 @@ function allTools(): ToolDef[] {
   return [
     ...Object.values(consoleTools),
     ...Object.values(debuggerTools),
+    ...Object.values(diagnosticsTools),
     ...Object.values(networkTools),
     ...Object.values(pagesTools),
     ...Object.values(screenshotTools),
@@ -48,6 +54,10 @@ function allTools(): ToolDef[] {
     ...Object.values(jshookStealthTools),
     ...Object.values(jshookDomTools),
     ...Object.values(jshookPageTools),
+    ...Object.values(advisorTools),
+    ...Object.values(orchestratorTools),
+    ...Object.values(taskTools),
+    ...Object.values(taskManagerTools),
     ...Object.values(workflowTools),
   ] as ToolDef[];
 }

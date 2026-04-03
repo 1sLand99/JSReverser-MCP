@@ -21,10 +21,12 @@ import {
   SetLevelRequestSchema,
 } from './third_party/index.js';
 import * as jshookAnalyzerTools from './tools/analyzer.js';
+import * as advisorTools from './tools/advisor.js';
 import {ToolCategory} from './tools/categories.js';
 import * as jshookCollectorTools from './tools/collector.js';
 import * as consoleTools from './tools/console.js';
 import * as debuggerTools from './tools/debugger.js';
+import * as diagnosticsTools from './tools/diagnostics.js';
 import * as jshookDomTools from './tools/dom.js';
 import * as jshookHookTools from './tools/hook.js';
 import * as frameTools from './tools/frames.js';
@@ -35,6 +37,9 @@ import * as jshookRebuildTools from './tools/rebuild.js';
 import * as screenshotTools from './tools/screenshot.js';
 import * as scriptTools from './tools/script.js';
 import * as jshookStealthTools from './tools/stealth.js';
+import * as orchestratorTools from './tools/orchestrator.js';
+import * as taskTools from './tools/task.js';
+import * as taskManagerTools from './tools/task-manager.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {ToolRegistry} from './tools/ToolRegistry.js';
 import * as websocketTools from './tools/websocket.js';
@@ -221,11 +226,16 @@ function asTools(module: object): ToolDefinition[] {
 const toolSources: Array<{source: string; tools: ToolDefinition[]}> = [
   {source: 'console', tools: asTools(consoleTools)},
   {source: 'debugger', tools: asTools(debuggerTools)},
+  {source: 'diagnostics', tools: asTools(diagnosticsTools)},
+  {source: 'advisor', tools: asTools(advisorTools)},
   {source: 'frames', tools: asTools(frameTools)},
   {source: 'network', tools: asTools(networkTools)},
   {source: 'pages', tools: asTools(pagesTools)},
   {source: 'screenshot', tools: asTools(screenshotTools)},
   {source: 'script', tools: asTools(scriptTools)},
+  {source: 'orchestrator', tools: asTools(orchestratorTools)},
+  {source: 'task', tools: asTools(taskTools)},
+  {source: 'taskManager', tools: asTools(taskManagerTools)},
   {source: 'jshookCollector', tools: asTools(jshookCollectorTools)},
   {source: 'jshookAnalyzer', tools: asTools(jshookAnalyzerTools)},
   {source: 'jshookHook', tools: asTools(jshookHookTools)},

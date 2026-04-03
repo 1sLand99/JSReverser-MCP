@@ -1,0 +1,39 @@
+import {orchestrateReverseTask} from '../reverse/ReverseTaskOrchestrator.js';
+import {zod} from '../third_party/index.js';
+
+import {ToolCategory} from './categories.js';
+import {defineTool} from './ToolDefinition.js';
+import {getJSHookRuntime} from './runtime.js';
+
+export const orchestrateReverseTaskTool = defineTool({
+  name: 'orchestrate_reverse_task',
+  description: 'High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.',
+  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
+  schema: {
+    taskId: zod.string().min(1),
+    persistState: zod.boolean().optional(),
+    includeSummary: zod.boolean().optional(),
+    execute: zod.boolean().optional(),
+    resume: zod.boolean().optional(),
+    stopOnError: zod.boolean().optional(),
+    executionOverrides: zod.record(zod.string(), zod.object({
+      status: zod.enum(['ok', 'error']),
+      result: zod.string().optional(),
+      error: zod.string().optional(),
+    })).optional(),
+  },
+  handler: async (request, response) => {
+    const runtime = getJSHookRuntime();
+    const result = await orchestrateReverseTask(runtime.reverseTaskStore, request.params.taskId, {
+      persistState: request.params.persistState,
+      includeSummary: request.params.includeSummary,
+      execute: request.params.execute,
+      resume: request.params.resume,
+      stopOnError: request.params.stopOnError,
+      executionOverrides: request.params.executionOverrides,
+    });
+    response.appendResponseLine('```json');
+    response.appendResponseLine(JSON.stringify({ok: true, ...result}, null, 2));
+    response.appendResponseLine('```');
+  },
+});

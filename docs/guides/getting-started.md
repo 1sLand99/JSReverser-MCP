@@ -29,6 +29,16 @@ npm run start
 - 先熟悉工具列表
 - 暂时不需要复用已登录浏览器
 
+如果你想先做静态自检，可以直接运行：
+
+```bash
+node build/src/index.js --doctor
+```
+
+或在 MCP 里先调用：
+
+- `diagnose_environment`
+
 ## 3. 选择浏览器连接方式
 
 常见有两种：
@@ -50,13 +60,45 @@ npm run start
 
 ## 5. 建议的第一条验证命令
 
-连接成功后，优先验证下面几类工具：
+建议按下面顺序验证，而不是一上来就直接抓脚本或断点：
 
-- `list_pages`
-- `network_request`
-- `list_scripts`
+1. `diagnose_environment` 或 `node build/src/index.js --doctor`
+2. `check_browser_health`
+3. `start_reverse_task`
+4. `list_pages`
+5. `network_request`
+6. `list_scripts`
 
-能正常看到当前页面、请求和脚本，说明基础链路已经通了。
+如果上面这组都正常，说明：
+
+- 启动环境没明显问题
+- 浏览器链路已经通
+- 页面上下文可控
+- 可以开始进入 Observe 阶段
+
+建议在进入正式 Observe 前先初始化一次任务：
+
+- `start_reverse_task`
+- **默认就用 `manage_reverse_task`**，除初始化外，task 的查询、摘要、自动推进、状态更新、timeline 追加全部统一走它
+- 如果你想减少 tool 选择开销，可优先用 `manage_reverse_task`
+  - `action: "list"`：列任务
+  - `action: "get"`：看 task 快照
+  - `action: "summarize"`：看摘要
+  - `action: "progress"`：自动推进
+  - `action: "update"`：更新状态
+  - `action: "timeline"`：追加时间线
+- 如果你想先拿到一组主步骤，再决定是否执行，用 `orchestrate_reverse_task`；要直接执行就传 `execute=true`，需要摘要再加 `includeSummary=true`，建议保留 `persistState=true`，中断后用 `resume=true` 续跑
+- 如果你暂时不想走 MCP，也可以直接用统一 CLI：
+  - `jsreverser-mcp --manageReverseTask list`
+  - `jsreverser-mcp --manageReverseTask get --taskId <taskId>`
+  - `jsreverser-mcp --manageReverseTask summarize --taskId <taskId>`
+  - `jsreverser-mcp --manageReverseTask progress --taskId <taskId>`
+  - `jsreverser-mcp --orchestrateReverseTask <taskId>`
+  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --resume`
+  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --stopOnError=false`
+  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+- 编排 checkpoint、`orchestration-checkpoint.json` 结构，以及它和 `codex --resume` 的区别见 [docs/guides/reverse-task-orchestration.md](./reverse-task-orchestration.md)
+- `record_reverse_evidence` 用来把 hook / network / script 观察正式写回 artifact；它不负责编排，但会影响后续 summarize / progress / orchestration 的判断
 
 ## 6. 可选：查看内置参数蓝图库
 
@@ -123,3 +165,4 @@ GEMINI_CLI_PATH=gemini-cli
 - 要用 `understand_code`，建议先配一个 provider
 - `detect_crypto` 只有在传 `useAI=true` 时才会启用 AI 增强
 - `gemini` 没有 `GEMINI_API_KEY` 时，会尝试走本地 CLI
+- 现在相关工具响应里会额外给出 `aiRuntime`，告诉你当前是 provider 模式、CLI fallback，还是配置缺失

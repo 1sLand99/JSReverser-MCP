@@ -1,0 +1,47 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import assert from 'node:assert';
+import {mkdtemp, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {describe, it} from 'node:test';
+
+import {startReverseTask} from '../../../src/reverse/ReverseTaskBootstrap.js';
+import {summarizeReverseTask} from '../../../src/reverse/ReverseTaskSummary.js';
+import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
+
+describe('ReverseTaskSummary', () => {
+  it('returns a compact summary for one task', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-summary-'));
+    try {
+      const store = new ReverseTaskStore({rootDir});
+      const task = await startReverseTask(store, {
+        taskId: 'task-summary-001',
+        taskSlug: 'summary-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'summarize task',
+        currentSummary: '已确认目标请求',
+      });
+      const opened = await store.openTask({
+        taskId: 'task-summary-001',
+        slug: 'summary-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'summarize task',
+      });
+      await opened.appendLog('runtime-evidence', {source: 'hook', note: 'captured sign path'});
+
+      const result = await summarizeReverseTask(store, 'task-summary-001');
+      assert.strictEqual(result.taskId, 'task-summary-001');
+      assert.strictEqual(result.currentSummary, '已确认目标请求');
+      assert.ok(result.headline.includes('Observe'));
+      assert.ok(result.recentEvidence[0]?.includes('captured sign path'));
+      void task;
+    } finally {
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+});

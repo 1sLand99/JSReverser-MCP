@@ -8,6 +8,12 @@
 - 如果你要复用已经打开的浏览器，默认 remote debugging 地址使用 `http://127.0.0.1:9222`
 - 外部 AI 配置统一通过 MCP server 的 `env` 传入
 
+建议：
+
+- 配完 MCP server 后，先跑一次 `--doctor`
+- 接入 MCP 后，第一条工具调用优先用 `diagnose_environment`
+- 真正开始页面取证前，再用 `check_browser_health`
+
 ## 最常用完整模板
 
 如果你只是想先快速跑起来，推荐直接使用“接管已打开浏览器 + Gemini API”这一份：
@@ -60,6 +66,12 @@
     }
   }
 }
+```
+
+配完后建议先本地执行一次：
+
+```bash
+node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --doctor
 ```
 
 #### 接管已打开浏览器
@@ -172,6 +184,12 @@
 
 ```bash
 claude mcp add jsreverser-mcp node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
+```
+
+加完后建议先本地确认：
+
+```bash
+node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --doctor
 ```
 
 ### 推荐配置思路

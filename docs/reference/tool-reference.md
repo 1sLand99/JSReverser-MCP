@@ -4,9 +4,10 @@
 
 > 快速按逆向目标查工具，请先看：[`docs/reference/reverse-task-index.md`](./reverse-task-index.md)
 
-- **[Navigation automation](#navigation-automation)** (13 tools)
+- **[Navigation automation](#navigation-automation)** (14 tools)
   - [`check_browser_health`](#check_browser_health)
   - [`click_element`](#click_element)
+  - [`diagnose_environment`](#diagnose_environment)
   - [`find_clickable_elements`](#find_clickable_elements)
   - [`get_dom_structure`](#get_dom_structure)
   - [`get_performance_metrics`](#get_performance_metrics)
@@ -29,7 +30,7 @@
   - [`evaluate_script`](#evaluate_script)
   - [`inject_preload_script`](#inject_preload_script)
   - [`take_screenshot`](#take_screenshot)
-- **[JS Reverse Engineering](#js-reverse-engineering)** (44 tools)
+- **[JS Reverse Engineering](#js-reverse-engineering)** (52 tools)
   - [`analyze_target`](#analyze_target)
   - [`breakpoint`](#breakpoint)
   - [`collect_code`](#collect_code)
@@ -38,9 +39,11 @@
   - [`deobfuscate_code`](#deobfuscate_code)
   - [`detect_crypto`](#detect_crypto)
   - [`evaluate_on_callframe`](#evaluate_on_callframe)
+  - [`explain_reverse_stage`](#explain_reverse_stage)
   - [`export_session_report`](#export_session_report)
   - [`find_in_script`](#find_in_script)
   - [`get_hook_data`](#get_hook_data)
+  - [`get_parameter_workflow`](#get_parameter_workflow)
   - [`get_paused_info`](#get_paused_info)
   - [`get_reference`](#get_reference)
   - [`get_reference_route`](#get_reference_route)
@@ -52,11 +55,16 @@
   - [`inject_stealth`](#inject_stealth)
   - [`inspect_object`](#inspect_object)
   - [`list_hooks`](#list_hooks)
+  - [`list_parameter_workflows`](#list_parameter_workflows)
   - [`list_scripts`](#list_scripts)
   - [`list_stealth_features`](#list_stealth_features)
   - [`list_stealth_presets`](#list_stealth_presets)
+  - [`manage_reverse_task`](#manage_reverse_task)
   - [`monitor_events`](#monitor_events)
+  - [`orchestrate_reverse_task`](#orchestrate_reverse_task)
   - [`pause`](#pause)
+  - [`recommend_next_step`](#recommend_next_step)
+  - [`recommend_parameter_workflow`](#recommend_parameter_workflow)
   - [`record_reverse_evidence`](#record_reverse_evidence)
   - [`remove_hook`](#remove_hook)
   - [`resume`](#resume)
@@ -65,6 +73,7 @@
   - [`search_in_sources`](#search_in_sources)
   - [`set_breakpoint_on_text`](#set_breakpoint_on_text)
   - [`set_user_agent`](#set_user_agent)
+  - [`start_reverse_task`](#start_reverse_task)
   - [`step_into`](#step_into)
   - [`step_out`](#step_out)
   - [`step_over`](#step_over)
@@ -93,6 +102,10 @@
 
 - `pageIdx`
 - `selector`
+
+### `diagnose_environment`
+
+**Description:** Run static environment diagnostics for startup, AI provider setup, and artifact output paths.
 
 ### `find_clickable_elements`
 
@@ -417,6 +430,15 @@ so returned values have to JSON-serializable.
 - `expression`
 - `frameIndex`
 
+### `explain_reverse_stage`
+
+**Description:** Explain a reverse-engineering stage with goals, entry criteria, avoid list, and recommended tools.
+
+**Parameters:**
+
+- `stage`
+- `includeDocs`
+
 ### `export_session_report`
 
 **Description:** Export current reverse-engineering session as JSON or Markdown.
@@ -448,6 +470,14 @@ so returned values have to JSON-serializable.
 - `hookId`
 - `view`
 - `maxRecords`
+
+### `get_parameter_workflow`
+
+**Description:** Get one packaged parameter workflow by id or alias.
+
+**Parameters:**
+
+- `id`
 
 ### `get_paused_info`
 
@@ -560,6 +590,10 @@ so returned values have to JSON-serializable.
 
 **Description:** Lists all active function hooks.
 
+### `list_parameter_workflows`
+
+**Description:** List packaged parameter workflows that can guide reverse-engineering and rebuild steps.
+
 ### `list_scripts`
 
 **Description:** Lists all JavaScript scripts loaded in the current page. Returns script ID, URL, and source map information. Use this to find scripts before setting breakpoints or searching.
@@ -577,6 +611,32 @@ so returned values have to JSON-serializable.
 
 **Description:** List available stealth presets.
 
+### `manage_reverse_task`
+
+**Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline actions. Preferred task-management entry to reduce tool-selection overhead.
+
+**Parameters:**
+
+- `action`
+- `taskId`
+- `limit`
+- `timelineLimit`
+- `evidenceLimit`
+- `taskSlug`
+- `targetUrl`
+- `goal`
+- `currentStage`
+- `status`
+- `currentSummary`
+- `nextStepHint`
+- `successCriteria`
+- `stage`
+- `timelineAction`
+- `timelineStatus`
+- `result`
+- `next`
+- `detail`
+
 ### `monitor_events`
 
 **Description:** Monitors DOM events on a specified element or window. Events will be logged to console.
@@ -591,6 +651,20 @@ so returned values have to JSON-serializable.
 - `targetUrl`
 - `goal`
 
+### `orchestrate_reverse_task`
+
+**Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan. When `execute=true`, it can also execute the planned steps, persist an orchestration checkpoint, and continue from the saved plan with `resume=true`.
+
+**Parameters:**
+
+- `taskId`
+- `persistState`
+- `includeSummary`
+- `execute`
+- `resume`
+- `stopOnError`
+- `executionOverrides`
+
 ### `pause`
 
 **Description:** Pauses JavaScript execution at the current point. Use this to interrupt running code.
@@ -598,6 +672,32 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `pageIdx`
+
+### `recommend_next_step`
+
+**Description:** Recommend the next reverse-engineering action from lightweight workflow signals.
+
+**Parameters:**
+
+- `taskId`
+- `browserHealthy`
+- `pageReady`
+- `taskGoal`
+- `currentStage`
+- `taskStatus`
+- `hasTargetRequest`
+- `hookRecordCount`
+- `hasRebuildBundle`
+- `hasPassingRebuild`
+- `firstDivergenceKnown`
+
+### `recommend_parameter_workflow`
+
+**Description:** Recommend the closest packaged parameter workflow from a keyword, alias, or short natural-language query.
+
+**Parameters:**
+
+- `query`
 
 ### `record_reverse_evidence`
 
@@ -688,6 +788,21 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `userAgent`
+
+### `start_reverse_task`
+
+**Description:** Initialize a task artifact directory with task.json, state.json, report.md, and first timeline entry.
+
+**Parameters:**
+
+- `taskId`
+- `taskSlug`
+- `targetUrl`
+- `goal`
+- `currentStage`
+- `currentSummary`
+- `successCriteria`
+- `targetContext`
 
 ### `step_into`
 

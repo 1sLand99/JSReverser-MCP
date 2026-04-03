@@ -5,6 +5,22 @@
 一个把前端 JavaScript 逆向流程标准化的 MCP 服务。  
 目标不是只做页面调试，而是把页面观察、运行时采样、本地复现、补环境和证据沉淀串成一套可复用工作流。
 
+## 第一次启动建议
+
+如果你是第一次接触这个项目，建议先走这条最短路径：
+
+1. 启动服务
+2. 运行 `--doctor` 或 `diagnose_environment`
+3. 调 `check_browser_health`
+4. 再开始 `list_pages` / `network_request` / `list_scripts`
+
+这样可以先排除：
+
+- Node / build 问题
+- 浏览器连接问题
+- AI provider 配置问题
+- artifacts 目录问题
+
 ## 核心方法论
 
 本项目默认遵循以下方法论：
@@ -100,10 +116,43 @@
 补看页面运行状态、控制台输出和本地状态依赖。
 
 - `check_browser_health`：检查浏览器连接和当前页是否可控，适合作为起手验证。
+- `diagnose_environment`：静态检查启动环境、AI provider 和 artifacts 落点，适合作为真正的第一步。
 - `console_message`：统一查看 console 输出，支持 `action=list` 和 `action=get`。
 - `get_storage`：读取 cookie、`localStorage`、`sessionStorage`，确认状态依赖。
 - `evaluate_script`：在当前选中 frame 内执行一段函数，做小范围运行时验证。
 - `search_in_sources`：在所有已加载源码中搜索关键字，快速缩小可疑代码范围。
+
+### 阶段建议与下一步决策
+
+当你不想依赖外部 skill / playbook 时，可以先用这两个工具：
+
+- `recommend_next_step`：根据当前轻量信号给出下一步建议，避免过早断点或过早补环境。
+- `explain_reverse_stage`：解释当前阶段的目标、进入条件、禁止事项和推荐工具。
+
+### 任务初始化与状态管理
+
+如果你想把一次逆向任务变成可持续续跑的 artifact，优先用：
+
+- `start_reverse_task`：初始化 `task.json`、`state.json`、`report.md` 和首条 `timeline`
+- **默认入口就是 `manage_reverse_task`**：除初始化外，task 的 list / get / summarize / progress / update / timeline 全部统一走这个入口
+- `manage_reverse_task`：聚合 task 相关常用动作，减少模型在多个 task tools 之间来回选择的 token 开销
+  - `action: "list"`：查看所有 task 的阶段、状态、下一步和最近更新时间
+  - `action: "get"`：读取任务状态、目标上下文、最近 timeline 和 evidence 摘要
+  - `action: "summarize"`：把当前任务压缩成一页摘要，方便续跑前快速对齐上下文
+  - `action: "progress"`：根据最近 evidence / timeline / successCriteria 自动推断阶段、状态和下一步
+  - `action: "update"`：更新当前阶段、状态、摘要和成功判据
+  - `action: "timeline"`：显式追加一条 timeline，适合把“本轮动作 / 观察结果 / 下一步”写回 artifact
+- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑
+- CLI 也统一成一个 task 入口：
+  - `--manageReverseTask list`
+  - `--manageReverseTask get --taskId <taskId>`
+  - `--manageReverseTask summarize --taskId <taskId>`
+  - `--manageReverseTask progress --taskId <taskId>`
+  - `--orchestrateReverseTask <taskId>`
+  - `--orchestrateReverseTask <taskId> --execute --resume`
+  - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
+  - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+- 自动化编排的 checkpoint、CLI cheatsheet、失败分类对照表、`codex --resume` 协同方式见 [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
 
 说明：
 
@@ -128,7 +177,7 @@
 
 - `export_rebuild_bundle`：导出本地复现工程所需的入口、补环境和证据材料。
 - `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力。
-- `record_reverse_evidence`：把关键观察结果写入 task artifact，避免证据只留在对话里。
+- `record_reverse_evidence`：把 hook / network / script 的关键观察正式写回 task artifact，供后续 summarize / progress / orchestration 复用。
 
 ### 页面自动化
 
@@ -220,6 +269,12 @@ OPENAI_MODEL = "gpt-4o"
 npx -y jsreverser-mcp@latest
 ```
 
+如果你想先做启动自检：
+
+```bash
+npx -y jsreverser-mcp@latest --doctor
+```
+
 ### 2) 如果你要源码运行
 
 ```bash
@@ -290,6 +345,11 @@ args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 - 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
 - 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
 - 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- 启动自检：`--doctor` / `diagnose_environment`
+- 阶段建议：`recommend_next_step` / `explain_reverse_stage`
+- 任务状态：`start_reverse_task` / `manage_reverse_task`
+- 自动编排：`orchestrate_reverse_task`
+- 任务摘要：`manage_reverse_task`
 - 参数蓝图库：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
 - 参数蓝图贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
 - 工作流入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)

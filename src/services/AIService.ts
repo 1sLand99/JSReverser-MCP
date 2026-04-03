@@ -35,6 +35,14 @@ export interface AIResponse {
   usage?: TokenUsage;
 }
 
+export interface AIRuntimeStatus {
+  enabled: boolean;
+  provider: 'openai' | 'anthropic' | 'gemini';
+  mode: 'provider' | 'local-fallback' | 'configured-but-unavailable';
+  reason: string;
+  suggestion: string;
+}
+
 /**
  * Options for chat requests
  */

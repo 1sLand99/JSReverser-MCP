@@ -22,6 +22,24 @@ interface CliOptionsLike {
 }
 
 interface ParsedArgsLike {
+  doctor?: boolean;
+  manageReverseTask?: string;
+  orchestrateReverseTask?: string;
+  execute?: boolean;
+  resume?: boolean;
+  stopOnError?: boolean;
+  includeSummary?: boolean;
+  persistState?: boolean;
+  executionOverrides?: Record<string, {status: string; result?: string; error?: string}>;
+  reverseTaskLimit?: number;
+  reverseTimelineLimit?: number;
+  reverseEvidenceLimit?: number;
+  taskId?: string;
+  taskStage?: string;
+  taskStatus?: string;
+  timelineStage?: string;
+  timelineAction?: string;
+  timelineStatus?: string;
   browserUrl?: string;
   wsEndpoint?: string;
   wsHeaders?: Record<string, string>;
@@ -76,10 +94,85 @@ describe('cli extended coverage', () => {
 
   it('parseArguments applies stable channel default when launch target is absent', () => {
     const args = parseArguments('1.2.3', ['node', 'cli.js']) as ParsedArgsLike;
+    assert.strictEqual(args.doctor, false);
     assert.strictEqual(args.channel, 'stable');
     assert.strictEqual(args.headless, false);
     assert.strictEqual(args.isolated, false);
     assert.strictEqual(args.categoryNetwork, true);
+  });
+
+  it('parseArguments supports reverse task CLI switches', () => {
+    const parsed = parseArguments('1.2.3', [
+      'node',
+      'cli.js',
+      '--manageReverseTask',
+      'list',
+      '--reverseTaskLimit',
+      '5',
+      '--reverseTimelineLimit',
+      '7',
+      '--reverseEvidenceLimit',
+      '9',
+    ]) as ParsedArgsLike;
+
+    assert.strictEqual(parsed.manageReverseTask, 'list');
+    assert.strictEqual(parsed.reverseTaskLimit, 5);
+    assert.strictEqual(parsed.reverseTimelineLimit, 7);
+    assert.strictEqual(parsed.reverseEvidenceLimit, 9);
+  });
+
+  it('parseArguments supports manageReverseTask mutation flags', () => {
+    const parsed = parseArguments('1.2.3', [
+      'node',
+      'cli.js',
+      '--manageReverseTask',
+      'timeline',
+      '--taskId',
+      'task-1',
+      '--timelineStage',
+      'patch',
+      '--timelineAction',
+      'diff env',
+      '--timelineStatus',
+      'ok',
+    ]) as ParsedArgsLike;
+
+    assert.strictEqual(parsed.manageReverseTask, 'timeline');
+    assert.strictEqual(parsed.taskId, 'task-1');
+    assert.strictEqual(parsed.timelineStage, 'patch');
+    assert.strictEqual(parsed.timelineAction, 'diff env');
+    assert.strictEqual(parsed.timelineStatus, 'ok');
+  });
+
+
+
+  it('parseArguments supports orchestrateReverseTask execution flags', () => {
+    const parsed = parseArguments('1.2.3', [
+      'node',
+      'cli.js',
+      '--orchestrateReverseTask',
+      'task-42',
+      '--execute',
+      '--resume',
+      '--stopOnError=false',
+      '--includeSummary=false',
+      '--persistState=false',
+      '--executionOverrides',
+      '{"inject_hook":{"status":"ok","result":"done"}}',
+    ]) as ParsedArgsLike;
+
+    assert.strictEqual(parsed.orchestrateReverseTask, 'task-42');
+    assert.strictEqual(parsed.execute, true);
+    assert.strictEqual(parsed.resume, true);
+    assert.strictEqual(parsed.stopOnError, false);
+    assert.strictEqual(parsed.includeSummary, false);
+    assert.strictEqual(parsed.persistState, false);
+    assert.deepStrictEqual(parsed.executionOverrides, {
+      inject_hook: {
+        status: 'ok',
+        result: 'done',
+      },
+    });
   });
 
   it('parseArguments keeps explicit launch target without forcing channel', () => {

@@ -40,3 +40,44 @@ export interface ParameterWorkflowDocument {
     mutations: Array<Record<string, unknown>>;
   };
 }
+
+export type ReverseStage =
+  | 'Observe'
+  | 'Capture'
+  | 'Rebuild'
+  | 'Patch'
+  | 'DeepDive'
+  | 'PureExtraction'
+  | 'Port';
+
+export interface NextStepAdvisorInput {
+  taskId?: string;
+  browserHealthy?: boolean;
+  pageReady?: boolean;
+  taskGoal?: string;
+  currentStage?: ReverseStage | string;
+  taskStatus?: string;
+  hasTargetRequest?: boolean;
+  hookRecordCount?: number;
+  hasRebuildBundle?: boolean;
+  hasPassingRebuild?: boolean;
+  firstDivergenceKnown?: boolean;
+}
+
+export interface NextStepAdvice {
+  stage: ReverseStage;
+  confidence: number;
+  nextStep: string;
+  why: string;
+  alternatives: string[];
+  avoid: string[];
+}
+
+export interface ReverseStageGuideEntry {
+  stage: ReverseStage;
+  goal: string;
+  entryCriteria: string[];
+  avoid: string[];
+  recommendedTools: string[];
+  docRefs: string[];
+}

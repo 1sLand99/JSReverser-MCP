@@ -15,9 +15,13 @@ import assert from 'node:assert';
 import { describe, it, beforeEach, afterEach } from 'node:test';
 
 import {
+  getAIConfigStatus,
+  getAIRuntimeStatus,
   getDefaultLLMProvider,
   getAIConfig,
+  getArtifactsDirectory,
   getBrowserConfig,
+  getConfiguredAIProviders,
   getSystemConfig,
   validateConfig,
   getEnv,
@@ -212,6 +216,34 @@ describe('Configuration Management', () => {
       assert.ok(config.openai);
       assert.ok(config.anthropic);
       assert.ok(config.gemini);
+    });
+  });
+
+  describe('AI config status helpers', () => {
+    it('returns configured providers including gemini fallback', () => {
+      process.env.OPENAI_API_KEY = 'sk-test-key';
+
+      assert.deepStrictEqual(getConfiguredAIProviders(), ['openai', 'gemini']);
+    });
+
+    it('reports missing credentials for selected provider', () => {
+      process.env.DEFAULT_LLM_PROVIDER = 'openai';
+
+      const status = getAIConfigStatus();
+      assert.strictEqual(status.defaultProvider, 'openai');
+      assert.strictEqual(status.selectedProviderConfigured, false);
+      assert.match(status.selectedProviderReason, /OPENAI_API_KEY/);
+    });
+
+    it('returns artifacts directory', () => {
+      const artifactsDir = getArtifactsDirectory();
+      assert.ok(artifactsDir.endsWith('artifacts/tasks'));
+    });
+
+    it('reports local fallback runtime mode for default gemini cli path', () => {
+      const runtimeStatus = getAIRuntimeStatus();
+      assert.strictEqual(runtimeStatus.provider, 'gemini');
+      assert.strictEqual(runtimeStatus.mode, 'local-fallback');
     });
   });
 

@@ -5,6 +5,22 @@
 An MCP server that standardizes frontend JavaScript reverse-engineering workflows.
 The goal is not just page debugging. It is to connect page observation, runtime sampling, local reproduction, environment patching, and evidence capture into one reusable workflow.
 
+## First-run recommendation
+
+For a first successful run, use this order:
+
+1. Start the server
+2. Run `--doctor` or `diagnose_environment`
+3. Run `check_browser_health`
+4. Then continue with `list_pages`, `network_request`, and `list_scripts`
+
+This catches the most common setup issues early:
+
+- Node / build problems
+- browser connectivity problems
+- AI provider misconfiguration
+- artifacts directory issues
+
 ## Core Methodology
 
 This project follows these defaults:
@@ -100,10 +116,43 @@ Locate the target request and identify what triggers it.
 Inspect browser state, logs, and storage dependencies.
 
 - `check_browser_health`
+- `diagnose_environment`
 - `console_message` — unified console inspection with `action=list` and `action=get`
 - `get_storage`
 - `evaluate_script`
 - `search_in_sources`
+
+### Stage Guidance and Next-Step Advice
+
+If you do not want to rely on an external skill/playbook, start with:
+
+- `recommend_next_step`
+- `explain_reverse_stage`
+
+### Task Initialization and State Management
+
+For durable task artifacts and resumable work:
+
+- `start_reverse_task`
+- **Use `manage_reverse_task` as the default entry** for all list / get / summarize / progress / update / timeline task flows.
+- `manage_reverse_task`: aggregated reverse-task entry for list/get/summarize/progress/update/timeline flows
+  - `action: "list"`
+  - `action: "get"`
+  - `action: "summarize"`
+  - `action: "progress"`
+  - `action: "update"`
+  - `action: "timeline"`
+- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`
+- Task CLI shortcuts:
+  - `--manageReverseTask list`
+  - `--manageReverseTask get --taskId <taskId>`
+  - `--manageReverseTask summarize --taskId <taskId>`
+  - `--manageReverseTask progress --taskId <taskId>`
+  - `--orchestrateReverseTask <taskId>`
+  - `--orchestrateReverseTask <taskId> --execute --resume`
+  - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
+  - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+- See [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md) for the CLI cheatsheet, checkpoint behavior, failure classification table, and how it works with `codex --resume`.
 
 Notes:
 
@@ -128,7 +177,7 @@ Bring browser evidence back to a local Node workflow.
 
 - `export_rebuild_bundle`
 - `diff_env_requirements`
-- `record_reverse_evidence`
+- `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them.
 
 ### Page Automation
 
@@ -218,6 +267,12 @@ export JSREVERSER_ARTIFACTS_DIR=/your/path/artifacts/tasks
 
 ```bash
 npx -y jsreverser-mcp@latest
+```
+
+If you want a startup self-check first:
+
+```bash
+npx -y jsreverser-mcp@latest --doctor
 ```
 
 ### 2) If you want to run from source

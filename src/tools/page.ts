@@ -597,7 +597,10 @@ export const checkBrowserHealth = defineTool({
       });
     }
 
+    const status = !connected ? 'fail' : issues.length > 0 ? 'warn' : 'ok';
+
     const result = {
+      status,
       healthy: issues.length === 0,
       connected,
       pageReady,

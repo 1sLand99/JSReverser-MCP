@@ -8,6 +8,129 @@ import type {YargsOptions} from './third_party/index.js';
 import {yargs, hideBin} from './third_party/index.js';
 
 export const cliOptions = {
+  doctor: {
+    type: 'boolean',
+    description: 'Run startup diagnostics and exit.',
+    default: false,
+  },
+  manageReverseTask: {
+    type: 'string',
+    description: 'Unified reverse task CLI entry. Actions: list|get|summarize|progress|update|timeline.',
+  },
+
+  orchestrateReverseTask: {
+    type: 'string',
+    description: 'Run the reverse-task orchestrator for one task id.',
+  },
+  execute: {
+    type: 'boolean',
+    description: 'When used with --orchestrateReverseTask, execute the generated plan.',
+    default: false,
+  },
+  resume: {
+    type: 'boolean',
+    description: 'When used with --orchestrateReverseTask, resume from the saved checkpoint.',
+    default: false,
+  },
+  stopOnError: {
+    type: 'boolean',
+    description: 'When used with --orchestrateReverseTask, stop immediately after the first step failure.',
+    default: true,
+  },
+  includeSummary: {
+    type: 'boolean',
+    description: 'When used with --orchestrateReverseTask, include the post-run task summary in CLI output.',
+    default: true,
+  },
+  persistState: {
+    type: 'boolean',
+    description: 'When used with --orchestrateReverseTask, sync task state before planning/execution.',
+    default: true,
+  },
+  executionOverrides: {
+    type: 'string',
+    description: 'JSON object of execution overrides for orchestrated tool steps.',
+    coerce: (val: string | undefined) => {
+      if (!val) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(val);
+        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+          throw new Error('Overrides must be a JSON object');
+        }
+        return parsed as Record<string, {status: string; result?: string; error?: string}>;
+      } catch (error) {
+        throw new Error(`Invalid JSON for executionOverrides: ${(error as Error).message}`);
+      }
+    },
+  },
+  reverseTaskLimit: {
+    type: 'number',
+    description: 'Limit number of items when using --manageReverseTask list.',
+  },
+  reverseTimelineLimit: {
+    type: 'number',
+    description: 'Timeline item limit for reverse task query/summary CLI commands.',
+  },
+  reverseEvidenceLimit: {
+    type: 'number',
+    description: 'Evidence item limit for reverse task query/summary CLI commands.',
+  },
+  taskId: {
+    type: 'string',
+    description: 'Reverse task id for --manageReverseTask actions that target one task.',
+  },
+  taskSlug: {
+    type: 'string',
+    description: 'Optional reverse task slug for --manageReverseTask update/timeline.',
+  },
+  taskTargetUrl: {
+    type: 'string',
+    description: 'Optional reverse task target URL for --manageReverseTask update/timeline.',
+  },
+  taskGoal: {
+    type: 'string',
+    description: 'Optional reverse task goal for --manageReverseTask update/timeline.',
+  },
+  taskStage: {
+    type: 'string',
+    choices: ['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port'] as const,
+    description: 'Reverse task stage for --manageReverseTask update.',
+  },
+  taskStatus: {
+    type: 'string',
+    choices: ['active', 'blocked', 'partial', 'pass'] as const,
+    description: 'Reverse task status for --manageReverseTask update.',
+  },
+  taskSummary: {
+    type: 'string',
+    description: 'Reverse task summary for --manageReverseTask update.',
+  },
+  taskNextStep: {
+    type: 'string',
+    description: 'Reverse task next-step hint for --manageReverseTask update.',
+  },
+  timelineStage: {
+    type: 'string',
+    description: 'Timeline stage for --manageReverseTask timeline.',
+  },
+  timelineAction: {
+    type: 'string',
+    description: 'Timeline action for --manageReverseTask timeline.',
+  },
+  timelineStatus: {
+    type: 'string',
+    description: 'Timeline status for --manageReverseTask timeline.',
+  },
+  timelineResult: {
+    type: 'string',
+    description: 'Timeline result for --manageReverseTask timeline.',
+  },
+  timelineNext: {
+    type: 'string',
+    description: 'Timeline next hint for --manageReverseTask timeline.',
+  },
   listParameterWorkflows: {
     type: 'boolean',
     description: 'List packaged parameter workflows and exit.',
@@ -236,6 +359,116 @@ export async function executeKnowledgeCliCommand(
   args: Partial<CliArguments>,
   writeLine: (line: string) => void = (line) => console.log(line),
 ): Promise<boolean> {
+
+  if (args.orchestrateReverseTask) {
+    const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
+    const {orchestrateReverseTask} = await import('./reverse/ReverseTaskOrchestrator.js');
+    const store = new ReverseTaskStore();
+    const result = await orchestrateReverseTask(store, String(args.orchestrateReverseTask), {
+      execute: Boolean(args.execute),
+      resume: Boolean(args.resume),
+      stopOnError: args.stopOnError,
+      includeSummary: args.includeSummary,
+      persistState: args.persistState,
+      executionOverrides: args.executionOverrides as Record<string, {status: 'ok' | 'error'; result?: string; error?: string}> | undefined,
+    });
+    writeLine(JSON.stringify(result, null, 2));
+    return true;
+  }
+
+  if (args.manageReverseTask) {
+    const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
+    const {listReverseTasks} = await import('./reverse/ReverseTaskList.js');
+    const {getReverseTaskState} = await import('./reverse/ReverseTaskQuery.js');
+    const {summarizeReverseTask} = await import('./reverse/ReverseTaskSummary.js');
+    const {autoProgressReverseTask} = await import('./reverse/ReverseTaskAutoProgress.js');
+    const {appendReverseTimeline} = await import('./reverse/ReverseTaskTimeline.js');
+    const {updateReverseTaskState} = await import('./reverse/ReverseTaskState.js');
+
+    const store = new ReverseTaskStore();
+    const timelineLimit = Number(args.reverseTimelineLimit ?? 10);
+    const evidenceLimit = Number(args.reverseEvidenceLimit ?? 10);
+    const action = String(args.manageReverseTask);
+
+    if (action === 'list') {
+      const items = await listReverseTasks(store, {
+        limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
+      });
+      writeLine(JSON.stringify({action, items}, null, 2));
+      return true;
+    }
+
+    if (!args.taskId) {
+      throw new Error(`--taskId is required when --manageReverseTask=${action}`);
+    }
+
+    if (action === 'get') {
+      const result = await getReverseTaskState(store, String(args.taskId), {
+        timelineLimit,
+        evidenceLimit,
+      });
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'summarize') {
+      const result = await summarizeReverseTask(store, String(args.taskId), {
+        timelineLimit,
+        evidenceLimit,
+      });
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'progress') {
+      const result = await autoProgressReverseTask(store, String(args.taskId));
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'update') {
+      const result = await updateReverseTaskState(store, {
+        taskId: String(args.taskId),
+        taskSlug: args.taskSlug,
+        targetUrl: args.taskTargetUrl,
+        goal: args.taskGoal,
+        currentStage: args.taskStage,
+        status: args.taskStatus as 'active' | 'blocked' | 'partial' | 'pass' | undefined,
+        currentSummary: args.taskSummary,
+        nextStepHint: args.taskNextStep,
+      });
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'timeline') {
+      if (!args.timelineStage || !args.timelineAction || !args.timelineStatus) {
+        throw new Error('--timelineStage, --timelineAction, and --timelineStatus are required when --manageReverseTask=timeline');
+      }
+      const result = await appendReverseTimeline(store, {
+        taskId: String(args.taskId),
+        taskSlug: args.taskSlug,
+        targetUrl: args.taskTargetUrl,
+        goal: args.taskGoal,
+        stage: String(args.timelineStage),
+        action: String(args.timelineAction),
+        status: String(args.timelineStatus),
+        result: args.timelineResult,
+        next: args.timelineNext,
+      });
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    throw new Error(`Unsupported --manageReverseTask action: ${action}`);
+  }
+
+  if (args.doctor) {
+    const {runEnvironmentDiagnostics} = await import('./diagnostics/environment.js');
+    writeLine(JSON.stringify(runEnvironmentDiagnostics(), null, 2));
+    return true;
+  }
+
   const workflowModule = await import('./modules/workflows/ParameterWorkflowLibrary.js');
 
   if (args.listParameterWorkflows) {

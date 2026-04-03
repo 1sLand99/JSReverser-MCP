@@ -9,7 +9,12 @@ import { AIService } from '../services/AIService.js';
 import { OpenAIProvider } from '../services/OpenAIProvider.js';
 import { AnthropicProvider } from '../services/AnthropicProvider.js';
 import { GeminiProvider } from '../services/GeminiProvider.js';
-import { resolveDefaultEnvPath } from './projectPaths.js';
+import type {AIRuntimeStatus} from '../services/AIService.js';
+import {
+  resolveDefaultArtifactsTasksDir,
+  resolveDefaultEnvPath,
+  resolvePackageRoot,
+} from './projectPaths.js';
 
 // Load .env file if it exists
 const envPath = resolveDefaultEnvPath(import.meta.url);
@@ -21,6 +26,13 @@ if (existsSync(envPath)) {
  * LLM Provider types
  */
 export type LLMProvider = 'openai' | 'anthropic' | 'gemini';
+
+export interface AIConfigStatus {
+  defaultProvider: LLMProvider;
+  configuredProviders: LLMProvider[];
+  selectedProviderConfigured: boolean;
+  selectedProviderReason: string;
+}
 
 /**
  * AI Service Configuration
@@ -122,6 +134,124 @@ export function getAIConfig(): AIConfig | undefined {
   const hasAnyProvider = config.openai || config.anthropic || config.gemini;
   
   return hasAnyProvider ? config : undefined;
+}
+
+export function getConfiguredAIProviders(): LLMProvider[] {
+  const providers: LLMProvider[] = [];
+
+  if (process.env.OPENAI_API_KEY) {
+    providers.push('openai');
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    providers.push('anthropic');
+  }
+  if (process.env.GEMINI_API_KEY || process.env.GEMINI_CLI_PATH || true) {
+    providers.push('gemini');
+  }
+
+  return providers;
+}
+
+export function getAIConfigStatus(): AIConfigStatus {
+  const defaultProvider = getDefaultLLMProvider();
+  const configuredProviders = getConfiguredAIProviders();
+
+  if (defaultProvider === 'openai') {
+    return {
+      defaultProvider,
+      configuredProviders,
+      selectedProviderConfigured: Boolean(process.env.OPENAI_API_KEY),
+      selectedProviderReason: process.env.OPENAI_API_KEY
+        ? 'OPENAI_API_KEY is configured.'
+        : 'DEFAULT_LLM_PROVIDER=openai but OPENAI_API_KEY is missing.',
+    };
+  }
+
+  if (defaultProvider === 'anthropic') {
+    return {
+      defaultProvider,
+      configuredProviders,
+      selectedProviderConfigured: Boolean(process.env.ANTHROPIC_API_KEY),
+      selectedProviderReason: process.env.ANTHROPIC_API_KEY
+        ? 'ANTHROPIC_API_KEY is configured.'
+        : 'DEFAULT_LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is missing.',
+    };
+  }
+
+  const geminiCliPath = process.env.GEMINI_CLI_PATH || 'gemini-cli';
+  const hasGeminiConfig = Boolean(process.env.GEMINI_API_KEY || geminiCliPath);
+  return {
+    defaultProvider,
+    configuredProviders,
+    selectedProviderConfigured: hasGeminiConfig,
+    selectedProviderReason: process.env.GEMINI_API_KEY
+      ? 'GEMINI_API_KEY is configured.'
+      : `Gemini will use CLI fallback at ${geminiCliPath}.`,
+  };
+}
+
+export function getArtifactsDirectory(): string {
+  return resolveDefaultArtifactsTasksDir(import.meta.url);
+}
+
+export function getPackageRootDirectory(): string {
+  return resolvePackageRoot(import.meta.url);
+}
+
+export function getAIRuntimeStatus(): AIRuntimeStatus {
+  const status = getAIConfigStatus();
+
+  if (status.defaultProvider === 'openai') {
+    return status.selectedProviderConfigured
+      ? {
+          enabled: true,
+          provider: 'openai',
+          mode: 'provider',
+          reason: 'OpenAI provider is configured and ready.',
+          suggestion: 'No action required.',
+        }
+      : {
+          enabled: false,
+          provider: 'openai',
+          mode: 'configured-but-unavailable',
+          reason: 'DEFAULT_LLM_PROVIDER=openai but OPENAI_API_KEY is missing.',
+          suggestion: 'Set OPENAI_API_KEY or switch DEFAULT_LLM_PROVIDER to another configured provider.',
+        };
+  }
+
+  if (status.defaultProvider === 'anthropic') {
+    return status.selectedProviderConfigured
+      ? {
+          enabled: true,
+          provider: 'anthropic',
+          mode: 'provider',
+          reason: 'Anthropic provider is configured and ready.',
+          suggestion: 'No action required.',
+        }
+      : {
+          enabled: false,
+          provider: 'anthropic',
+          mode: 'configured-but-unavailable',
+          reason: 'DEFAULT_LLM_PROVIDER=anthropic but ANTHROPIC_API_KEY is missing.',
+          suggestion: 'Set ANTHROPIC_API_KEY or switch DEFAULT_LLM_PROVIDER to another configured provider.',
+        };
+  }
+
+  return process.env.GEMINI_API_KEY
+    ? {
+        enabled: true,
+        provider: 'gemini',
+        mode: 'provider',
+        reason: 'Gemini API provider is configured and ready.',
+        suggestion: 'No action required.',
+      }
+    : {
+        enabled: false,
+        provider: 'gemini',
+        mode: 'local-fallback',
+        reason: `Gemini API key is not configured; the server will rely on CLI fallback at ${process.env.GEMINI_CLI_PATH || 'gemini-cli'}.`,
+        suggestion: 'Set GEMINI_API_KEY for stronger AI analysis or ensure GEMINI_CLI_PATH is installed.',
+      };
 }
 
 /**

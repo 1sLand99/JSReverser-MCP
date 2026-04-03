@@ -10,10 +10,22 @@ import {fileURLToPath} from 'node:url';
 
 import {zod} from '../third_party/index.js';
 import {TokenBudgetManager} from '../utils/TokenBudgetManager.js';
+import {getAIRuntimeStatus} from '../utils/config.js';
 
 import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
 import {defineTool} from './ToolDefinition.js';
+
+function withAIRuntime<T>(result: T): T & {aiRuntime: ReturnType<typeof getAIRuntimeStatus>} {
+  const aiRuntime = getAIRuntimeStatus();
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return {result, aiRuntime} as unknown as T & {aiRuntime: ReturnType<typeof getAIRuntimeStatus>};
+  }
+  return {
+    ...(result as Record<string, unknown>),
+    aiRuntime,
+  } as T & {aiRuntime: ReturnType<typeof getAIRuntimeStatus>};
+}
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BUILD_DIR = path.resolve(MODULE_DIR, '..', '..');
@@ -387,7 +399,7 @@ export const deobfuscateCode = defineTool({
     const runtime = getJSHookRuntime();
     const result = await runtime.deobfuscator.deobfuscate(request.params);
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
+    response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));
     response.appendResponseLine('```');
   },
 });
@@ -404,7 +416,7 @@ export const understandCode = defineTool({
     const runtime = getJSHookRuntime();
     const result = await runtime.analyzer.understand(request.params);
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
+    response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));
     response.appendResponseLine('```');
   },
 });
@@ -468,7 +480,11 @@ export const detectCrypto = defineTool({
     const runtime = getJSHookRuntime();
     const result = await runtime.cryptoDetector.detect(request.params);
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
+    response.appendResponseLine(JSON.stringify(
+      request.params.useAI ? withAIRuntime(result) : result,
+      null,
+      2,
+    ));
     response.appendResponseLine('```');
   },
 });
@@ -1276,7 +1292,7 @@ export const analyzeTarget = defineTool({
     const result = await runAnalyzeTargetWorkflow(runtime, request.params);
 
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
+    response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));
     response.appendResponseLine('```');
   },
 });
@@ -1396,7 +1412,7 @@ export const riskPanel = defineTool({
     };
 
     response.appendResponseLine('```json');
-    response.appendResponseLine(JSON.stringify(result, null, 2));
+    response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));
     response.appendResponseLine('```');
   },
 });
