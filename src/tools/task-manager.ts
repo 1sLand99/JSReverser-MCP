@@ -11,149 +11,12 @@ import {updateReverseTaskState} from '../reverse/ReverseTaskState.js';
 import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
+import {buildManageContinuation, buildManageSummaryText, buildTaskDiagnostics, compactManagePayload, type OutputMode} from './response-builder.js';
 import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
 
 const stageSchema = zod.enum(['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port']);
-type OutputMode = 'compact' | 'verbose';
-type AgentOutcome = 'success' | 'partial' | 'blocked';
 const taskArtifacts = ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'];
-
-function inferBlockedBy(status: unknown): string | undefined {
-  if (status === 'blocked') {
-    return 'task_state';
-  }
-  return undefined;
-}
-
-function compactManagePayload(
-  action: string,
-  payload: Record<string, unknown>,
-  outputMode: OutputMode,
-): Record<string, unknown> {
-  if (outputMode !== 'compact') {
-    return payload;
-  }
-  if (action === 'get') {
-    const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, targetContext: _targetContext, ...rest} = payload;
-    return rest;
-  }
-  if (action === 'summarize') {
-    const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, reasoning: _reasoning, signals: _signals, ...rest} = payload;
-    return rest;
-  }
-  return payload;
-}
-
-function buildManageDiagnostics(action: string, outputMode: OutputMode, taskId?: string): Record<string, unknown> {
-  return {
-    responseStatus: 'ok',
-    action,
-    outputMode,
-    ...(taskId ? {taskId} : {}),
-  };
-}
-
-function buildManageSummary(action: string, payload: Record<string, unknown>): string {
-  if (action === 'list') {
-    return `已返回 ${(payload.items as unknown[] | undefined)?.length ?? 0} 个 reverse task。`;
-  }
-  if (action === 'search') {
-    return `已返回 ${(payload.items as unknown[] | undefined)?.length ?? 0} 个搜索命中。`;
-  }
-  if (action === 'get' || action === 'summarize') {
-    return `已返回任务 ${String(payload.taskId ?? '')} 的 ${action === 'get' ? '快照' : '摘要'}。`;
-  }
-  if (action === 'compare') {
-    return `已完成任务 ${String(payload.leftTaskId ?? '')} 与 ${String(payload.rightTaskId ?? '')} 的对比。`;
-  }
-  return `已完成 ${action} 动作。`;
-}
-
-function inferOutcomeFromStatus(status: unknown): AgentOutcome {
-  if (status === 'blocked') {
-    return 'blocked';
-  }
-  if (status === 'partial') {
-    return 'partial';
-  }
-  return 'success';
-}
-
-function buildManageContinuationFields(
-  action: string,
-  payload: Record<string, unknown>,
-): {
-  outcome: AgentOutcome;
-  shouldResume: boolean;
-  shouldSwitchStrategy: boolean;
-  nextBestTool?: string;
-  nextBestParams?: Record<string, unknown>;
-  errorCode?: string;
-  errorType?: string;
-  retryable?: boolean;
-  blockedBy?: string;
-} {
-  const hints = payload.agentGuidance as
-    | {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string}
-    | undefined;
-  const status = payload.status
-    ?? (payload.state && typeof payload.state === 'object' ? (payload.state as Record<string, unknown>).status : undefined);
-  const outcome = action === 'get' || action === 'summarize' || action === 'progress' || action === 'update'
-    ? inferOutcomeFromStatus(status)
-    : 'success';
-  return {
-    outcome,
-    shouldResume: Boolean(action === 'progress' && outcome !== 'blocked' && hints?.recommendedTool),
-    shouldSwitchStrategy: ['rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'].includes(String(hints?.recommendedStrategy ?? '')),
-    ...(hints?.recommendedTool ? {nextBestTool: hints.recommendedTool} : {}),
-    ...(hints?.recommendedParams ? {nextBestParams: hints.recommendedParams} : {}),
-    ...(outcome === 'blocked' ? {errorCode: 'task_blocked', errorType: 'task_blocked', retryable: false, blockedBy: inferBlockedBy(status)} : {}),
-  };
-}
-
-function buildManageContinuation(
-  action: string,
-  payload: Record<string, unknown>,
-): {
-  outcome: AgentOutcome;
-  shouldResume: boolean;
-  shouldSwitchStrategy: boolean;
-  nextBestTool?: string;
-  nextBestParams?: Record<string, unknown>;
-  errorCode?: string;
-  errorType?: string;
-  retryable?: boolean;
-  blockedBy?: string;
-  detailLevel: 'minimal' | 'standard';
-  continuation: {
-    ready: boolean;
-    reason: string;
-    tool?: string;
-    params?: Record<string, unknown>;
-    strategy?: string;
-    resumeCommand?: string;
-    actionKey?: string;
-  };
-} {
-  const fields = buildManageContinuationFields(action, payload);
-  const hints = payload.agentGuidance as
-    | {summary?: string; recommendedStrategy?: string; resumeHint?: string}
-    | undefined;
-  return {
-    ...fields,
-    continuation: {
-      ready: fields.outcome !== 'blocked',
-      reason: hints?.summary ?? buildManageSummary(action, payload),
-      ...(fields.nextBestTool ? {tool: fields.nextBestTool} : {}),
-      ...(fields.nextBestParams ? {params: fields.nextBestParams} : {}),
-      ...(hints?.recommendedStrategy ? {strategy: hints.recommendedStrategy} : {}),
-      ...(hints?.resumeHint ? {resumeCommand: hints.resumeHint} : {}),
-      ...(fields.nextBestTool ? {actionKey: fields.nextBestTool} : {}),
-    },
-    detailLevel: 'standard',
-  };
-}
 
 export const manageReverseTaskTool = defineTool({
   name: 'manage_reverse_task',
@@ -215,9 +78,9 @@ export const manageReverseTaskTool = defineTool({
     const writeJson = (payload: Record<string, unknown>) => {
       response.appendResponseLine('```json');
       response.appendResponseLine(JSON.stringify(compactManagePayload(action, {
-        responseSummary: buildManageSummary(action, payload),
-        diagnostics: buildManageDiagnostics(action, outputMode, typeof payload.taskId === 'string' ? payload.taskId : undefined),
-        ...buildManageContinuation(action, payload),
+        responseSummary: buildManageSummaryText(action, payload),
+        diagnostics: buildTaskDiagnostics(action, outputMode, typeof payload.taskId === 'string' ? payload.taskId : undefined),
+        ...buildManageContinuation(action, payload, buildManageSummaryText(action, payload)),
         ...payload,
         outputMode,
       }, outputMode), null, 2));

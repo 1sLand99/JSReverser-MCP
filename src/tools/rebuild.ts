@@ -12,6 +12,7 @@ import type {CodeFile} from '../types/index.js';
 import {buildRebuildHealthAgentHints} from '../reverse/ReverseTaskAgentProtocol.js';
 
 import {ToolCategory} from './categories.js';
+import {buildRebuildContinuation} from './response-builder.js';
 import {getJSHookRuntime} from './runtime.js';
 import {defineTool} from './ToolDefinition.js';
 
@@ -509,13 +510,12 @@ export const getRebuildHealthReport = defineTool({
     const outputMode = request.params.outputMode ?? 'verbose';
 
     response.appendResponseLine('```json');
-    const outcome = status === 'blocked'
-      ? 'blocked'
-      : analyzed.missingCapabilities.length > 0 || analyzed.patchSuggestions.length > 0
-        ? 'partial'
-        : 'success';
-    const nextBestTool = agentHints.recommendedTool;
-    const nextBestParams = agentHints.recommendedParams;
+    const continuation = buildRebuildContinuation({
+      status,
+      missingCapabilitiesCount: analyzed.missingCapabilities.length,
+      patchSuggestionCount: analyzed.patchSuggestions.length,
+      agentGuidance: agentHints,
+    });
     response.appendResponseLine(JSON.stringify({
       taskId: request.params.taskId,
       outputMode,
@@ -526,22 +526,7 @@ export const getRebuildHealthReport = defineTool({
         taskId: request.params.taskId,
         hasPatchSuggestions: analyzed.patchSuggestions.length > 0,
       },
-      outcome,
-      shouldResume: analyzed.missingCapabilities.length === 0 && status !== 'blocked',
-      shouldSwitchStrategy: analyzed.patchSuggestions.length > 0,
-      ...(status === 'blocked' ? {errorCode: 'task_blocked', errorType: 'task_blocked', retryable: false, blockedBy: 'task_state'} : {}),
-      detailLevel: 'standard',
-      ...(nextBestTool ? {nextBestTool} : {}),
-      ...(nextBestParams ? {nextBestParams} : {}),
-      continuation: {
-        ready: outcome !== 'blocked',
-        reason: agentHints.summary,
-        ...(nextBestTool ? {tool: nextBestTool} : {}),
-        ...(nextBestParams ? {params: nextBestParams} : {}),
-        ...(agentHints.recommendedStrategy ? {strategy: agentHints.recommendedStrategy} : {}),
-        ...(agentHints.resumeHint ? {resumeCommand: agentHints.resumeHint} : {}),
-        ...(nextBestTool ? {actionKey: nextBestTool} : {}),
-      },
+      ...continuation,
       currentStage,
       status: agentHints.status === 'ok' ? status : agentHints.status,
       currentSummary,

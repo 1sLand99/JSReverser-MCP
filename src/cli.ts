@@ -6,6 +6,14 @@
 
 import type {YargsOptions} from './third_party/index.js';
 import {yargs, hideBin} from './third_party/index.js';
+import {
+  buildManageContinuation,
+  buildManageSummaryText,
+  buildOrchestrationContinuation,
+  buildTaskDiagnostics,
+  compactManagePayload,
+  type OutputMode,
+} from './tools/response-builder.js';
 
 export const cliOptions = {
   doctor: {
@@ -411,176 +419,6 @@ export async function executeKnowledgeCliCommand(
   args: Partial<CliArguments>,
   writeLine: (line: string) => void = (line) => console.log(line),
 ): Promise<boolean> {
-  type AgentOutcome = 'success' | 'partial' | 'blocked';
-  const inferBlockedBy = (statusOrFailure: unknown): string | undefined => {
-    if (statusOrFailure === 'blocked' || statusOrFailure === 'task_blocked') {
-      return 'task_state';
-    }
-    if (statusOrFailure === 'env_error') {
-      return 'environment';
-    }
-    if (statusOrFailure === 'external_error') {
-      return 'external_dependency';
-    }
-    if (statusOrFailure === 'validation_error') {
-      return 'input_validation';
-    }
-    if (statusOrFailure === 'tool_error') {
-      return 'tooling';
-    }
-    if (statusOrFailure === 'unknown') {
-      return 'unknown';
-    }
-    return undefined;
-  };
-  const compactManagePayload = (
-    action: string,
-    payload: Record<string, unknown>,
-    outputMode: 'compact' | 'verbose',
-  ): Record<string, unknown> => {
-    if (outputMode !== 'compact') {
-      return payload;
-    }
-    if (action === 'get') {
-      const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, targetContext: _targetContext, ...rest} = payload;
-      return rest;
-    }
-    if (action === 'summarize') {
-      const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, reasoning: _reasoning, signals: _signals, ...rest} = payload;
-      return rest;
-    }
-    return payload;
-  };
-  const inferOutcomeFromStatus = (status: unknown): AgentOutcome => {
-    if (status === 'blocked') {
-      return 'blocked';
-    }
-    if (status === 'partial') {
-      return 'partial';
-    }
-    return 'success';
-  };
-  const buildManageContinuationFields = (
-    action: string,
-    payload: Record<string, unknown>,
-  ): {
-    outcome: AgentOutcome;
-    shouldResume: boolean;
-    shouldSwitchStrategy: boolean;
-    nextBestTool?: string;
-    nextBestParams?: Record<string, unknown>;
-    errorCode?: string;
-    errorType?: string;
-    retryable?: boolean;
-    blockedBy?: string;
-  } => {
-    const hints = payload.agentGuidance as
-      | {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string}
-      | undefined;
-    const status = payload.status
-      ?? (payload.state && typeof payload.state === 'object' ? (payload.state as Record<string, unknown>).status : undefined);
-    const outcome = action === 'get' || action === 'summarize' || action === 'progress' || action === 'update'
-      ? inferOutcomeFromStatus(status)
-      : 'success';
-    return {
-      outcome,
-      shouldResume: Boolean(action === 'progress' && outcome !== 'blocked' && hints?.recommendedTool),
-      shouldSwitchStrategy: ['rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'].includes(String(hints?.recommendedStrategy ?? '')),
-      ...(hints?.recommendedTool ? {nextBestTool: hints.recommendedTool} : {}),
-      ...(hints?.recommendedParams ? {nextBestParams: hints.recommendedParams} : {}),
-      ...(outcome === 'blocked' ? {errorCode: 'task_blocked', errorType: 'task_blocked', retryable: false, blockedBy: inferBlockedBy('task_blocked')} : {}),
-    };
-  };
-  const buildManageContinuation = (
-    action: string,
-    payload: Record<string, unknown>,
-  ): ReturnType<typeof buildManageContinuationFields> & {
-    continuation: {
-      ready: boolean;
-      reason: string;
-      tool?: string;
-      params?: Record<string, unknown>;
-      strategy?: string;
-      resumeCommand?: string;
-      actionKey?: string;
-    };
-    detailLevel: 'minimal' | 'standard';
-  } => {
-    const fields = buildManageContinuationFields(action, payload);
-    const hints = payload.agentGuidance as
-      | {summary?: string; recommendedStrategy?: string; resumeHint?: string}
-      | undefined;
-    return {
-      ...fields,
-      continuation: {
-        ready: fields.outcome !== 'blocked',
-        reason: hints?.summary ?? '已生成下一步建议。',
-        ...(fields.nextBestTool ? {tool: fields.nextBestTool} : {}),
-        ...(fields.nextBestParams ? {params: fields.nextBestParams} : {}),
-        ...(hints?.recommendedStrategy ? {strategy: hints.recommendedStrategy} : {}),
-        ...(hints?.resumeHint ? {resumeCommand: hints.resumeHint} : {}),
-        ...(fields.nextBestTool ? {actionKey: fields.nextBestTool} : {}),
-      },
-      detailLevel: 'standard',
-    };
-  };
-  const buildOrchestrationContinuationFields = (result: {
-    fallbackPlan?: {steps: Array<{tool: string; params: Record<string, unknown>}>; recommendedStrategy?: string};
-    execution?: {failedStep?: unknown; recovery?: {shouldResume?: boolean}};
-    agentGuidance?: {summary?: string; recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string; resumeHint?: string};
-  }): {
-    outcome: AgentOutcome;
-    shouldResume: boolean;
-    shouldSwitchStrategy: boolean;
-    nextBestTool?: string;
-    nextBestParams?: Record<string, unknown>;
-    errorCode?: string;
-    errorType?: string;
-    retryable?: boolean;
-    blockedBy?: string;
-    continuation: {
-      ready: boolean;
-      reason: string;
-      tool?: string;
-      params?: Record<string, unknown>;
-      strategy?: string;
-      resumeCommand?: string;
-      actionKey?: string;
-    };
-    detailLevel: 'minimal' | 'standard';
-  } => {
-    const shouldResume = Boolean(result.execution?.recovery?.shouldResume);
-    const nextStep = result.fallbackPlan?.steps[0];
-    const failedStep = result.execution?.failedStep as {failureType?: string; retryable?: boolean} | undefined;
-    const outcome = result.execution?.failedStep
-      ? (shouldResume ? 'partial' : 'blocked')
-      : 'success';
-    const nextBestTool = nextStep?.tool ?? result.agentGuidance?.recommendedTool;
-    const nextBestParams = nextStep?.params ?? result.agentGuidance?.recommendedParams;
-    return {
-      outcome,
-      shouldResume,
-      shouldSwitchStrategy: Boolean(result.fallbackPlan?.recommendedStrategy),
-      ...(nextBestTool ? {nextBestTool} : {}),
-      ...(nextBestParams ? {nextBestParams} : {}),
-      ...(failedStep?.failureType ? {errorCode: failedStep.failureType, errorType: failedStep.failureType} : {}),
-      ...(failedStep?.retryable !== undefined ? {retryable: failedStep.retryable} : {}),
-      ...(inferBlockedBy(failedStep?.failureType) ? {blockedBy: inferBlockedBy(failedStep?.failureType)} : {}),
-      continuation: {
-        ready: outcome !== 'blocked',
-        reason: result.agentGuidance?.summary ?? '已生成下一步编排建议。',
-        ...(nextBestTool ? {tool: nextBestTool} : {}),
-        ...(nextBestParams ? {params: nextBestParams} : {}),
-        ...(result.fallbackPlan?.recommendedStrategy ?? result.agentGuidance?.recommendedStrategy
-          ? {strategy: result.fallbackPlan?.recommendedStrategy ?? result.agentGuidance?.recommendedStrategy}
-          : {}),
-        ...(result.agentGuidance?.resumeHint ? {resumeCommand: result.agentGuidance.resumeHint} : {}),
-        ...(nextBestTool ? {actionKey: nextBestTool} : {}),
-      },
-      detailLevel: 'standard',
-    };
-  };
-
   if (args.orchestrateReverseTask) {
     const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
     const {buildOrchestrationAgentHints} = await import('./reverse/ReverseTaskAgentProtocol.js');
@@ -616,9 +454,10 @@ export async function executeKnowledgeCliCommand(
         hasFallbackPlan: Boolean(result.fallbackPlan),
         executed: Boolean(result.execution?.executed),
       },
-      ...buildOrchestrationContinuationFields({
+      ...buildOrchestrationContinuation({
         fallbackPlan: result.fallbackPlan,
-        execution: result.execution,
+        failedStep: result.execution?.failedStep,
+        shouldResume: Boolean(result.execution?.recovery?.shouldResume),
         agentGuidance,
       }),
       ...result,
@@ -642,28 +481,7 @@ export async function executeKnowledgeCliCommand(
     const timelineLimit = Number(args.reverseTimelineLimit ?? 10);
     const evidenceLimit = Number(args.reverseEvidenceLimit ?? 10);
     const action = String(args.manageReverseTask);
-    const outputMode = (args.outputMode === 'compact' ? 'compact' : 'verbose') as 'compact' | 'verbose';
-    const buildManageDiagnostics = (taskId?: string) => ({
-      responseStatus: 'ok',
-      action,
-      outputMode,
-      ...(taskId ? {taskId} : {}),
-    });
-    const buildManageSummary = (payload: Record<string, unknown>) => {
-      if (action === 'list') {
-        return `已返回 ${(payload.items as unknown[] | undefined)?.length ?? 0} 个 reverse task。`;
-      }
-      if (action === 'search') {
-        return `已返回 ${(payload.items as unknown[] | undefined)?.length ?? 0} 个搜索命中。`;
-      }
-      if (action === 'get' || action === 'summarize') {
-        return `已返回任务 ${String(payload.taskId ?? '')} 的 ${action === 'get' ? '快照' : '摘要'}。`;
-      }
-      if (action === 'compare') {
-        return `已完成任务 ${String(payload.leftTaskId ?? '')} 与 ${String(payload.rightTaskId ?? '')} 的对比。`;
-      }
-      return `已完成 ${action} 动作。`;
-    };
+    const outputMode = (args.outputMode === 'compact' ? 'compact' : 'verbose') as OutputMode;
     validateReverseTaskActionInput({
       action,
       taskId: typeof args.taskId === 'string' ? args.taskId : undefined,
@@ -689,7 +507,8 @@ export async function executeKnowledgeCliCommand(
         includeArchived: Boolean(args.includeArchived),
       });
       const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
-      writeLine(JSON.stringify({responseSummary: `已返回 ${items.length} 个 reverse task。`, diagnostics: buildManageDiagnostics(), ...buildManageContinuation(action, {agentGuidance}), action, outputMode, items, artifacts: ['artifacts/tasks/<taskId>/'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, {items});
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['artifacts/tasks/<taskId>/'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -703,10 +522,11 @@ export async function executeKnowledgeCliCommand(
         taskId: result.taskId,
         nextStepHint: String((result.state?.nextStepHint ?? 'manage_reverse_task:progress')),
       });
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
       writeLine(JSON.stringify(compactManagePayload(action, {
-        responseSummary: buildManageSummary(result as unknown as Record<string, unknown>),
-        diagnostics: buildManageDiagnostics(result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>),
+        responseSummary: summaryText,
+        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
+        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
         action,
         outputMode,
         ...result,
@@ -728,10 +548,11 @@ export async function executeKnowledgeCliCommand(
         currentStage: result.currentStage,
         status: result.status,
       });
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
       writeLine(JSON.stringify(compactManagePayload(action, {
-        responseSummary: buildManageSummary(result as unknown as Record<string, unknown>),
-        diagnostics: buildManageDiagnostics(result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>),
+        responseSummary: summaryText,
+        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
+        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
         action,
         outputMode,
         ...result,
@@ -750,10 +571,11 @@ export async function executeKnowledgeCliCommand(
         currentStage: result.currentStage,
         status: result.status,
       });
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
       writeLine(JSON.stringify({
-        responseSummary: buildManageSummary(result as unknown as Record<string, unknown>),
-        diagnostics: buildManageDiagnostics(result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>),
+        responseSummary: summaryText,
+        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
+        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
         action,
         outputMode,
         ...result,
@@ -767,7 +589,8 @@ export async function executeKnowledgeCliCommand(
       const {archiveReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
       const result = await archiveReverseTask(store, String(args.taskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -775,7 +598,8 @@ export async function executeKnowledgeCliCommand(
       const {restoreReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
       const result = await restoreReverseTask(store, String(args.taskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -788,7 +612,8 @@ export async function executeKnowledgeCliCommand(
         limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
       });
       const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
-      writeLine(JSON.stringify({responseSummary: `已返回 ${items.length} 个搜索命中。`, diagnostics: buildManageDiagnostics(), ...buildManageContinuation(action, {agentGuidance}), action, outputMode, items, artifacts: ['task.json'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, {items});
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['task.json'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -801,7 +626,8 @@ export async function executeKnowledgeCliCommand(
         {replace: Boolean(args.replaceTags)},
       );
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -811,7 +637,8 @@ export async function executeKnowledgeCliCommand(
         olderThanDays: typeof args.pruneOlderThanDays === 'number' ? args.pruneOlderThanDays : undefined,
       });
       const agentGuidance = buildManageTaskAgentHints({action});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['artifacts/tasks/<archived-task-id>/'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['artifacts/tasks/<archived-task-id>/'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -819,10 +646,11 @@ export async function executeKnowledgeCliCommand(
       const {compareReverseTasks} = await import('./reverse/ReverseTaskCompare.js');
       const result = await compareReverseTasks(store, String(args.taskId), String(args.otherTaskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.leftTaskId, otherTaskId: result.rightTaskId});
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
       writeLine(JSON.stringify({
-        responseSummary: buildManageSummary(result as unknown as Record<string, unknown>),
-        diagnostics: buildManageDiagnostics(result.leftTaskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>),
+        responseSummary: summaryText,
+        diagnostics: buildTaskDiagnostics(action, outputMode, result.leftTaskId),
+        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
         action,
         outputMode,
         ...result,
@@ -844,7 +672,8 @@ export async function executeKnowledgeCliCommand(
         nextStepHint: args.taskNextStep,
       });
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['state.json', 'report.md'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['state.json', 'report.md'], agentGuidance}, null, 2));
       return true;
     }
 
@@ -861,7 +690,8 @@ export async function executeKnowledgeCliCommand(
         next: args.timelineNext,
       });
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      writeLine(JSON.stringify({responseSummary: buildManageSummary(result as unknown as Record<string, unknown>), diagnostics: buildManageDiagnostics(result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>), action, outputMode, ...result, artifacts: ['timeline.jsonl', 'report.md'], agentGuidance}, null, 2));
+      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
+      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['timeline.jsonl', 'report.md'], agentGuidance}, null, 2));
       return true;
     }
 

@@ -3,84 +3,9 @@ import {buildOrchestrationAgentHints} from '../reverse/ReverseTaskAgentProtocol.
 import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
+import {buildOrchestrationContinuation} from './response-builder.js';
 import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
-
-function inferBlockedBy(failureType: string | undefined): string | undefined {
-  if (failureType === 'env_error') {
-    return 'environment';
-  }
-  if (failureType === 'external_error') {
-    return 'external_dependency';
-  }
-  if (failureType === 'validation_error') {
-    return 'input_validation';
-  }
-  if (failureType === 'tool_error') {
-    return 'tooling';
-  }
-  if (failureType === 'unknown') {
-    return 'unknown';
-  }
-  return undefined;
-}
-
-function buildOrchestrationContinuationFields(result: {
-  fallbackPlan?: {steps: Array<{tool: string; params: Record<string, unknown>}>; recommendedStrategy?: string};
-  execution?: {failedStep?: {failureType?: string; retryable?: boolean; error?: string} | unknown; recovery?: {shouldResume?: boolean}};
-  agentGuidance?: {summary?: string; recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string; resumeHint?: string};
-}): {
-  outcome: 'success' | 'partial' | 'blocked';
-  shouldResume: boolean;
-  shouldSwitchStrategy: boolean;
-  nextBestTool?: string;
-  nextBestParams?: Record<string, unknown>;
-  errorCode?: string;
-  errorType?: string;
-  retryable?: boolean;
-  blockedBy?: string;
-  detailLevel: 'minimal' | 'standard';
-  continuation: {
-    ready: boolean;
-    reason: string;
-    tool?: string;
-    params?: Record<string, unknown>;
-    strategy?: string;
-    resumeCommand?: string;
-    actionKey?: string;
-  };
-} {
-  const shouldResume = Boolean(result.execution?.recovery?.shouldResume);
-  const nextStep = result.fallbackPlan?.steps[0];
-  const failedStep = result.execution?.failedStep as {failureType?: string; retryable?: boolean; error?: string} | undefined;
-  const outcome = result.execution?.failedStep
-    ? (shouldResume ? 'partial' : 'blocked')
-    : 'success';
-  const nextBestTool = nextStep?.tool ?? result.agentGuidance?.recommendedTool;
-  const nextBestParams = nextStep?.params ?? result.agentGuidance?.recommendedParams;
-  return {
-    outcome,
-    shouldResume,
-    shouldSwitchStrategy: Boolean(result.fallbackPlan?.recommendedStrategy),
-    ...(nextBestTool ? {nextBestTool} : {}),
-    ...(nextBestParams ? {nextBestParams} : {}),
-    ...(failedStep?.failureType ? {errorCode: failedStep.failureType, errorType: failedStep.failureType} : {}),
-    ...(failedStep?.retryable !== undefined ? {retryable: failedStep.retryable} : {}),
-    ...(inferBlockedBy(failedStep?.failureType) ? {blockedBy: inferBlockedBy(failedStep?.failureType)} : {}),
-    detailLevel: 'standard',
-    continuation: {
-      ready: outcome !== 'blocked',
-      reason: result.agentGuidance?.summary ?? '已生成下一步编排建议。',
-      ...(nextBestTool ? {tool: nextBestTool} : {}),
-      ...(nextBestParams ? {params: nextBestParams} : {}),
-      ...(result.fallbackPlan?.recommendedStrategy ?? result.agentGuidance?.recommendedStrategy
-        ? {strategy: result.fallbackPlan?.recommendedStrategy ?? result.agentGuidance?.recommendedStrategy}
-        : {}),
-      ...(result.agentGuidance?.resumeHint ? {resumeCommand: result.agentGuidance.resumeHint} : {}),
-      ...(nextBestTool ? {actionKey: nextBestTool} : {}),
-    },
-  };
-}
 
 export const orchestrateReverseTaskTool = defineTool({
   name: 'orchestrate_reverse_task',
@@ -138,9 +63,10 @@ export const orchestrateReverseTaskTool = defineTool({
         hasFallbackPlan: Boolean(result.fallbackPlan),
         executed: Boolean(result.execution?.executed),
       },
-      ...buildOrchestrationContinuationFields({
+      ...buildOrchestrationContinuation({
         fallbackPlan: result.fallbackPlan,
-        execution: result.execution,
+        failedStep: result.execution?.failedStep,
+        shouldResume: Boolean(result.execution?.recovery?.shouldResume),
         agentGuidance,
       }),
       ...result,
