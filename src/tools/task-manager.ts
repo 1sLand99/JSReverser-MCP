@@ -15,6 +15,26 @@ import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
 
 const stageSchema = zod.enum(['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port']);
+type OutputMode = 'compact' | 'verbose';
+
+function compactManagePayload(
+  action: string,
+  payload: Record<string, unknown>,
+  outputMode: OutputMode,
+): Record<string, unknown> {
+  if (outputMode !== 'compact') {
+    return payload;
+  }
+  if (action === 'get') {
+    const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, targetContext: _targetContext, ...rest} = payload;
+    return rest;
+  }
+  if (action === 'summarize') {
+    const {recentTimeline: _recentTimeline, recentEvidence: _recentEvidence, reasoning: _reasoning, signals: _signals, ...rest} = payload;
+    return rest;
+  }
+  return payload;
+}
 
 export const manageReverseTaskTool = defineTool({
   name: 'manage_reverse_task',
@@ -24,6 +44,7 @@ export const manageReverseTaskTool = defineTool({
     action: zod.enum(['list', 'get', 'summarize', 'progress', 'update', 'timeline', 'archive', 'restore', 'search', 'tag', 'prune', 'compare']),
     taskId: zod.string().min(1).optional(),
     otherTaskId: zod.string().min(1).optional(),
+    outputMode: zod.enum(['compact', 'verbose']).optional(),
     limit: zod.number().int().positive().optional(),
     timelineLimit: zod.number().int().positive().optional(),
     evidenceLimit: zod.number().int().positive().optional(),
@@ -56,6 +77,7 @@ export const manageReverseTaskTool = defineTool({
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();
     const {action} = request.params;
+    const outputMode = request.params.outputMode ?? 'verbose';
     const requireTaskId = (): string => {
       if (!request.params.taskId) {
         throw new Error(`taskId is required when action="${action}"`);
@@ -73,7 +95,10 @@ export const manageReverseTaskTool = defineTool({
     };
     const writeJson = (payload: Record<string, unknown>) => {
       response.appendResponseLine('```json');
-      response.appendResponseLine(JSON.stringify(payload, null, 2));
+      response.appendResponseLine(JSON.stringify(compactManagePayload(action, {
+        ...payload,
+        outputMode,
+      }, outputMode), null, 2));
       response.appendResponseLine('```');
     };
 

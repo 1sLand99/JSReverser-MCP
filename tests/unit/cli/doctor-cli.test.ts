@@ -98,6 +98,17 @@ describe('doctor cli', () => {
       assert.ok(Array.isArray(progressPayload.reasoning));
       assert.strictEqual(progressPayload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
 
+      const compactLines: string[] = [];
+      const compactHandled = await executeKnowledgeCliCommand(
+        {manageReverseTask: 'summarize', taskId: 'task-cli-001', outputMode: 'compact'},
+        (line) => compactLines.push(line),
+      );
+      assert.strictEqual(compactHandled, true);
+      const compactPayload = JSON.parse(compactLines[0]) as {outputMode?: string; recentTimeline?: unknown[]; recentEvidence?: unknown[]};
+      assert.strictEqual(compactPayload.outputMode, 'compact');
+      assert.strictEqual(compactPayload.recentTimeline, undefined);
+      assert.strictEqual(compactPayload.recentEvidence, undefined);
+
       await assert.rejects(
         () => executeKnowledgeCliCommand({manageReverseTask: 'search'}, () => undefined),
         /query or tag is required/,

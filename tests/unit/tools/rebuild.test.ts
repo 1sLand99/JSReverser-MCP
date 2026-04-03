@@ -192,6 +192,43 @@ describe('rebuild bridge tools', () => {
     }
   });
 
+  it('supports compact rebuild health output for agent callers', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-rebuild-health-compact-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+
+    try {
+      await startReverseTask(runtime.reverseTaskStore, {
+        taskId: 'task-health-compact-001',
+        taskSlug: 'health-compact-demo',
+        targetUrl: 'https://example.com/product',
+        goal: 'health compact report',
+        currentStage: 'Patch',
+        currentSummary: 'ReferenceError: window is not defined',
+      });
+
+      const response = makeResponse();
+      await getRebuildHealthReport.handler({
+        params: {
+          taskId: 'task-health-compact-001',
+          outputMode: 'compact',
+          observedCapabilities: ['window', 'document'],
+        },
+      } as Parameters<typeof getRebuildHealthReport.handler>[0], response as unknown as Parameters<typeof getRebuildHealthReport.handler>[1], {} as Parameters<typeof getRebuildHealthReport.handler>[2]);
+
+      const payload = extractFirstJsonBlock(response.lines);
+      assert.strictEqual(payload.outputMode, 'compact');
+      assert.strictEqual(payload.evidenceAggregates, undefined);
+      assert.strictEqual(payload.firstDivergence, undefined);
+      assert.deepStrictEqual(payload.missingCapabilities, ['window']);
+      assert.ok(payload.agentGuidance);
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
   it('auto-generates a rebuild bundle from observed page evidence and task logs', async () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-rebuild-auto-'));
     const runtime = getJSHookRuntime();

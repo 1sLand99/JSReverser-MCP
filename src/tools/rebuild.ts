@@ -484,6 +484,7 @@ export const getRebuildHealthReport = defineTool({
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
   schema: {
     taskId: zod.string(),
+    outputMode: zod.enum(['compact', 'verbose']).optional(),
     observedCapabilities: zod.array(zod.string()).default(['window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'crypto']),
   },
   handler: async (request, response) => {
@@ -505,15 +506,19 @@ export const getRebuildHealthReport = defineTool({
       observedCapabilities: request.params.observedCapabilities,
       hasPatchSuggestions: analyzed.patchSuggestions.length > 0,
     });
+    const outputMode = request.params.outputMode ?? 'verbose';
 
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify({
       taskId: request.params.taskId,
+      outputMode,
       currentStage,
       status: agentHints.status === 'ok' ? status : agentHints.status,
       currentSummary,
-      evidenceAggregates: state.evidenceAggregates,
-      firstDivergence: firstDivergence ?? null,
+      ...(outputMode === 'compact' ? {} : {
+        evidenceAggregates: state.evidenceAggregates,
+        firstDivergence: firstDivergence ?? null,
+      }),
       missingCapabilities: analyzed.missingCapabilities.map((item) => item.capability),
       patchSuggestions: analyzed.patchSuggestions,
       recommendedNextAction: agentHints.recommendedNextAction,

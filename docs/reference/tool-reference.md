@@ -635,6 +635,7 @@ so returned values have to JSON-serializable.
 - `action`
 - `taskId`
 - `otherTaskId`
+- `outputMode`
 - `limit`
 - `timelineLimit`
 - `evidenceLimit`
@@ -705,6 +706,7 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `taskId`
+- `outputMode`
 - `observedCapabilities`
 
 ### `pause`

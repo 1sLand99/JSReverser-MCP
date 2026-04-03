@@ -277,4 +277,60 @@ describe('manage_reverse_task tool', () => {
       },
     }, response as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]), /at least one mutable field is required/);
   });
+
+  it('supports compact output for get and summarize actions', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-manage-task-compact-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-manage-compact-001',
+          taskSlug: 'compact-demo',
+          targetUrl: 'https://example.com/api/sign',
+          goal: 'compact task tool',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/sign',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const getResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {action: 'get', taskId: 'task-manage-compact-001', outputMode: 'compact'},
+      }, getResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const getPayload = JSON.parse(getResponse.lines[1] ?? '{}') as {
+        outputMode?: string;
+        recentTimeline?: unknown[];
+        recentEvidence?: unknown[];
+        targetContext?: unknown;
+      };
+      assert.strictEqual(getPayload.outputMode, 'compact');
+      assert.strictEqual(getPayload.recentTimeline, undefined);
+      assert.strictEqual(getPayload.recentEvidence, undefined);
+      assert.strictEqual(getPayload.targetContext, undefined);
+
+      const summarizeResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {action: 'summarize', taskId: 'task-manage-compact-001', outputMode: 'compact'},
+      }, summarizeResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const summarizePayload = JSON.parse(summarizeResponse.lines[1] ?? '{}') as {
+        outputMode?: string;
+        recentTimeline?: unknown[];
+        recentEvidence?: unknown[];
+        reasoning?: unknown[];
+      };
+      assert.strictEqual(summarizePayload.outputMode, 'compact');
+      assert.strictEqual(summarizePayload.recentTimeline, undefined);
+      assert.strictEqual(summarizePayload.recentEvidence, undefined);
+      assert.strictEqual(summarizePayload.reasoning, undefined);
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
 });
