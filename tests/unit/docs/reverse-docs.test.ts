@@ -230,6 +230,8 @@ describe('reverse workflow docs', () => {
     assert.ok(gettingStarted.includes('evidenceAggregates'));
     assert.ok(quickReferenceGuide.includes('MCP agent 速查页'));
     assert.ok(quickReferenceGuide.includes('工具怎么选'));
+    assert.ok(quickReferenceGuide.includes('schemaVersion'));
+    assert.ok(quickReferenceGuide.includes('当前应为 `"1.0"`'));
     assert.ok(quickReferenceGuide.includes('响应先读什么'));
     assert.ok(quickReferenceGuide.includes('最小状态机'));
     assert.ok(quickReferenceGuide.includes('反模式'));
@@ -245,6 +247,8 @@ describe('reverse workflow docs', () => {
     assert.ok(quickReferenceGuide.includes('reverse-agent-schema-versioning.md'));
     assert.ok(autoResumeGuide.includes('MCP client 自动续跑示例'));
     assert.ok(autoResumeGuide.includes('runReverseLoop'));
+    assert.ok(autoResumeGuide.includes('schemaVersion?: string;'));
+    assert.ok(autoResumeGuide.includes('unsupported_schema_version'));
     assert.ok(autoResumeGuide.includes('missingRequiredParams'));
     assert.ok(autoResumeGuide.includes('outcome=blocked'));
     assert.ok(autoResumeGuide.includes('fallbackPlan'));

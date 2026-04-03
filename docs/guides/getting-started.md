@@ -82,6 +82,7 @@ node build/src/index.js --doctor
 - 如果你已经从 `network_request action=get` 锁定了目标请求，也可以直接用 `create_reverse_task_from_request` 起手，减少手工填写 targetContext
 - **默认就用 `manage_reverse_task`**，除初始化外，task 的查询、摘要、自动推进、状态更新、timeline 追加、archive / restore / search / tag / prune / compare 全部统一走它
 - 如果你想减少 tool 选择开销，可优先用 `manage_reverse_task`
+- 如果你是给大模型 / agent 接入，建议优先使用 `outputMode="compact"`，并先校验返回里的 `schemaVersion: "1.0"`
   - `action: "list"`：列任务
   - `action: "get"`：看 task 快照
   - `action: "summarize"`：看摘要
@@ -105,6 +106,9 @@ node build/src/index.js --doctor
   - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --stopOnError=false`
   - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
 - 编排 checkpoint、`orchestration-checkpoint.json` 结构，以及它和 `codex --resume` 的区别见 [docs/guides/reverse-task-orchestration.md](./reverse-task-orchestration.md)
+- 如果你是给大模型 / agent 接 MCP，先看一页版速查：[docs/guides/mcp-agent-quick-reference.md](./mcp-agent-quick-reference.md)
+- 如果你要自己写 Node.js / TypeScript client 自动续跑，可直接抄：[docs/guides/mcp-client-auto-resume-example.md](./mcp-client-auto-resume-example.md)
+- 如果你要按 machine-readable 契约做消费，可再配合 `docs/reference/*response.schema.json` 和 `docs/reference/reverse-agent-schema-versioning.md` 一起看
 - `record_reverse_evidence` 用来把 hook / network / script 观察正式写回 artifact；它不负责编排，但会影响后续 summarize / progress / orchestration 的判断。现在 `summarize` / `get` 还会返回 `evidenceAggregates`，方便快速看 top URLs、top functions 和 blockers；补环境前还可以直接调用 `get_rebuild_health_report`
 
 ## 6. 可选：查看内置参数蓝图库
