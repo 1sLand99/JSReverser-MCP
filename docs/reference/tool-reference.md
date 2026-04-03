@@ -628,7 +628,7 @@ so returned values have to JSON-serializable.
 
 **Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.
 
-**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`, plus `artifacts` for the main task files touched/read by the action. Also exposes top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for agent callers. `continuation.invoke` can be used as the direct next MCP call. In `outputMode=compact`, redundant next-step fields may be trimmed in favor of `continuation`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
+**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`, plus `artifacts` for the main task files touched/read by the action. Also exposes top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for agent callers. `continuation.invoke` can be used as the direct next MCP call, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, redundant next-step fields may be trimmed in favor of `continuation`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
 
 **Parameters:**
 
@@ -660,6 +660,54 @@ so returned values have to JSON-serializable.
 - `next`
 - `detail`
 
+**Compact response example (`manage_reverse_task:get`):**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "responseSummary": "已返回任务 task-demo-001 的快照。",
+  "diagnostics": {
+    "responseStatus": "ok",
+    "action": "get",
+    "outputMode": "compact",
+    "taskId": "task-demo-001"
+  },
+  "continuation": {
+    "invoke": {
+      "tool": "manage_reverse_task",
+      "params": {
+        "action": "progress",
+        "taskId": "task-demo-001"
+      }
+    },
+    "invokeHint": {
+      "requiredParams": ["action", "taskId"],
+      "example": {
+        "action": "progress",
+        "taskId": "task-demo-001"
+      }
+    }
+  }
+}
+```
+
+**Blocked response example:**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "outcome": "blocked",
+  "shouldResume": false,
+  "errorType": "task_blocked",
+  "retryable": false,
+  "blockedBy": "task_state",
+  "continuation": {
+    "ready": false,
+    "reason": "任务当前处于 blocked 状态，需先解除阻塞。"
+  }
+}
+```
+
 ### `monitor_events`
 
 **Description:** Monitors DOM events on a specified element or window. Events will be logged to console.
@@ -678,7 +726,7 @@ so returned values have to JSON-serializable.
 
 **Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.
 
-**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint, plus top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for low-token continuation. `continuation.invoke` can be executed directly. In `outputMode=compact`, prefer `continuation` because duplicate guidance blocks may be omitted.
+**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint, plus top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for low-token continuation. `continuation.invoke` can be executed directly, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, prefer `continuation` because duplicate guidance blocks may be omitted.
 
 **Parameters:**
 
@@ -697,17 +745,89 @@ so returned values have to JSON-serializable.
 
 **Failure note:** May also return `fallbackPlan` when execution fails and the orchestrator can suggest a safer next path. `fallbackPlan` may include `recommendedStrategy`.
 
+**Compact response example:**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "responseSummary": "已生成任务 task-demo-001 的 compact orchestration plan。",
+  "detailLevel": "minimal",
+  "continuation": {
+    "invoke": {
+      "tool": "export_rebuild_bundle",
+      "params": {
+        "taskId": "task-demo-001"
+      }
+    },
+    "invokeHint": {
+      "requiredParams": ["taskId"],
+      "example": {
+        "taskId": "task-demo-001"
+      }
+    }
+  }
+}
+```
+
+**Failure response example (`env_error`, resumable):**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "outcome": "partial",
+  "shouldResume": true,
+  "shouldSwitchStrategy": true,
+  "errorType": "env_error",
+  "retryable": true,
+  "blockedBy": "environment",
+  "continuation": {
+    "invoke": {
+      "tool": "diff_env_requirements",
+      "params": {
+        "runtimeError": "window is not defined",
+        "observedCapabilities": ["window", "document"]
+      }
+    }
+  }
+}
+```
+
 ### `get_rebuild_health_report`
 
 **Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
 
-**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, `artifacts`, `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation`; `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template. `continuation.invoke` can be executed directly. In `outputMode=compact`, duplicate guidance blocks may be trimmed while `continuation` remains available.
+**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, `artifacts`, `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation`; `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template. `continuation.invoke` can be executed directly, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, duplicate guidance blocks may be trimmed while `continuation` remains available.
 
 **Parameters:**
 
 - `taskId`
 - `outputMode`
 - `observedCapabilities`
+
+**Compact response example:**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "responseSummary": "已生成任务 task-demo-001 的 rebuild health report。",
+  "continuation": {
+    "invoke": {
+      "tool": "diff_env_requirements",
+      "params": {
+        "runtimeError": "window is not defined",
+        "observedCapabilities": ["window", "document"]
+      }
+    },
+    "invokeHint": {
+      "requiredParams": ["runtimeError", "observedCapabilities"],
+      "example": {
+        "runtimeError": "window is not defined",
+        "observedCapabilities": ["window", "document"]
+      }
+    }
+  }
+}
+```
 
 ### `pause`
 
