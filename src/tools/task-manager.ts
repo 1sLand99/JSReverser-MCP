@@ -1,5 +1,7 @@
 import {listReverseTasks} from '../reverse/ReverseTaskList.js';
+import {archiveReverseTask, pruneReverseTasks, restoreReverseTask, searchReverseTasks, tagReverseTask} from '../reverse/ReverseTaskAdmin.js';
 import {autoProgressReverseTask} from '../reverse/ReverseTaskAutoProgress.js';
+import {compareReverseTasks} from '../reverse/ReverseTaskCompare.js';
 import {getReverseTaskState} from '../reverse/ReverseTaskQuery.js';
 import {summarizeReverseTask} from '../reverse/ReverseTaskSummary.js';
 import {appendReverseTimeline} from '../reverse/ReverseTaskTimeline.js';
@@ -14,14 +16,21 @@ const stageSchema = zod.enum(['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDiv
 
 export const manageReverseTaskTool = defineTool({
   name: 'manage_reverse_task',
-  description: 'Unified reverse task entry for list/get/summarize/progress/update/timeline actions. Preferred task-management entry to reduce tool-selection overhead.',
+  description: 'Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.',
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
   schema: {
-    action: zod.enum(['list', 'get', 'summarize', 'progress', 'update', 'timeline']),
+    action: zod.enum(['list', 'get', 'summarize', 'progress', 'update', 'timeline', 'archive', 'restore', 'search', 'tag', 'prune', 'compare']),
     taskId: zod.string().min(1).optional(),
+    otherTaskId: zod.string().min(1).optional(),
     limit: zod.number().int().positive().optional(),
     timelineLimit: zod.number().int().positive().optional(),
     evidenceLimit: zod.number().int().positive().optional(),
+    includeArchived: zod.boolean().optional(),
+    query: zod.string().optional(),
+    tag: zod.string().optional(),
+    tags: zod.array(zod.string()).optional(),
+    replaceTags: zod.boolean().optional(),
+    pruneOlderThanDays: zod.number().int().positive().optional(),
     taskSlug: zod.string().optional(),
     targetUrl: zod.string().optional(),
     goal: zod.string().optional(),
@@ -45,10 +54,17 @@ export const manageReverseTaskTool = defineTool({
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();
     const {action} = request.params;
+    const requireTaskId = (): string => {
+      if (!request.params.taskId) {
+        throw new Error(`taskId is required when action="${action}"`);
+      }
+      return request.params.taskId;
+    };
 
     if (action === 'list') {
       const items = await listReverseTasks(runtime.reverseTaskStore, {
         limit: request.params.limit,
+        includeArchived: request.params.includeArchived,
       });
       response.appendResponseLine('```json');
       response.appendResponseLine(JSON.stringify({action, items}, null, 2));
@@ -56,12 +72,12 @@ export const manageReverseTaskTool = defineTool({
       return;
     }
 
-    if (!request.params.taskId) {
+    if (!request.params.taskId && !['search', 'prune'].includes(action)) {
       throw new Error(`taskId is required when action="${action}"`);
     }
 
     if (action === 'get') {
-      const result = await getReverseTaskState(runtime.reverseTaskStore, request.params.taskId, {
+      const result = await getReverseTaskState(runtime.reverseTaskStore, requireTaskId(), {
         timelineLimit: request.params.timelineLimit,
         evidenceLimit: request.params.evidenceLimit,
       });
@@ -72,7 +88,7 @@ export const manageReverseTaskTool = defineTool({
     }
 
     if (action === 'summarize') {
-      const result = await summarizeReverseTask(runtime.reverseTaskStore, request.params.taskId, {
+      const result = await summarizeReverseTask(runtime.reverseTaskStore, requireTaskId(), {
         timelineLimit: request.params.timelineLimit,
         evidenceLimit: request.params.evidenceLimit,
       });
@@ -83,7 +99,70 @@ export const manageReverseTaskTool = defineTool({
     }
 
     if (action === 'progress') {
-      const result = await autoProgressReverseTask(runtime.reverseTaskStore, request.params.taskId);
+      const result = await autoProgressReverseTask(runtime.reverseTaskStore, requireTaskId());
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'archive') {
+      const result = await archiveReverseTask(runtime.reverseTaskStore, requireTaskId());
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'restore') {
+      const result = await restoreReverseTask(runtime.reverseTaskStore, requireTaskId());
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'search') {
+      const items = await searchReverseTasks(runtime.reverseTaskStore, {
+        query: request.params.query,
+        tag: request.params.tag,
+        includeArchived: request.params.includeArchived,
+        limit: request.params.limit,
+      });
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, items}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'tag') {
+      const result = await tagReverseTask(
+        runtime.reverseTaskStore,
+        requireTaskId(),
+        request.params.tags ?? [],
+        {replace: request.params.replaceTags},
+      );
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'prune') {
+      const result = await pruneReverseTasks(runtime.reverseTaskStore, {
+        olderThanDays: request.params.pruneOlderThanDays,
+      });
+      response.appendResponseLine('```json');
+      response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
+      response.appendResponseLine('```');
+      return;
+    }
+
+    if (action === 'compare') {
+      if (!request.params.otherTaskId) {
+        throw new Error('otherTaskId is required when action="compare"');
+      }
+      const result = await compareReverseTasks(runtime.reverseTaskStore, requireTaskId(), request.params.otherTaskId);
       response.appendResponseLine('```json');
       response.appendResponseLine(JSON.stringify({ok: true, action, ...result}, null, 2));
       response.appendResponseLine('```');
@@ -92,7 +171,7 @@ export const manageReverseTaskTool = defineTool({
 
     if (action === 'update') {
       const result = await updateReverseTaskState(runtime.reverseTaskStore, {
-        taskId: request.params.taskId,
+        taskId: requireTaskId(),
         taskSlug: request.params.taskSlug,
         targetUrl: request.params.targetUrl,
         goal: request.params.goal,
@@ -113,7 +192,7 @@ export const manageReverseTaskTool = defineTool({
         throw new Error('stage, timelineAction, and timelineStatus are required when action="timeline"');
       }
       const result = await appendReverseTimeline(runtime.reverseTaskStore, {
-        taskId: request.params.taskId,
+        taskId: requireTaskId(),
         taskSlug: request.params.taskSlug,
         targetUrl: request.params.targetUrl,
         goal: request.params.goal,

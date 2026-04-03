@@ -130,4 +130,124 @@ describe('manage_reverse_task tool', () => {
       await rm(rootDir, {recursive: true, force: true});
     }
   });
+
+  it('supports archive/search/tag/restore/prune/compare actions', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-manage-task-admin-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      for (const [taskId, goal] of [['task-admin-001', 'compare left'], ['task-admin-002', 'compare right']] as const) {
+        await startReverseTaskTool.handler({
+          params: {
+            taskId,
+            taskSlug: taskId,
+            targetUrl: `https://example.com/${taskId}`,
+            goal,
+            targetContext: {
+              candidateScripts: ['https://example.com/static/sign.js'],
+              targetRequest: {
+                method: 'POST',
+                url: 'https://example.com/api/sign',
+              },
+            },
+          },
+        }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+        const opened = await runtime.reverseTaskStore.openTask({
+          taskId,
+          slug: taskId,
+          targetUrl: `https://example.com/${taskId}`,
+          goal,
+        });
+        await opened.appendLog('runtime-evidence', {
+          source: 'hook',
+          kind: 'hook-hit',
+          functionName: 'signPayload',
+          requestUrl: 'https://example.com/api/sign',
+        });
+      }
+
+      const tagResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'tag',
+          taskId: 'task-admin-001',
+          tags: ['jd', 'blocked'],
+        },
+      }, tagResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const tagPayload = JSON.parse(tagResponse.lines[1] ?? '{}') as {tags: string[]};
+      assert.deepStrictEqual(tagPayload.tags, ['blocked', 'jd']);
+
+      const searchResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'search',
+          query: 'compare',
+          tag: 'jd',
+          includeArchived: true,
+        },
+      }, searchResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const searchPayload = JSON.parse(searchResponse.lines[1] ?? '{}') as {items: Array<{taskId: string}>};
+      assert.strictEqual(searchPayload.items.length, 1);
+      assert.strictEqual(searchPayload.items[0]?.taskId, 'task-admin-001');
+
+      const compareResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'compare',
+          taskId: 'task-admin-001',
+          otherTaskId: 'task-admin-002',
+        },
+      }, compareResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const comparePayload = JSON.parse(compareResponse.lines[1] ?? '{}') as {summary: {sharedTopFunctions: string[]}};
+      assert.ok(comparePayload.summary.sharedTopFunctions.includes('signPayload'));
+
+      const archiveResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'archive',
+          taskId: 'task-admin-001',
+        },
+      }, archiveResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const archivePayload = JSON.parse(archiveResponse.lines[1] ?? '{}') as {archivedAt: number};
+      assert.ok(archivePayload.archivedAt > 0);
+
+      const listResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {action: 'list'},
+      }, listResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const listPayload = JSON.parse(listResponse.lines[1] ?? '{}') as {items: Array<{taskId: string}>};
+      assert.ok(!listPayload.items.some((item) => item.taskId === 'task-admin-001'));
+
+      const restoreResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'restore',
+          taskId: 'task-admin-001',
+        },
+      }, restoreResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const restorePayload = JSON.parse(restoreResponse.lines[1] ?? '{}') as {restored: boolean};
+      assert.strictEqual(restorePayload.restored, true);
+
+      const archiveAgainResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'archive',
+          taskId: 'task-admin-001',
+        },
+      }, archiveAgainResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+
+      const pruneResponse = makeResponse();
+      await manageReverseTaskTool.handler({
+        params: {
+          action: 'prune',
+        },
+      }, pruneResponse as unknown as Parameters<typeof manageReverseTaskTool.handler>[1], {} as Parameters<typeof manageReverseTaskTool.handler>[2]);
+      const prunePayload = JSON.parse(pruneResponse.lines[1] ?? '{}') as {removedTaskIds: string[]};
+      assert.ok(prunePayload.removedTaskIds.includes('task-admin-001'));
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
 });

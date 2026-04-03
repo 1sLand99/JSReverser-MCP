@@ -15,7 +15,7 @@ export const cliOptions = {
   },
   manageReverseTask: {
     type: 'string',
-    description: 'Unified reverse task CLI entry. Actions: list|get|summarize|progress|update|timeline.',
+    description: 'Unified reverse task CLI entry. Actions: list|get|summarize|progress|update|timeline|archive|restore|search|tag|prune|compare.',
   },
 
   orchestrateReverseTask: {
@@ -36,6 +36,11 @@ export const cliOptions = {
     type: 'boolean',
     description: 'When used with --orchestrateReverseTask, stop immediately after the first step failure.',
     default: true,
+  },
+  strategy: {
+    type: 'string',
+    choices: ['observe-first', 'rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'] as const,
+    description: 'When used with --orchestrateReverseTask, apply a named orchestration strategy template.',
   },
   skipStep: {
     type: 'array',
@@ -92,6 +97,36 @@ export const cliOptions = {
   taskId: {
     type: 'string',
     description: 'Reverse task id for --manageReverseTask actions that target one task.',
+  },
+  otherTaskId: {
+    type: 'string',
+    description: 'Second reverse task id for compare-style task actions.',
+  },
+  query: {
+    type: 'string',
+    description: 'Free-text task search query for --manageReverseTask search.',
+  },
+  tag: {
+    type: 'string',
+    description: 'Single task tag filter for --manageReverseTask search.',
+  },
+  tags: {
+    type: 'array',
+    description: 'Task tags for --manageReverseTask tag.',
+  },
+  replaceTags: {
+    type: 'boolean',
+    description: 'When used with --manageReverseTask tag, replace existing tags instead of appending.',
+    default: false,
+  },
+  includeArchived: {
+    type: 'boolean',
+    description: 'Include archived tasks in list/search output.',
+    default: false,
+  },
+  pruneOlderThanDays: {
+    type: 'number',
+    description: 'When used with --manageReverseTask prune, only remove archived tasks older than this many days.',
   },
   taskSlug: {
     type: 'string',
@@ -380,6 +415,7 @@ export async function executeKnowledgeCliCommand(
       execute: Boolean(args.execute),
       resume: Boolean(args.resume),
       stopOnError: args.stopOnError,
+      strategy: args.strategy as 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
       skipSteps: Array.isArray(args.skipStep) ? args.skipStep.map(String) : undefined,
       fromStep: typeof args.fromStep === 'string' ? args.fromStep : undefined,
       onlySteps: Array.isArray(args.onlyStep) ? args.onlyStep.map(String) : undefined,
@@ -408,12 +444,13 @@ export async function executeKnowledgeCliCommand(
     if (action === 'list') {
       const items = await listReverseTasks(store, {
         limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
+        includeArchived: Boolean(args.includeArchived),
       });
       writeLine(JSON.stringify({action, items}, null, 2));
       return true;
     }
 
-    if (!args.taskId) {
+    if (!args.taskId && !['search', 'prune'].includes(action)) {
       throw new Error(`--taskId is required when --manageReverseTask=${action}`);
     }
 
@@ -437,6 +474,63 @@ export async function executeKnowledgeCliCommand(
 
     if (action === 'progress') {
       const result = await autoProgressReverseTask(store, String(args.taskId));
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'archive') {
+      const {archiveReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
+      const result = await archiveReverseTask(store, String(args.taskId));
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'restore') {
+      const {restoreReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
+      const result = await restoreReverseTask(store, String(args.taskId));
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'search') {
+      const {searchReverseTasks} = await import('./reverse/ReverseTaskAdmin.js');
+      const items = await searchReverseTasks(store, {
+        query: typeof args.query === 'string' ? args.query : undefined,
+        tag: typeof args.tag === 'string' ? args.tag : undefined,
+        includeArchived: Boolean(args.includeArchived),
+        limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
+      });
+      writeLine(JSON.stringify({action, items}, null, 2));
+      return true;
+    }
+
+    if (action === 'tag') {
+      const {tagReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
+      const result = await tagReverseTask(
+        store,
+        String(args.taskId),
+        Array.isArray(args.tags) ? args.tags.map(String) : [],
+        {replace: Boolean(args.replaceTags)},
+      );
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'prune') {
+      const {pruneReverseTasks} = await import('./reverse/ReverseTaskAdmin.js');
+      const result = await pruneReverseTasks(store, {
+        olderThanDays: typeof args.pruneOlderThanDays === 'number' ? args.pruneOlderThanDays : undefined,
+      });
+      writeLine(JSON.stringify({action, ...result}, null, 2));
+      return true;
+    }
+
+    if (action === 'compare') {
+      if (!args.otherTaskId) {
+        throw new Error('--otherTaskId is required when --manageReverseTask=compare');
+      }
+      const {compareReverseTasks} = await import('./reverse/ReverseTaskCompare.js');
+      const result = await compareReverseTasks(store, String(args.taskId), String(args.otherTaskId));
       writeLine(JSON.stringify({action, ...result}, null, 2));
       return true;
     }

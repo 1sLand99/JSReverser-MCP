@@ -9,7 +9,7 @@ import {getReverseTaskState} from './ReverseTaskQuery.js';
 
 export async function listReverseTasks(
   store: ReverseTaskStore,
-  options: {limit?: number} = {},
+  options: {limit?: number; includeArchived?: boolean} = {},
 ): Promise<Array<{
   taskId: string;
   slug: string;
@@ -18,6 +18,8 @@ export async function listReverseTasks(
   nextStepHint: string;
   updatedAt: number;
   goal: string;
+  tags: string[];
+  archivedAt?: number;
 }>> {
   const taskIds = await store.listTaskIds();
   const rows = await Promise.all(taskIds.map(async (taskId) => {
@@ -30,10 +32,13 @@ export async function listReverseTasks(
       nextStepHint: String(state.state?.nextStepHint ?? 'recommend_next_step'),
       updatedAt: Number(state.state?.updatedAt ?? state.task?.updatedAt ?? 0),
       goal: String(state.task?.goal ?? ''),
+      tags: Array.isArray(state.task?.tags) ? state.task!.tags.map((item) => String(item)) : [],
+      archivedAt: typeof state.task?.archivedAt === 'number' ? Number(state.task.archivedAt) : undefined,
     };
   }));
 
   return rows
+    .filter((row) => options.includeArchived || row.archivedAt === undefined)
     .sort((a, b) => b.updatedAt - a.updatedAt)
     .slice(0, options.limit ?? rows.length);
 }

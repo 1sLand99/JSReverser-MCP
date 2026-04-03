@@ -35,15 +35,18 @@ export async function getReverseTaskState(
 
   const timelineLimit = options.timelineLimit ?? 10;
   const evidenceLimit = options.evidenceLimit ?? 10;
-  const evidenceIndex = buildReverseTaskEvidenceIndex(evidence);
+  const effectiveTargetContext = isNonEmptyRecord(targetContext)
+    ? targetContext
+    : (task?.targetContext as Record<string, unknown> | undefined);
+  const evidenceIndex = buildReverseTaskEvidenceIndex(evidence, {
+    targetContext: effectiveTargetContext,
+  });
 
   return {
     taskId,
     task,
     state,
-    targetContext: isNonEmptyRecord(targetContext)
-      ? targetContext
-      : (task?.targetContext as Record<string, unknown> | undefined),
+    targetContext: effectiveTargetContext,
     recentTimeline: timeline.slice(-timelineLimit),
     recentEvidence: evidenceIndex.dedupedEntries.slice(-evidenceLimit),
     evidenceAggregates: evidenceIndex.aggregates,

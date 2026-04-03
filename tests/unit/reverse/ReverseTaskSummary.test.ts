@@ -53,6 +53,7 @@ describe('ReverseTaskSummary', () => {
       assert.strictEqual(result.evidenceAggregates.bySource.hook, 2);
       assert.ok(result.evidenceAggregates.topFunctions.some((entry) => entry.value === 'signPayload'));
       assert.ok(result.evidenceAggregates.blockers.includes('localStorage is not defined'));
+      assert.ok(result.evidenceAggregates.links.requestToFunctions.some((entry) => entry.functions.includes('signPayload')));
       void task;
     } finally {
       await rm(rootDir, {recursive: true, force: true});

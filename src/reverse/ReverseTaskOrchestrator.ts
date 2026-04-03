@@ -38,6 +38,60 @@ function buildPrimaryStep(taskId: string, nextStepHint: string, currentStage: st
   };
 }
 
+function buildManageTaskStep(taskId: string, action: 'get' | 'summarize' | 'progress' | 'timeline', currentStage: string): OrchestrationStep {
+  return {
+    key: buildStepKey('manage_reverse_task', {action, taskId}),
+    tool: 'manage_reverse_task',
+    reason: `策略要求优先执行 manage_reverse_task:${action}。`,
+    params: action === 'timeline'
+      ? {
+        action,
+        taskId,
+        stage: currentStage.toLowerCase(),
+        timelineAction: 'artifact-sync',
+        timelineStatus: 'ok',
+      }
+      : {action, taskId},
+  };
+}
+
+function buildStrategyPrimaryStep(
+  taskId: string,
+  strategy: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
+  nextStepHint: string,
+  currentStage: string,
+): OrchestrationStep {
+  if (!strategy) {
+    return buildPrimaryStep(taskId, nextStepHint, currentStage);
+  }
+  if (strategy === 'rebuild-first') {
+    return {
+      key: buildStepKey('export_rebuild_bundle', {taskId}),
+      tool: 'export_rebuild_bundle',
+      reason: 'rebuild-first 策略优先产出本地 rebuild bundle。',
+      params: {taskId},
+    };
+  }
+  if (strategy === 'env-fix') {
+    return {
+      key: buildStepKey('diff_env_requirements', {taskId}),
+      tool: 'diff_env_requirements',
+      reason: 'env-fix 策略优先分析当前补环境缺口。',
+      params: {taskId},
+    };
+  }
+  if (strategy === 'artifact-sync') {
+    return buildManageTaskStep(taskId, 'timeline', currentStage);
+  }
+  if (strategy === 'evidence-only') {
+    return buildManageTaskStep(taskId, 'summarize', currentStage);
+  }
+  if (strategy === 'observe-first') {
+    return buildManageTaskStep(taskId, 'get', currentStage);
+  }
+  return buildPrimaryStep(taskId, nextStepHint, currentStage);
+}
+
 export async function orchestrateReverseTask(
   store: ReverseTaskStore,
   taskId: string,
@@ -48,6 +102,7 @@ export async function orchestrateReverseTask(
     resume?: boolean;
     stopOnError?: boolean;
     executionOverrides?: Record<string, ReverseTaskExecutionOverride>;
+    strategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only';
     skipSteps?: string[];
     fromStep?: string;
     onlySteps?: string[];
@@ -103,7 +158,7 @@ export async function orchestrateReverseTask(
   const nextStepHint = progressed?.nextStepHint ?? advice.nextStep;
   const currentSummary = progressed?.currentSummary ??
     String(snapshot.state?.currentSummary ?? snapshot.task?.currentSummary ?? '任务已初始化，等待补充更多证据。');
-  const primaryStep = buildPrimaryStep(taskId, nextStepHint, currentStage);
+  const primaryStep = buildStrategyPrimaryStep(taskId, options.strategy, nextStepHint, currentStage);
   const suggestedSteps: OrchestrationStep[] = [
     {
       key: buildStepKey('manage_reverse_task', {action: persistState ? 'progress' : 'get', taskId}),

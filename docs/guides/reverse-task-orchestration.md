@@ -27,7 +27,7 @@
 
 ## `manage_reverse_task` 和 `orchestrate_reverse_task` 的区别
 
-- `manage_reverse_task`：单步 task 管理入口，适合 `list/get/summarize/progress/update/timeline`
+- `manage_reverse_task`：单步 task 管理入口，适合 `list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare`
 - `orchestrate_reverse_task`：编排入口，适合“先判断下一步，再批量执行标准步骤”
 
 建议分工：
@@ -117,6 +117,27 @@
   "skipSteps": ["export_rebuild_bundle"]
 }
 ```
+
+切换策略模板：
+
+```json
+{
+  "taskId": "task-001",
+  "strategy": "env-fix"
+}
+```
+
+可选 `strategy`：
+
+- `observe-first`：优先 `manage_reverse_task:get`
+- `rebuild-first`：优先 `export_rebuild_bundle`
+- `env-fix`：优先 `diff_env_requirements`
+- `artifact-sync`：优先补一条 `manage_reverse_task:timeline`
+- `evidence-only`：优先 `manage_reverse_task:summarize`
+
+如果你想在补环境前先做一次聚合体检，可以再补一条：
+
+- `get_rebuild_health_report`：直接返回 `currentStage`、`firstDivergence`、`patchSuggestions`、`evidenceAggregates` 和 `recommendedNextAction`
 
 ## CLI 调用方式
 

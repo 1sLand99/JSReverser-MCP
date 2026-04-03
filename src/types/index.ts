@@ -815,6 +815,8 @@ export interface ReverseTaskDescriptor {
   currentSummary?: string;
   successCriteria?: Record<string, unknown>;
   targetContext?: Record<string, unknown>;
+  tags?: string[];
+  archivedAt?: number;
   createdAt: number;
   updatedAt: number;
 }

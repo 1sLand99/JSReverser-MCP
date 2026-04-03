@@ -11,7 +11,8 @@ import path from 'node:path';
 import {describe, it} from 'node:test';
 
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
-import {diffEnvRequirements, exportRebuildBundle} from '../../../src/tools/rebuild.js';
+import {startReverseTask} from '../../../src/reverse/ReverseTaskBootstrap.js';
+import {diffEnvRequirements, exportRebuildBundle, getRebuildHealthReport} from '../../../src/tools/rebuild.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 
 interface ResponseShape {
@@ -110,6 +111,78 @@ describe('rebuild bridge tools', () => {
     const patchSuggestions = diffJson.patchSuggestions as Array<Record<string, unknown>>;
     assert.ok(patchSuggestions.some((item) => item.capability === 'document' && String(item.snippet).includes('globalThis.document')));
     assert.ok(patchSuggestions.some((item) => item.capability === 'sessionStorage' && String(item.snippet).includes('globalThis.sessionStorage')));
+  });
+
+  it('builds rebuild health report from task summary, timeline, and evidence aggregates', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-rebuild-health-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+
+    try {
+      await startReverseTask(runtime.reverseTaskStore, {
+        taskId: 'task-health-001',
+        taskSlug: 'health-demo',
+        targetUrl: 'https://example.com/product',
+        goal: 'health report',
+        currentStage: 'Patch',
+        currentSummary: 'ReferenceError: window is not defined',
+        targetContext: {
+          targetRequest: {
+            method: 'POST',
+            url: 'https://example.com/api/sign',
+          },
+          candidateScripts: ['https://example.com/static/sign.js'],
+        },
+      });
+
+      const task = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-health-001',
+        slug: 'health-demo',
+        targetUrl: 'https://example.com/product',
+        goal: 'health report',
+      });
+      await task.appendTimeline({
+        stage: 'patch',
+        action: 'rebuild_local',
+        status: 'error',
+        result: 'ReferenceError: window is not defined',
+      });
+      await task.appendLog('runtime-evidence', {
+        source: 'hook',
+        kind: 'hook-hit',
+        functionName: 'signPayload',
+        requestUrl: 'https://example.com/api/sign',
+        scriptUrl: 'https://example.com/static/sign.js',
+      });
+
+      const response = makeResponse();
+      await getRebuildHealthReport.handler({
+        params: {
+          taskId: 'task-health-001',
+          observedCapabilities: ['window', 'document', 'crypto'],
+        },
+      } as Parameters<typeof getRebuildHealthReport.handler>[0], response as unknown as Parameters<typeof getRebuildHealthReport.handler>[1], {} as Parameters<typeof getRebuildHealthReport.handler>[2]);
+
+      const payload = extractFirstJsonBlock(response.lines);
+      assert.strictEqual(payload.currentStage, 'Patch');
+      assert.strictEqual(payload.status, 'active');
+      assert.strictEqual(payload.currentSummary, 'ReferenceError: window is not defined');
+      assert.deepStrictEqual(payload.missingCapabilities, ['window']);
+      assert.ok(Array.isArray(payload.patchSuggestions));
+      assert.ok((payload.patchSuggestions as Array<Record<string, unknown>>).some((item) => item.capability === 'window'));
+      assert.strictEqual((payload.firstDivergence as Record<string, unknown>).action, 'rebuild_local');
+      assert.ok(String(payload.recommendedNextAction).includes('最小补环境'));
+      const evidenceAggregates = payload.evidenceAggregates as Record<string, unknown>;
+      const topFunctions = evidenceAggregates.topFunctions as Array<Record<string, unknown>>;
+      const links = evidenceAggregates.links as Record<string, unknown>;
+      assert.strictEqual(topFunctions[0]?.value, 'signPayload');
+      assert.ok(Array.isArray(links.requestToFunctions));
+      assert.ok((links.requestToFunctions as Array<Record<string, unknown>>).some((item) => item.url === 'https://example.com/api/sign'));
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
   });
 
   it('auto-generates a rebuild bundle from observed page evidence and task logs', async () => {

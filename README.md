@@ -135,7 +135,7 @@
 
 - `start_reverse_task`：初始化 `task.json`、`state.json`、`report.md` 和首条 `timeline`
 - `create_reverse_task_from_request`：从一条已捕获的 network request 直接生成 reverse task，自动带上 target request、pageUrl、candidateScripts 和首轮 task context
-- **默认入口就是 `manage_reverse_task`**：除初始化外，task 的 list / get / summarize / progress / update / timeline 全部统一走这个入口
+- **默认入口就是 `manage_reverse_task`**：除初始化外，task 的 list / get / summarize / progress / update / timeline / archive / restore / search / tag / prune / compare 全部统一走这个入口
 - `manage_reverse_task`：聚合 task 相关常用动作，减少模型在多个 task tools 之间来回选择的 token 开销
   - `action: "list"`：查看所有 task 的阶段、状态、下一步和最近更新时间
   - `action: "get"`：读取任务状态、目标上下文、最近 timeline 和 evidence 摘要
@@ -143,14 +143,26 @@
   - `action: "progress"`：根据最近 evidence / timeline / successCriteria 自动推断阶段、状态和下一步
   - `action: "update"`：更新当前阶段、状态、摘要和成功判据
   - `action: "timeline"`：显式追加一条 timeline，适合把“本轮动作 / 观察结果 / 下一步”写回 artifact
-- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制
+  - `action: "archive" / "restore"`：归档或恢复任务，便于清理长期积累的本地 artifacts
+  - `action: "search"`：按 query / tag 检索历史任务
+  - `action: "tag"`：给任务打标签，便于后续筛选和分组
+  - `action: "prune"`：删除已归档任务
+  - `action: "compare"`：比较两个任务的目标请求、函数命中和证据差异
+- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制，也支持通过 `strategy` 快速切到 `observe-first` / `rebuild-first` / `env-fix` / `artifact-sync` / `evidence-only` 模板
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
   - `--manageReverseTask summarize --taskId <taskId>`
   - `--manageReverseTask progress --taskId <taskId>`
+  - `--manageReverseTask search --query sign --tag jd`
+  - `--manageReverseTask tag --taskId <taskId> --tags jd,blocked`
+  - `--manageReverseTask archive --taskId <taskId>`
+  - `--manageReverseTask restore --taskId <taskId>`
+  - `--manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>`
+  - `--manageReverseTask prune --pruneOlderThanDays 7`
   - `--orchestrateReverseTask <taskId>`
   - `--orchestrateReverseTask <taskId> --execute --resume`
+  - `--orchestrateReverseTask <taskId> --strategy env-fix`
   - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
   - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
 - 自动化编排的 checkpoint、CLI cheatsheet、失败分类对照表、`codex --resume` 协同方式见 [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
@@ -178,6 +190,7 @@
 
 - `export_rebuild_bundle`：导出本地复现工程所需的入口、补环境和证据材料。
 - `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力，并返回 `patchSuggestions`，直接给出最小补环境片段。
+- `get_rebuild_health_report`：聚合当前阶段、env blockers、首个 divergence、`patchSuggestions` 和 `evidenceAggregates`，用于补环境前先做一次体检。
 - `record_reverse_evidence`：把 hook / network / script 的关键观察正式写回 task artifact，供后续 summarize / progress / orchestration 复用。现在 summary/query 还会给出去重后的 `evidenceAggregates`，方便快速看 top URLs、top functions 和 env blockers。
 
 ### 页面自动化

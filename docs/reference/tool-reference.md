@@ -626,15 +626,22 @@ so returned values have to JSON-serializable.
 
 ### `manage_reverse_task`
 
-**Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline actions. Preferred task-management entry to reduce tool-selection overhead.
+**Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.
 
 **Parameters:**
 
 - `action`
 - `taskId`
+- `otherTaskId`
 - `limit`
 - `timelineLimit`
 - `evidenceLimit`
+- `includeArchived`
+- `query`
+- `tag`
+- `tags`
+- `replaceTags`
+- `pruneOlderThanDays`
 - `taskSlug`
 - `targetUrl`
 - `goal`
@@ -679,7 +686,17 @@ so returned values have to JSON-serializable.
 - `skipSteps`
 - `fromStep`
 - `onlySteps`
+- `strategy`
 - `executionOverrides`
+
+### `get_rebuild_health_report`
+
+**Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
+
+**Parameters:**
+
+- `taskId`
+- `observedCapabilities`
 
 ### `pause`
 
@@ -907,4 +924,3 @@ so returned values have to JSON-serializable.
 - `action`
 - `pageIdx`
 - `url`
-

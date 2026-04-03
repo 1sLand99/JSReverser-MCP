@@ -16,6 +16,11 @@ export interface ReverseTaskEvidenceAggregates {
   topUrls: ReverseTaskEvidenceAggregateEntry[];
   topFunctions: ReverseTaskEvidenceAggregateEntry[];
   blockers: string[];
+  links: {
+    requestToFunctions: Array<{url: string; functions: string[]}>;
+    blockerToUrls: Array<{blocker: string; urls: string[]}>;
+    functionToCandidateScripts: Array<{functionName: string; candidateScripts: string[]}>;
+  };
 }
 
 function normalizeText(value: unknown): string | undefined {
@@ -55,7 +60,12 @@ function topEntries(counts: Map<string, number>, limit = 5): ReverseTaskEvidence
     .map(([value, count]) => ({value, count}));
 }
 
-export function buildReverseTaskEvidenceIndex(entries: Record<string, unknown>[]): {
+export function buildReverseTaskEvidenceIndex(
+  entries: Record<string, unknown>[],
+  options: {
+    targetContext?: Record<string, unknown>;
+  } = {},
+): {
   dedupedEntries: Record<string, unknown>[];
   aggregates: ReverseTaskEvidenceAggregates;
 } {
@@ -65,6 +75,8 @@ export function buildReverseTaskEvidenceIndex(entries: Record<string, unknown>[]
   const urlCounts = new Map<string, number>();
   const functionCounts = new Map<string, number>();
   const blockers = new Set<string>();
+  const requestToFunctions = new Map<string, Set<string>>();
+  const blockerToUrls = new Map<string, Set<string>>();
 
   for (const entry of entries) {
     const key = buildEvidenceKey(entry);
@@ -86,12 +98,37 @@ export function buildReverseTaskEvidenceIndex(entries: Record<string, unknown>[]
     if (functionName) {
       functionCounts.set(functionName, (functionCounts.get(functionName) ?? 0) + 1);
     }
+    if (url && functionName) {
+      if (!requestToFunctions.has(url)) {
+        requestToFunctions.set(url, new Set());
+      }
+      requestToFunctions.get(url)!.add(functionName);
+    }
 
     const kind = normalizeText(entry.kind);
     if (kind === 'env-gap') {
-      blockers.add(normalizeText(entry.note) ?? normalizeText(entry.result) ?? 'env-gap');
+      const blocker = normalizeText(entry.note) ?? normalizeText(entry.result) ?? 'env-gap';
+      blockers.add(blocker);
+      if (!blockerToUrls.has(blocker)) {
+        blockerToUrls.set(blocker, new Set());
+      }
+      if (url) {
+        blockerToUrls.get(blocker)!.add(url);
+      }
     }
   }
+
+  const candidateScripts = Array.isArray(options.targetContext?.candidateScripts)
+    ? options.targetContext?.candidateScripts
+        .map((item) => normalizeText(item))
+        .filter((item): item is string => Boolean(item))
+    : [];
+  const functionToCandidateScripts = topEntries(functionCounts, 10)
+    .filter((entry) => candidateScripts.length > 0)
+    .map((entry) => ({
+      functionName: entry.value,
+      candidateScripts,
+    }));
 
   return {
     dedupedEntries,
@@ -102,6 +139,17 @@ export function buildReverseTaskEvidenceIndex(entries: Record<string, unknown>[]
       topUrls: topEntries(urlCounts),
       topFunctions: topEntries(functionCounts),
       blockers: [...blockers],
+      links: {
+        requestToFunctions: [...requestToFunctions.entries()].map(([url, functions]) => ({
+          url,
+          functions: [...functions].sort(),
+        })),
+        blockerToUrls: [...blockerToUrls.entries()].map(([blocker, urls]) => ({
+          blocker,
+          urls: [...urls].sort(),
+        })),
+        functionToCandidateScripts,
+      },
     },
   };
 }

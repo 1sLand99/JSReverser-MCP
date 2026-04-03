@@ -31,6 +31,7 @@ interface ParsedArgsLike {
   skipStep?: string[];
   fromStep?: string;
   onlyStep?: string[];
+  strategy?: string;
   includeSummary?: boolean;
   persistState?: boolean;
   executionOverrides?: Record<string, {status: string; result?: string; error?: string}>;
@@ -166,6 +167,8 @@ describe('cli extended coverage', () => {
       'understand_code',
       '--onlyStep',
       'understand_code',
+      '--strategy',
+      'env-fix',
       '--includeSummary=false',
       '--persistState=false',
       '--executionOverrides',
@@ -179,6 +182,7 @@ describe('cli extended coverage', () => {
     assert.deepStrictEqual(parsed.skipStep, ['manage_reverse_task:progress', 'understand_code']);
     assert.strictEqual(parsed.fromStep, 'understand_code');
     assert.deepStrictEqual(parsed.onlyStep, ['understand_code']);
+    assert.strictEqual(parsed.strategy, 'env-fix');
     assert.strictEqual(parsed.includeSummary, false);
     assert.strictEqual(parsed.persistState, false);
     assert.deepStrictEqual(parsed.executionOverrides, {

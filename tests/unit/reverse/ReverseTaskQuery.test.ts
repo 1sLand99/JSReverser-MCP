@@ -59,6 +59,8 @@ describe('ReverseTaskQuery', () => {
       assert.ok(result.evidenceAggregates.topFunctions.some((entry) => entry.value === 'signPayload'));
       assert.ok(result.evidenceAggregates.topUrls.some((entry) => entry.value === 'https://example.com/api/sign'));
       assert.ok(result.evidenceAggregates.blockers.includes('window is not defined'));
+      assert.ok(result.evidenceAggregates.links.requestToFunctions.some((entry) => entry.url === 'https://example.com/api/sign' && entry.functions.includes('signPayload')));
+      assert.ok(result.evidenceAggregates.links.functionToCandidateScripts.length >= 0);
       assert.strictEqual(result.evidenceAggregates.total, 4);
       assert.strictEqual(result.evidenceAggregates.dedupedTotal, 3);
       void task;

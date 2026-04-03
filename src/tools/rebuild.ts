@@ -345,6 +345,29 @@ function buildPatchSuggestion(capability: string): {snippet: string; note: strin
   };
 }
 
+function analyzeEnvRequirements(runtimeError: string, observedCapabilities: string[]) {
+  const missingCapabilities = inferMissingCapabilities(runtimeError, observedCapabilities);
+  const nextPatches = missingCapabilities.map((item) => ({
+    capability: item.capability,
+    reason: item.reason,
+    suggestedPatch: `Add a minimal ${item.capability} shim based on browser evidence before retrying the entry script.`,
+  }));
+  const patchSuggestions = missingCapabilities.map((item) => {
+    const suggestion = buildPatchSuggestion(item.capability);
+    return {
+      capability: item.capability,
+      priority: item.priority,
+      snippet: suggestion.snippet,
+      note: suggestion.note,
+    };
+  });
+  return {
+    missingCapabilities,
+    nextPatches,
+    patchSuggestions,
+  };
+}
+
 export const exportRebuildBundle = defineTool({
   name: 'export_rebuild_bundle',
   description: 'Export a local Node rebuild bundle from observed reverse-engineering evidence.',
@@ -439,30 +462,56 @@ export const diffEnvRequirements = defineTool({
     observedCapabilities: zod.array(zod.string()).default([]),
   },
   handler: async (request, response) => {
-    const missingCapabilities = inferMissingCapabilities(
+    const analyzed = analyzeEnvRequirements(
       request.params.runtimeError,
       request.params.observedCapabilities,
     );
-    const nextPatches = missingCapabilities.map((item) => ({
-      capability: item.capability,
-      reason: item.reason,
-      suggestedPatch: `Add a minimal ${item.capability} shim based on browser evidence before retrying the entry script.`,
-    }));
-    const patchSuggestions = missingCapabilities.map((item) => {
-      const suggestion = buildPatchSuggestion(item.capability);
-      return {
-        capability: item.capability,
-        priority: item.priority,
-        snippet: suggestion.snippet,
-        note: suggestion.note,
-      };
-    });
 
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify({
-      missingCapabilities: missingCapabilities.map((item) => item.capability),
-      nextPatches,
-      patchSuggestions,
+      missingCapabilities: analyzed.missingCapabilities.map((item) => item.capability),
+      nextPatches: analyzed.nextPatches,
+      patchSuggestions: analyzed.patchSuggestions,
+    }, null, 2));
+    response.appendResponseLine('```');
+  },
+});
+
+export const getRebuildHealthReport = defineTool({
+  name: 'get_rebuild_health_report',
+  description: 'Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.',
+  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
+  schema: {
+    taskId: zod.string(),
+    observedCapabilities: zod.array(zod.string()).default(['window', 'document', 'navigator', 'localStorage', 'sessionStorage', 'crypto']),
+  },
+  handler: async (request, response) => {
+    const runtime = getJSHookRuntime();
+    const {getReverseTaskState} = await import('../reverse/ReverseTaskQuery.js');
+    const state = await getReverseTaskState(runtime.reverseTaskStore, request.params.taskId, {
+      timelineLimit: 10,
+      evidenceLimit: 10,
+    });
+    const currentStage = String(state.state?.currentStage ?? state.task?.currentStage ?? 'Observe');
+    const status = String(state.state?.status ?? 'active');
+    const currentSummary = String(state.state?.currentSummary ?? state.task?.currentSummary ?? '');
+    const analyzed = analyzeEnvRequirements(currentSummary, request.params.observedCapabilities);
+    const firstDivergence = state.recentTimeline.find((entry) => String(entry.status ?? '') === 'error')
+      ?? state.recentEvidence.find((entry) => String(entry.kind ?? '') === 'env-gap');
+
+    response.appendResponseLine('```json');
+    response.appendResponseLine(JSON.stringify({
+      taskId: request.params.taskId,
+      currentStage,
+      status,
+      currentSummary,
+      evidenceAggregates: state.evidenceAggregates,
+      firstDivergence: firstDivergence ?? null,
+      missingCapabilities: analyzed.missingCapabilities.map((item) => item.capability),
+      patchSuggestions: analyzed.patchSuggestions,
+      recommendedNextAction: analyzed.patchSuggestions.length > 0
+        ? '先应用最小补环境片段，再重新执行 rebuild / orchestration。'
+        : '当前未识别到明确 env gap，建议继续补证据或比对 runtime divergence。',
     }, null, 2));
     response.appendResponseLine('```');
   },

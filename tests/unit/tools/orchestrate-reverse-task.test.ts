@@ -329,6 +329,56 @@ describe('orchestrate_reverse_task tool', () => {
     }
   });
 
+  it('supports named orchestration strategy templates', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-strategy-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-strategy-001',
+          taskSlug: 'orchestrate-strategy-demo',
+          targetUrl: 'https://example.com/api/sign',
+          goal: 'orchestrate strategy tool',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/sign',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const cases = [
+        {strategy: 'observe-first', tool: 'manage_reverse_task', key: 'manage_reverse_task:get'},
+        {strategy: 'rebuild-first', tool: 'export_rebuild_bundle', key: 'export_rebuild_bundle'},
+        {strategy: 'env-fix', tool: 'diff_env_requirements', key: 'diff_env_requirements'},
+        {strategy: 'artifact-sync', tool: 'manage_reverse_task', key: 'manage_reverse_task:timeline'},
+        {strategy: 'evidence-only', tool: 'manage_reverse_task', key: 'manage_reverse_task:summarize'},
+      ] as const;
+
+      for (const testCase of cases) {
+        const response = makeResponse();
+        await orchestrateReverseTaskTool.handler({
+          params: {
+            taskId: 'task-orchestrate-strategy-001',
+            strategy: testCase.strategy,
+          },
+        }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+        const payload = JSON.parse(response.lines[1] ?? '{}') as {
+          orchestration: {primaryStep: {tool: string; key: string}};
+        };
+        assert.strictEqual(payload.orchestration.primaryStep.tool, testCase.tool);
+        assert.strictEqual(payload.orchestration.primaryStep.key, testCase.key);
+      }
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
 
   it('executes export_rebuild_bundle through the real rebuild tool path', async () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-export-'));

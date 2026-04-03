@@ -135,22 +135,34 @@ For durable task artifacts and resumable work:
 
 - `start_reverse_task`
 - `create_reverse_task_from_request`: create a reverse task directly from one captured network request, including target request, page URL, candidate scripts, and initial task context
-- **Use `manage_reverse_task` as the default entry** for all list / get / summarize / progress / update / timeline task flows.
-- `manage_reverse_task`: aggregated reverse-task entry for list/get/summarize/progress/update/timeline flows
+- **Use `manage_reverse_task` as the default entry** for all list / get / summarize / progress / update / timeline / archive / restore / search / tag / prune / compare task flows.
+- `manage_reverse_task`: aggregated reverse-task entry for reverse-task lifecycle and lookup flows
   - `action: "list"`
   - `action: "get"`
   - `action: "summarize"`
   - `action: "progress"`
   - `action: "update"`
   - `action: "timeline"`
-- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`; failures now include recovery guidance, and step-level controls are available through `skipSteps`, `fromStep`, and `onlySteps`
+  - `action: "archive" / "restore"`
+  - `action: "search"`
+  - `action: "tag"`
+  - `action: "prune"`
+  - `action: "compare"`
+- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`; failures now include recovery guidance, step-level controls are available through `skipSteps`, `fromStep`, and `onlySteps`, and `strategy` can switch between `observe-first`, `rebuild-first`, `env-fix`, `artifact-sync`, and `evidence-only`
 - Task CLI shortcuts:
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
   - `--manageReverseTask summarize --taskId <taskId>`
   - `--manageReverseTask progress --taskId <taskId>`
+  - `--manageReverseTask search --query sign --tag jd`
+  - `--manageReverseTask tag --taskId <taskId> --tags jd,blocked`
+  - `--manageReverseTask archive --taskId <taskId>`
+  - `--manageReverseTask restore --taskId <taskId>`
+  - `--manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>`
+  - `--manageReverseTask prune --pruneOlderThanDays 7`
   - `--orchestrateReverseTask <taskId>`
   - `--orchestrateReverseTask <taskId> --execute --resume`
+  - `--orchestrateReverseTask <taskId> --strategy env-fix`
   - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
   - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
 - See [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md) for the CLI cheatsheet, checkpoint behavior, failure classification table, and how it works with `codex --resume`.
@@ -178,6 +190,7 @@ Bring browser evidence back to a local Node workflow.
 
 - `export_rebuild_bundle`
 - `diff_env_requirements` — now also returns `patchSuggestions` with minimal environment shim snippets
+- `get_rebuild_health_report` — aggregates current stage, env blockers, first divergence, `patchSuggestions`, and `evidenceAggregates`
 - `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them. Summary/query responses now also expose deduped `evidenceAggregates` for top URLs, top functions, and env blockers.
 
 ### Page Automation

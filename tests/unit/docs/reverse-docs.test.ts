@@ -56,13 +56,18 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('manage_reverse_task'));
     assert.ok(readme.includes('orchestrate_reverse_task'));
     assert.ok(readme.includes('默认入口就是 `manage_reverse_task`'));
+    assert.ok(readme.includes('archive / restore / search / tag / prune / compare'));
     assert.ok(readme.includes('--manageReverseTask list'));
     assert.ok(readme.includes('--manageReverseTask get --taskId <taskId>'));
     assert.ok(readme.includes('--manageReverseTask summarize --taskId <taskId>'));
     assert.ok(readme.includes('--manageReverseTask progress --taskId <taskId>'));
+    assert.ok(readme.includes('--manageReverseTask search --query sign --tag jd'));
+    assert.ok(readme.includes('--manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId>'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId> --execute --resume'));
+    assert.ok(readme.includes('--orchestrateReverseTask <taskId> --strategy env-fix'));
     assert.ok(readme.includes('skipSteps'));
+    assert.ok(readme.includes('get_rebuild_health_report'));
     assert.ok(readme.includes('patchSuggestions'));
     assert.ok(readme.includes('evidenceAggregates'));
     assert.ok(readme.includes('--executionOverrides'));
@@ -115,6 +120,10 @@ describe('reverse workflow docs', () => {
     assert.ok(toolReference.includes('recommend_next_step'));
     assert.ok(toolReference.includes('explain_reverse_stage'));
     assert.ok(toolReference.includes('orchestrate_reverse_task'));
+    assert.ok(toolReference.includes('get_rebuild_health_report'));
+    assert.ok(toolReference.includes('otherTaskId'));
+    assert.ok(toolReference.includes('pruneOlderThanDays'));
+    assert.ok(toolReference.includes('strategy'));
     assert.ok(orchestrationGuide.includes('codex --resume'));
     assert.ok(orchestrationGuide.includes('orchestration-checkpoint.json'));
     assert.ok(orchestrationGuide.includes('--stopOnError'));
@@ -122,6 +131,9 @@ describe('reverse workflow docs', () => {
     assert.ok(orchestrationGuide.includes('CLI cheatsheet'));
     assert.ok(orchestrationGuide.includes('onlySteps'));
     assert.ok(orchestrationGuide.includes('fromStep'));
+    assert.ok(orchestrationGuide.includes('strategy'));
+    assert.ok(orchestrationGuide.includes('env-fix'));
+    assert.ok(orchestrationGuide.includes('get_rebuild_health_report'));
     assert.ok(orchestrationGuide.includes('recommendedNextAction'));
     assert.ok(orchestrationGuide.includes('failureType | 常见含义 | 默认 retryable'));
     assert.ok(orchestrationGuide.includes('record_reverse_evidence'));
@@ -158,6 +170,7 @@ describe('reverse workflow docs', () => {
     assert.ok(gettingStarted.includes('orchestration-checkpoint.json'));
     assert.ok(gettingStarted.includes('record_reverse_evidence'));
     assert.ok(gettingStarted.includes('create_reverse_task_from_request'));
+    assert.ok(gettingStarted.includes('get_rebuild_health_report'));
     assert.ok(gettingStarted.includes('evidenceAggregates'));
   });
 });
