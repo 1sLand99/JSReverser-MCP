@@ -88,6 +88,36 @@
 }
 ```
 
+只执行指定步骤：
+
+```json
+{
+  "taskId": "task-001",
+  "execute": true,
+  "onlySteps": ["understand_code"]
+}
+```
+
+从指定步骤开始：
+
+```json
+{
+  "taskId": "task-001",
+  "execute": true,
+  "fromStep": "diff_env_requirements"
+}
+```
+
+跳过某一步继续跑：
+
+```json
+{
+  "taskId": "task-001",
+  "execute": true,
+  "skipSteps": ["export_rebuild_bundle"]
+}
+```
+
 ## CLI 调用方式
 
 只生成当前任务的编排结果：
@@ -139,11 +169,22 @@ node build/src/index.js --orchestrateReverseTask task-001 --execute --stopOnErro
 
 # 执行后顺带返回 summary
 node build/src/index.js --orchestrateReverseTask task-001 --execute --includeSummary
+
+# 只执行某一个步骤
+node build/src/index.js --orchestrateReverseTask task-001 --execute --onlyStep understand_code
+
+# 从指定步骤开始
+node build/src/index.js --orchestrateReverseTask task-001 --execute --fromStep diff_env_requirements
+
+# 跳过某一步
+node build/src/index.js --orchestrateReverseTask task-001 --execute --skipStep export_rebuild_bundle
 ```
 
 ## checkpoint 与失败分类
 
 执行阶段会为每个 step 记录：
+
+- 失败时还会返回 recovery 建议，包括 `recommendedNextAction`、`recommendedCommand`、`shouldResume`、`shouldInspectSummary`
 
 - `status`
 - `startedAt` / `finishedAt`

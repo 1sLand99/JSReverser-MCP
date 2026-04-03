@@ -30,12 +30,13 @@
   - [`evaluate_script`](#evaluate_script)
   - [`inject_preload_script`](#inject_preload_script)
   - [`take_screenshot`](#take_screenshot)
-- **[JS Reverse Engineering](#js-reverse-engineering)** (52 tools)
+- **[JS Reverse Engineering](#js-reverse-engineering)** (53 tools)
   - [`analyze_target`](#analyze_target)
   - [`breakpoint`](#breakpoint)
   - [`collect_code`](#collect_code)
   - [`collection_diff`](#collection_diff)
   - [`create_hook`](#create_hook)
+  - [`create_reverse_task_from_request`](#create_reverse_task_from_request)
   - [`deobfuscate_code`](#deobfuscate_code)
   - [`detect_crypto`](#detect_crypto)
   - [`evaluate_on_callframe`](#evaluate_on_callframe)
@@ -402,6 +403,18 @@ so returned values have to JSON-serializable.
 - `description`
 - `action`
 
+### `create_reverse_task_from_request`
+
+**Description:** Create a reverse task directly from one captured network request.
+
+**Parameters:**
+
+- `requestId`
+- `targetPageIdx`
+- `taskId`
+- `taskSlug`
+- `goal`
+
 ### `deobfuscate_code`
 
 **Description:** AI-assisted JavaScript deobfuscation.
@@ -653,7 +666,7 @@ so returned values have to JSON-serializable.
 
 ### `orchestrate_reverse_task`
 
-**Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan. When `execute=true`, it can also execute the planned steps, persist an orchestration checkpoint, and continue from the saved plan with `resume=true`.
+**Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.
 
 **Parameters:**
 
@@ -663,6 +676,9 @@ so returned values have to JSON-serializable.
 - `execute`
 - `resume`
 - `stopOnError`
+- `skipSteps`
+- `fromStep`
+- `onlySteps`
 - `executionOverrides`
 
 ### `pause`

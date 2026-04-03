@@ -48,6 +48,9 @@ export async function orchestrateReverseTask(
     resume?: boolean;
     stopOnError?: boolean;
     executionOverrides?: Record<string, ReverseTaskExecutionOverride>;
+    skipSteps?: string[];
+    fromStep?: string;
+    onlySteps?: string[];
   } = {},
 ): Promise<{
   taskId: string;
@@ -126,8 +129,14 @@ export async function orchestrateReverseTask(
     });
   }
 
+  const filteredSteps = filterPlannedSteps(suggestedSteps, {
+    skipSteps: options.skipSteps,
+    fromStep: options.fromStep,
+    onlySteps: options.onlySteps,
+  });
+
   const execution = options.execute
-    ? await executeReverseTaskPlan(store, taskId, suggestedSteps, {
+    ? await executeReverseTaskPlan(store, taskId, filteredSteps, {
       resume: options.resume,
       stopOnError: options.stopOnError,
       currentStage,
@@ -136,6 +145,11 @@ export async function orchestrateReverseTask(
     : undefined;
   const postExecution = options.execute ? await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20}) : snapshot;
   const summary = options.includeSummary === false ? undefined : postExecution;
+  const filtersApplied = Boolean(
+    (options.skipSteps && options.skipSteps.length > 0) ||
+    options.fromStep ||
+    (options.onlySteps && options.onlySteps.length > 0),
+  );
 
   return {
     taskId,
@@ -145,10 +159,65 @@ export async function orchestrateReverseTask(
     currentSummary,
     advice,
     orchestration: {
-      primaryStep,
-      suggestedSteps,
+      primaryStep: filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep,
+      suggestedSteps: filteredSteps,
     },
     ...(execution ? {execution} : {}),
     ...(summary ? {summary} : {}),
   };
+}
+
+function matchesStepSelector(step: OrchestrationStep, selector: string): boolean {
+  return step.key === selector || step.tool === selector;
+}
+
+function ensureStepExists(steps: OrchestrationStep[], selector: string, optionName: string): void {
+  if (!steps.some((step) => matchesStepSelector(step, selector))) {
+    throw new Error(`${optionName} references unknown step: ${selector}`);
+  }
+}
+
+function filterPlannedSteps(
+  steps: OrchestrationStep[],
+  options: {
+    skipSteps?: string[];
+    fromStep?: string;
+    onlySteps?: string[];
+  },
+): OrchestrationStep[] {
+  let filtered = [...steps];
+  const onlySteps = options.onlySteps ?? [];
+  const skipSteps = options.skipSteps ?? [];
+
+  for (const selector of onlySteps) {
+    ensureStepExists(steps, selector, 'onlySteps');
+  }
+  for (const selector of skipSteps) {
+    ensureStepExists(steps, selector, 'skipSteps');
+  }
+  if (options.fromStep) {
+    ensureStepExists(steps, options.fromStep, 'fromStep');
+  }
+
+  if (onlySteps.length > 0) {
+    filtered = filtered.filter((step) => onlySteps.some((selector) => matchesStepSelector(step, selector)));
+  }
+
+  if (options.fromStep) {
+    const startIndex = filtered.findIndex((step) => matchesStepSelector(step, options.fromStep!));
+    if (startIndex < 0) {
+      throw new Error(`fromStep references a step excluded by onlySteps: ${options.fromStep}`);
+    }
+    filtered = filtered.slice(startIndex);
+  }
+
+  if (skipSteps.length > 0) {
+    filtered = filtered.filter((step) => !skipSteps.some((selector) => matchesStepSelector(step, selector)));
+  }
+
+  if (filtered.length === 0) {
+    throw new Error('Step filters removed every planned step; adjust onlySteps/fromStep/skipSteps.');
+  }
+
+  return filtered;
 }

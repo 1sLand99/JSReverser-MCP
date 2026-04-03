@@ -31,6 +31,12 @@ export interface ReverseTaskExecutionResult {
   failedStepCount: number;
   skippedStepCount: number;
   failedStep?: {key: string; tool: string; status: string; error?: string; failureType?: ReverseTaskFailureType; retryable?: boolean};
+  recovery?: {
+    recommendedNextAction: string;
+    recommendedCommand?: string;
+    shouldResume: boolean;
+    shouldInspectSummary: boolean;
+  };
   checkpoint: ReverseTaskExecutionCheckpoint;
   stepResults: ReverseTaskExecutionStepResult[];
 }
@@ -54,6 +60,59 @@ function classifyFailure(errorMessage: string): {failureType: ReverseTaskFailure
     return {failureType: 'env_error', retryable: true};
   }
   return {failureType: 'unknown', retryable: false};
+}
+
+function buildRecoverySuggestion(args: {
+  taskId: string;
+  failureType: ReverseTaskFailureType;
+  retryable: boolean;
+  failedStepTool: string;
+}): ReverseTaskExecutionResult['recovery'] {
+  const {taskId, failureType, retryable, failedStepTool} = args;
+  const resumeCommand = `jsreverser-mcp --orchestrateReverseTask ${taskId} --execute --resume`;
+  const summarizeCommand = `jsreverser-mcp --manageReverseTask summarize --taskId ${taskId}`;
+
+  if (failureType === 'tool_error') {
+    return {
+      recommendedNextAction: `检查 ${failedStepTool} 是否已实现；如处于过渡期，可先用 executionOverrides 占位后再 resume。`,
+      recommendedCommand: retryable ? resumeCommand : undefined,
+      shouldResume: retryable,
+      shouldInspectSummary: false,
+    };
+  }
+
+  if (failureType === 'env_error') {
+    return {
+      recommendedNextAction: '先补齐缺失环境能力，再从 checkpoint 继续执行。',
+      recommendedCommand: summarizeCommand,
+      shouldResume: retryable,
+      shouldInspectSummary: true,
+    };
+  }
+
+  if (failureType === 'validation_error') {
+    return {
+      recommendedNextAction: '先修正当前步骤的输入参数或任务上下文，再重新执行 orchestration。',
+      shouldResume: false,
+      shouldInspectSummary: false,
+    };
+  }
+
+  if (failureType === 'external_error') {
+    return {
+      recommendedNextAction: '先恢复浏览器、网络或外部依赖链路，再从 checkpoint 重试。',
+      recommendedCommand: retryable ? resumeCommand : undefined,
+      shouldResume: retryable,
+      shouldInspectSummary: false,
+    };
+  }
+
+  return {
+    recommendedNextAction: '先查看任务摘要和 checkpoint，确认失败上下文后再决定是否继续。',
+    recommendedCommand: summarizeCommand,
+    shouldResume: false,
+    shouldInspectSummary: true,
+  };
 }
 
 async function saveCheckpoint(
@@ -203,6 +262,12 @@ export async function executeReverseTaskPlan(
           failedStepCount: 1,
           skippedStepCount,
           ...(failedStep ? {failedStep} : {}),
+          recovery: buildRecoverySuggestion({
+            taskId,
+            failureType: failureMeta.failureType,
+            retryable: failureMeta.retryable,
+            failedStepTool: step.tool,
+          }),
           checkpoint: failedCheckpoint,
           stepResults,
         };
@@ -232,6 +297,14 @@ export async function executeReverseTaskPlan(
     failedStepCount: failedStep ? 1 : 0,
     skippedStepCount,
     ...(failedStep ? {failedStep} : {}),
+    ...(failedStep ? {
+      recovery: buildRecoverySuggestion({
+        taskId,
+        failureType: failedStep.failureType ?? 'unknown',
+        retryable: failedStep.retryable ?? false,
+        failedStepTool: failedStep.tool,
+      }),
+    } : {}),
     checkpoint: finalCheckpoint,
     stepResults,
   };

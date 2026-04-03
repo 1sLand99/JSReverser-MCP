@@ -134,6 +134,7 @@
 如果你想把一次逆向任务变成可持续续跑的 artifact，优先用：
 
 - `start_reverse_task`：初始化 `task.json`、`state.json`、`report.md` 和首条 `timeline`
+- `create_reverse_task_from_request`：从一条已捕获的 network request 直接生成 reverse task，自动带上 target request、pageUrl、candidateScripts 和首轮 task context
 - **默认入口就是 `manage_reverse_task`**：除初始化外，task 的 list / get / summarize / progress / update / timeline 全部统一走这个入口
 - `manage_reverse_task`：聚合 task 相关常用动作，减少模型在多个 task tools 之间来回选择的 token 开销
   - `action: "list"`：查看所有 task 的阶段、状态、下一步和最近更新时间
@@ -142,7 +143,7 @@
   - `action: "progress"`：根据最近 evidence / timeline / successCriteria 自动推断阶段、状态和下一步
   - `action: "update"`：更新当前阶段、状态、摘要和成功判据
   - `action: "timeline"`：显式追加一条 timeline，适合把“本轮动作 / 观察结果 / 下一步”写回 artifact
-- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑
+- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
@@ -176,8 +177,8 @@
 把页面证据带回本地，逐步补齐 Node 运行环境。
 
 - `export_rebuild_bundle`：导出本地复现工程所需的入口、补环境和证据材料。
-- `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力。
-- `record_reverse_evidence`：把 hook / network / script 的关键观察正式写回 task artifact，供后续 summarize / progress / orchestration 复用。
+- `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力，并返回 `patchSuggestions`，直接给出最小补环境片段。
+- `record_reverse_evidence`：把 hook / network / script 的关键观察正式写回 task artifact，供后续 summarize / progress / orchestration 复用。现在 summary/query 还会给出去重后的 `evidenceAggregates`，方便快速看 top URLs、top functions 和 env blockers。
 
 ### 页面自动化
 

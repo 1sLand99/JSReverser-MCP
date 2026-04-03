@@ -33,12 +33,26 @@ describe('ReverseTaskSummary', () => {
         goal: 'summarize task',
       });
       await opened.appendLog('runtime-evidence', {source: 'hook', note: 'captured sign path'});
+      await opened.appendLog('runtime-evidence', {
+        source: 'hook',
+        kind: 'hook-hit',
+        functionName: 'signPayload',
+        requestUrl: 'https://example.com/api/sign',
+      });
+      await opened.appendLog('runtime-evidence', {
+        source: 'network',
+        kind: 'env-gap',
+        note: 'localStorage is not defined',
+      });
 
       const result = await summarizeReverseTask(store, 'task-summary-001');
       assert.strictEqual(result.taskId, 'task-summary-001');
       assert.strictEqual(result.currentSummary, '已确认目标请求');
       assert.ok(result.headline.includes('Observe'));
       assert.ok(result.recentEvidence[0]?.includes('captured sign path'));
+      assert.strictEqual(result.evidenceAggregates.bySource.hook, 2);
+      assert.ok(result.evidenceAggregates.topFunctions.some((entry) => entry.value === 'signPayload'));
+      assert.ok(result.evidenceAggregates.blockers.includes('localStorage is not defined'));
       void task;
     } finally {
       await rm(rootDir, {recursive: true, force: true});

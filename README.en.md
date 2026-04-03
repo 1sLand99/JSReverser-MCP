@@ -134,6 +134,7 @@ If you do not want to rely on an external skill/playbook, start with:
 For durable task artifacts and resumable work:
 
 - `start_reverse_task`
+- `create_reverse_task_from_request`: create a reverse task directly from one captured network request, including target request, page URL, candidate scripts, and initial task context
 - **Use `manage_reverse_task` as the default entry** for all list / get / summarize / progress / update / timeline task flows.
 - `manage_reverse_task`: aggregated reverse-task entry for list/get/summarize/progress/update/timeline flows
   - `action: "list"`
@@ -142,7 +143,7 @@ For durable task artifacts and resumable work:
   - `action: "progress"`
   - `action: "update"`
   - `action: "timeline"`
-- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`
+- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`; failures now include recovery guidance, and step-level controls are available through `skipSteps`, `fromStep`, and `onlySteps`
 - Task CLI shortcuts:
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
@@ -176,8 +177,8 @@ Useful for long-lived connections, streaming flows, and binary frames.
 Bring browser evidence back to a local Node workflow.
 
 - `export_rebuild_bundle`
-- `diff_env_requirements`
-- `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them.
+- `diff_env_requirements` — now also returns `patchSuggestions` with minimal environment shim snippets
+- `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them. Summary/query responses now also expose deduped `evidenceAggregates` for top URLs, top functions, and env blockers.
 
 ### Page Automation
 

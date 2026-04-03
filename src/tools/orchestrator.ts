@@ -16,6 +16,9 @@ export const orchestrateReverseTaskTool = defineTool({
     execute: zod.boolean().optional(),
     resume: zod.boolean().optional(),
     stopOnError: zod.boolean().optional(),
+    skipSteps: zod.array(zod.string()).optional(),
+    fromStep: zod.string().optional(),
+    onlySteps: zod.array(zod.string()).optional(),
     executionOverrides: zod.record(zod.string(), zod.object({
       status: zod.enum(['ok', 'error']),
       result: zod.string().optional(),
@@ -30,6 +33,9 @@ export const orchestrateReverseTaskTool = defineTool({
       execute: request.params.execute,
       resume: request.params.resume,
       stopOnError: request.params.stopOnError,
+      skipSteps: request.params.skipSteps,
+      fromStep: request.params.fromStep,
+      onlySteps: request.params.onlySteps,
       executionOverrides: request.params.executionOverrides,
     });
     response.appendResponseLine('```json');

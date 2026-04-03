@@ -140,6 +140,7 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(firstPayload.execution?.failedStep?.tool, 'understand_code');
       assert.strictEqual(firstPayload.execution?.failedStep?.failureType, 'tool_error');
       assert.strictEqual(firstPayload.execution?.failedStep?.retryable, true);
+      assert.ok((firstPayload.execution as {recovery?: {recommendedCommand?: string}} | undefined)?.recovery?.recommendedCommand?.includes('--execute --resume'));
       assert.strictEqual(firstPayload.execution?.checkpoint?.status, 'failed');
       assert.strictEqual(firstPayload.execution?.checkpoint?.failureType, 'tool_error');
       assert.strictEqual(firstPayload.execution?.checkpoint?.retryable, true);
@@ -181,6 +182,147 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(resumedPayload.execution?.checkpoint?.status, 'passed');
       assert.ok(resumedPayload.execution?.stepResults?.some((entry) => entry.tool === 'understand_code' && entry.retryCount === 1));
       assert.ok(resumedPayload.summary?.recentTimeline.some((entry) => entry.action === 'understand_code' && entry.status === 'ok'));
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('supports onlySteps and fromStep filtering in orchestration plans', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-filter-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-filter-001',
+          taskSlug: 'orchestrate-filter-demo',
+          targetUrl: 'https://example.com/api/sign',
+          goal: 'orchestrate filter tool',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/sign',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      await updateReverseTaskState(runtime.reverseTaskStore, {
+        taskId: 'task-orchestrate-filter-001',
+        currentStage: 'PureExtraction',
+        status: 'partial',
+        currentSummary: 'ready to extract pure algorithm',
+        nextStepHint: 'understand_code',
+        successCriteria: {localRebuild: 'pass'},
+      });
+
+      const onlyResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-filter-001',
+          onlySteps: ['understand_code'],
+        },
+      }, onlyResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+      const onlyPayload = JSON.parse(onlyResponse.lines[1] ?? '{}') as {
+        orchestration: {primaryStep: {tool: string}; suggestedSteps: Array<{tool: string}>};
+      };
+      assert.strictEqual(onlyPayload.orchestration.primaryStep.tool, 'understand_code');
+      assert.deepStrictEqual(onlyPayload.orchestration.suggestedSteps.map((entry) => entry.tool), ['understand_code']);
+
+      const fromResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-filter-001',
+          fromStep: 'understand_code',
+        },
+      }, fromResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+      const fromPayload = JSON.parse(fromResponse.lines[1] ?? '{}') as {
+        orchestration: {suggestedSteps: Array<{tool: string}>};
+      };
+      assert.deepStrictEqual(fromPayload.orchestration.suggestedSteps.map((entry) => entry.tool), ['understand_code', 'manage_reverse_task']);
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('supports skipSteps and returns env-error recovery guidance', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-skip-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-skip-001',
+          taskSlug: 'orchestrate-skip-demo',
+          targetUrl: 'https://example.com/api/sign',
+          goal: 'orchestrate skip tool',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/sign',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const opened = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-orchestrate-skip-001',
+        slug: 'orchestrate-skip-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'orchestrate skip tool',
+      });
+      await opened.appendLog('runtime-evidence', {source: 'hook', kind: 'hook-hit', note: 'captured orchestrator sample'});
+
+      const skipResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-skip-001',
+          skipSteps: ['export_rebuild_bundle'],
+        },
+      }, skipResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+      const skipPayload = JSON.parse(skipResponse.lines[1] ?? '{}') as {
+        orchestration: {suggestedSteps: Array<{tool: string}>};
+      };
+      assert.deepStrictEqual(skipPayload.orchestration.suggestedSteps.map((entry) => entry.tool), ['manage_reverse_task', 'manage_reverse_task']);
+
+      await updateReverseTaskState(runtime.reverseTaskStore, {
+        taskId: 'task-orchestrate-skip-001',
+        currentStage: 'PureExtraction',
+        status: 'partial',
+        currentSummary: 'ready to extract pure algorithm',
+        nextStepHint: 'understand_code',
+        successCriteria: {localRebuild: 'pass'},
+      });
+
+      const errorResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-skip-001',
+          execute: true,
+          onlySteps: ['understand_code'],
+          executionOverrides: {
+            understand_code: {
+              status: 'error',
+              error: 'window is not defined',
+            },
+          },
+        },
+      }, errorResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const errorPayload = JSON.parse(errorResponse.lines[1] ?? '{}') as {
+        execution?: {
+          failedStep?: {failureType?: string};
+          recovery?: {recommendedCommand?: string; shouldInspectSummary?: boolean; shouldResume?: boolean};
+        };
+      };
+      assert.strictEqual(errorPayload.execution?.failedStep?.failureType, 'env_error');
+      assert.ok(errorPayload.execution?.recovery?.recommendedCommand?.includes('--manageReverseTask summarize'));
+      assert.strictEqual(errorPayload.execution?.recovery?.shouldInspectSummary, true);
+      assert.strictEqual(errorPayload.execution?.recovery?.shouldResume, true);
     } finally {
       runtime.reverseTaskStore = originalStore;
       await rm(rootDir, {recursive: true, force: true});

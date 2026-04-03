@@ -286,6 +286,65 @@ function inferMissingCapabilities(runtimeError: string, observedCapabilities: st
     .sort((a, b) => b.priority - a.priority);
 }
 
+function buildPatchSuggestion(capability: string): {snippet: string; note: string} {
+  if (capability === 'window') {
+    return {
+      snippet: 'globalThis.window = globalThis;',
+      note: '把浏览器全局根对象映射到 Node 全局，通常是第一步最小补丁。',
+    };
+  }
+  if (capability === 'document') {
+    return {
+      snippet: 'globalThis.document ??= { cookie: "", location: { href: "" } };',
+      note: '提供最小 DOM 壳，优先满足 cookie/location 读取路径。',
+    };
+  }
+  if (capability === 'navigator') {
+    return {
+      snippet: 'globalThis.navigator ??= { userAgent: "JSReverser-MCP" };',
+      note: '补充常见 UA 读取路径，避免环境探测直接失败。',
+    };
+  }
+  if (capability === 'localStorage') {
+    return {
+      snippet: [
+        'globalThis.localStorage ??= {',
+        '  _store: new Map(),',
+        '  getItem(key) { return this._store.has(key) ? this._store.get(key) : null; },',
+        '  setItem(key, value) { this._store.set(String(key), String(value)); },',
+        '  removeItem(key) { this._store.delete(String(key)); },',
+        '  clear() { this._store.clear(); },',
+        '};',
+      ].join('\n'),
+      note: '先提供最小内存版 localStorage，后续再按浏览器证据注入真实值。',
+    };
+  }
+  if (capability === 'sessionStorage') {
+    return {
+      snippet: [
+        'globalThis.sessionStorage ??= {',
+        '  _store: new Map(),',
+        '  getItem(key) { return this._store.has(key) ? this._store.get(key) : null; },',
+        '  setItem(key, value) { this._store.set(String(key), String(value)); },',
+        '  removeItem(key) { this._store.delete(String(key)); },',
+        '  clear() { this._store.clear(); },',
+        '};',
+      ].join('\n'),
+      note: '先补 sessionStorage 壳，适合排查一次性 nonce / session 依赖。',
+    };
+  }
+  if (capability === 'crypto') {
+    return {
+      snippet: 'globalThis.crypto ??= { subtle: {} };',
+      note: '先补最小 crypto.subtle 入口，再根据实际算法继续细化实现。',
+    };
+  }
+  return {
+    snippet: `// TODO: add a minimal shim for ${capability}`,
+    note: '当前没有内建片段，建议结合浏览器证据补最小实现。',
+  };
+}
+
 export const exportRebuildBundle = defineTool({
   name: 'export_rebuild_bundle',
   description: 'Export a local Node rebuild bundle from observed reverse-engineering evidence.',
@@ -389,11 +448,21 @@ export const diffEnvRequirements = defineTool({
       reason: item.reason,
       suggestedPatch: `Add a minimal ${item.capability} shim based on browser evidence before retrying the entry script.`,
     }));
+    const patchSuggestions = missingCapabilities.map((item) => {
+      const suggestion = buildPatchSuggestion(item.capability);
+      return {
+        capability: item.capability,
+        priority: item.priority,
+        snippet: suggestion.snippet,
+        note: suggestion.note,
+      };
+    });
 
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify({
       missingCapabilities: missingCapabilities.map((item) => item.capability),
       nextPatches,
+      patchSuggestions,
     }, null, 2));
     response.appendResponseLine('```');
   },

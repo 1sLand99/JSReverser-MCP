@@ -37,6 +37,18 @@ export const cliOptions = {
     description: 'When used with --orchestrateReverseTask, stop immediately after the first step failure.',
     default: true,
   },
+  skipStep: {
+    type: 'array',
+    description: 'When used with --orchestrateReverseTask, skip one or more planned steps by tool name or step key.',
+  },
+  fromStep: {
+    type: 'string',
+    description: 'When used with --orchestrateReverseTask, start execution from the matched step key or tool name.',
+  },
+  onlyStep: {
+    type: 'array',
+    description: 'When used with --orchestrateReverseTask, run only the selected step keys or tool names.',
+  },
   includeSummary: {
     type: 'boolean',
     description: 'When used with --orchestrateReverseTask, include the post-run task summary in CLI output.',
@@ -368,6 +380,9 @@ export async function executeKnowledgeCliCommand(
       execute: Boolean(args.execute),
       resume: Boolean(args.resume),
       stopOnError: args.stopOnError,
+      skipSteps: Array.isArray(args.skipStep) ? args.skipStep.map(String) : undefined,
+      fromStep: typeof args.fromStep === 'string' ? args.fromStep : undefined,
+      onlySteps: Array.isArray(args.onlyStep) ? args.onlyStep.map(String) : undefined,
       includeSummary: args.includeSummary,
       persistState: args.persistState,
       executionOverrides: args.executionOverrides as Record<string, {status: 'ok' | 'error'; result?: string; error?: string}> | undefined,

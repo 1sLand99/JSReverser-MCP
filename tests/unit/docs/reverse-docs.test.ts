@@ -52,6 +52,7 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('recommend_next_step'));
     assert.ok(readme.includes('explain_reverse_stage'));
     assert.ok(readme.includes('start_reverse_task'));
+    assert.ok(readme.includes('create_reverse_task_from_request'));
     assert.ok(readme.includes('manage_reverse_task'));
     assert.ok(readme.includes('orchestrate_reverse_task'));
     assert.ok(readme.includes('默认入口就是 `manage_reverse_task`'));
@@ -61,6 +62,9 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('--manageReverseTask progress --taskId <taskId>'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId>'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId> --execute --resume'));
+    assert.ok(readme.includes('skipSteps'));
+    assert.ok(readme.includes('patchSuggestions'));
+    assert.ok(readme.includes('evidenceAggregates'));
     assert.ok(readme.includes('--executionOverrides'));
     assert.ok(readme.includes('reverse-task-orchestration.md'));
     assert.ok(readme.includes('CLI cheatsheet'));
@@ -116,6 +120,9 @@ describe('reverse workflow docs', () => {
     assert.ok(orchestrationGuide.includes('--stopOnError'));
     assert.ok(orchestrationGuide.includes('--executionOverrides'));
     assert.ok(orchestrationGuide.includes('CLI cheatsheet'));
+    assert.ok(orchestrationGuide.includes('onlySteps'));
+    assert.ok(orchestrationGuide.includes('fromStep'));
+    assert.ok(orchestrationGuide.includes('recommendedNextAction'));
     assert.ok(orchestrationGuide.includes('failureType | 常见含义 | 默认 retryable'));
     assert.ok(orchestrationGuide.includes('record_reverse_evidence'));
     assert.ok(orchestrationGuide.includes('证据落盘'));
@@ -150,5 +157,7 @@ describe('reverse workflow docs', () => {
     assert.ok(gettingStarted.includes('--orchestrateReverseTask <taskId> --execute --resume'));
     assert.ok(gettingStarted.includes('orchestration-checkpoint.json'));
     assert.ok(gettingStarted.includes('record_reverse_evidence'));
+    assert.ok(gettingStarted.includes('create_reverse_task_from_request'));
+    assert.ok(gettingStarted.includes('evidenceAggregates'));
   });
 });

@@ -204,6 +204,9 @@ export async function executeRegisteredStep(context: ExecutionAdapterContext): P
   if (context.override?.status === 'ok') {
     return overrideAdapter(context);
   }
+  if (context.override?.status === 'error') {
+    throw new Error(context.override.error ?? `Override for ${context.step.tool} failed`);
+  }
 
   const adapter = adapterRegistry[context.step.tool];
   if (!adapter) {

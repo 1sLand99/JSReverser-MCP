@@ -136,6 +136,7 @@ describe('doctor cli', () => {
         execution?: {
           checkpoint?: {status: string; failedStepKey?: string; failureType?: string; retryable?: boolean};
           failedStep?: {tool: string; failureType?: string; retryable?: boolean};
+          recovery?: {recommendedCommand?: string; shouldResume?: boolean};
         };
       };
       assert.strictEqual(firstPayload.execution?.checkpoint?.status, 'failed');
@@ -143,6 +144,8 @@ describe('doctor cli', () => {
       assert.strictEqual(firstPayload.execution?.checkpoint?.failureType, 'tool_error');
       assert.strictEqual(firstPayload.execution?.checkpoint?.retryable, true);
       assert.strictEqual(firstPayload.execution?.failedStep?.tool, 'inject_hook');
+      assert.ok(firstPayload.execution?.recovery?.recommendedCommand?.includes('--execute --resume'));
+      assert.strictEqual(firstPayload.execution?.recovery?.shouldResume, true);
 
       const resumedLines: string[] = [];
       const resumedHandled = await executeKnowledgeCliCommand({
@@ -207,6 +210,7 @@ describe('doctor cli', () => {
         execute: true,
         resume: true,
         stopOnError: false,
+        onlyStep: ['inject_hook'],
         includeSummary: true,
         persistState: true,
         executionOverrides: {
@@ -229,6 +233,59 @@ describe('doctor cli', () => {
       assert.strictEqual(payload.execution?.checkpoint?.status, 'passed');
       assert.strictEqual(payload.summary?.taskId, 'task-cli-orchestrate-001');
       assert.strictEqual(payload.orchestration.primaryStep.tool, 'inject_hook');
+    } finally {
+      if (originalArtifactsDir === undefined) {
+        delete process.env.JSREVERSER_ARTIFACTS_DIR;
+      } else {
+        process.env.JSREVERSER_ARTIFACTS_DIR = originalArtifactsDir;
+      }
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('returns env-error recovery guidance when a filtered orchestration step fails', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-orchestrate-env-'));
+    const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
+
+    try {
+      process.env.JSREVERSER_ARTIFACTS_DIR = rootDir;
+      const store = new ReverseTaskStore({rootDir});
+      await startReverseTask(store, {
+        taskId: 'task-cli-orchestrate-env-001',
+        taskSlug: 'cli-orchestrate-env-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'cli orchestrate env flow',
+        targetContext: {
+          targetRequest: {
+            method: 'POST',
+            url: 'https://example.com/api/sign',
+          },
+        },
+      });
+
+      const lines: string[] = [];
+      const handled = await executeKnowledgeCliCommand({
+        orchestrateReverseTask: 'task-cli-orchestrate-env-001',
+        execute: true,
+        onlyStep: ['inject_hook'],
+        executionOverrides: {
+          inject_hook: {
+            status: 'error',
+            error: 'window is not defined',
+          },
+        },
+      }, (line) => lines.push(line));
+      assert.strictEqual(handled, true);
+      const payload = JSON.parse(lines[0]) as {
+        execution?: {
+          failedStep?: {failureType?: string};
+          recovery?: {recommendedCommand?: string; shouldInspectSummary?: boolean; shouldResume?: boolean};
+        };
+      };
+      assert.strictEqual(payload.execution?.failedStep?.failureType, 'env_error');
+      assert.ok(payload.execution?.recovery?.recommendedCommand?.includes('--manageReverseTask summarize'));
+      assert.strictEqual(payload.execution?.recovery?.shouldInspectSummary, true);
+      assert.strictEqual(payload.execution?.recovery?.shouldResume, true);
     } finally {
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;

@@ -85,11 +85,31 @@ describe('rebuild bridge tools', () => {
       const diffJson = extractFirstJsonBlock(diffResponse.lines);
       assert.ok(Array.isArray(diffJson.missingCapabilities));
       assert.ok(Array.isArray(diffJson.nextPatches));
+      assert.ok(Array.isArray(diffJson.patchSuggestions));
       assert.strictEqual((diffJson.nextPatches as Array<Record<string, unknown>>)[0].capability, 'window');
+      assert.strictEqual((diffJson.patchSuggestions as Array<Record<string, unknown>>)[0].capability, 'window');
+      assert.ok(String((diffJson.patchSuggestions as Array<Record<string, unknown>>)[0].snippet).includes('globalThis.window = globalThis'));
+      assert.ok((diffJson.patchSuggestions as Array<Record<string, unknown>>).some((item) => item.capability === 'localStorage' && String(item.snippet).includes('globalThis.localStorage')));
+      assert.ok((diffJson.patchSuggestions as Array<Record<string, unknown>>).some((item) => item.capability === 'crypto' && String(item.snippet).includes('globalThis.crypto')));
     } finally {
       runtime.reverseTaskStore = originalStore;
       await rm(rootDir, {recursive: true, force: true});
     }
+  });
+
+  it('returns minimal patch suggestions for session and document style gaps', async () => {
+    const diffResponse = makeResponse();
+    await diffEnvRequirements.handler({
+      params: {
+        runtimeError: 'ReferenceError: document is not defined\nReferenceError: sessionStorage is not defined',
+        observedCapabilities: ['document', 'sessionStorage'],
+      },
+    } as Parameters<typeof diffEnvRequirements.handler>[0], diffResponse as unknown as Parameters<typeof diffEnvRequirements.handler>[1], {} as Parameters<typeof diffEnvRequirements.handler>[2]);
+
+    const diffJson = extractFirstJsonBlock(diffResponse.lines);
+    const patchSuggestions = diffJson.patchSuggestions as Array<Record<string, unknown>>;
+    assert.ok(patchSuggestions.some((item) => item.capability === 'document' && String(item.snippet).includes('globalThis.document')));
+    assert.ok(patchSuggestions.some((item) => item.capability === 'sessionStorage' && String(item.snippet).includes('globalThis.sessionStorage')));
   });
 
   it('auto-generates a rebuild bundle from observed page evidence and task logs', async () => {

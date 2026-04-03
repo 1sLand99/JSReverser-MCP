@@ -6,6 +6,7 @@
 
 import type {ReverseTaskState} from '../types/index.js';
 import type {ReverseTaskStore} from './ReverseTaskStore.js';
+import {buildReverseTaskEvidenceIndex, type ReverseTaskEvidenceAggregates} from './ReverseTaskEvidenceIndex.js';
 
 function isNonEmptyRecord(value: Record<string, unknown> | undefined): value is Record<string, unknown> {
   return value !== undefined && Object.keys(value).length > 0;
@@ -22,6 +23,7 @@ export async function getReverseTaskState(
   targetContext: Record<string, unknown> | undefined;
   recentTimeline: Record<string, unknown>[];
   recentEvidence: Record<string, unknown>[];
+  evidenceAggregates: ReverseTaskEvidenceAggregates;
 }> {
   const [task, state, targetContext, timeline, evidence] = await Promise.all([
     store.readSnapshot<Record<string, unknown>>(taskId, 'task.json'),
@@ -33,6 +35,7 @@ export async function getReverseTaskState(
 
   const timelineLimit = options.timelineLimit ?? 10;
   const evidenceLimit = options.evidenceLimit ?? 10;
+  const evidenceIndex = buildReverseTaskEvidenceIndex(evidence);
 
   return {
     taskId,
@@ -42,6 +45,7 @@ export async function getReverseTaskState(
       ? targetContext
       : (task?.targetContext as Record<string, unknown> | undefined),
     recentTimeline: timeline.slice(-timelineLimit),
-    recentEvidence: evidence.slice(-evidenceLimit),
+    recentEvidence: evidenceIndex.dedupedEntries.slice(-evidenceLimit),
+    evidenceAggregates: evidenceIndex.aggregates,
   };
 }
