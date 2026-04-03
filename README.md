@@ -150,6 +150,8 @@
   - `action: "prune"`：删除已归档任务
   - `action: "compare"`：比较两个任务的目标请求、函数命中和证据差异
 - `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制，也支持通过 `strategy` 快速切到 `observe-first` / `rebuild-first` / `env-fix` / `artifact-sync` / `evidence-only` 模板
+  - `outputMode: "compact" | "verbose"`：给大模型时可优先用 `compact`，减少非必要字段和说明文字
+  - 执行失败时会补 `fallbackPlan`，帮助模型直接切换到下一条更稳的链路
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`

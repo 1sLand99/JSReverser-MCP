@@ -99,6 +99,21 @@
 }
 ```
 
+压缩输出，减少 token：
+
+```json
+{
+  "taskId": "task-001",
+  "outputMode": "compact"
+}
+```
+
+`compact` 模式下：
+
+- 默认不返回 `summary`
+- `suggestedSteps` 只保留最关键字段
+- 更适合大模型把结果当作“下一步决策输入”
+
 从指定步骤开始：
 
 ```json
@@ -139,6 +154,10 @@
 如果你想在补环境前先做一次聚合体检，可以再补一条：
 
 - `get_rebuild_health_report`：直接返回 `currentStage`、`firstDivergence`、`patchSuggestions`、`evidenceAggregates` 和 `recommendedNextAction`
+
+如果执行失败，返回里还可能附带：
+
+- `fallbackPlan`：按失败类型给出一组更稳的备选步骤，例如 env error 时先切到 `diff_env_requirements`
 
 ## CLI 调用方式
 

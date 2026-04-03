@@ -384,6 +384,77 @@ describe('orchestrate_reverse_task tool', () => {
     }
   });
 
+  it('supports compact orchestration output and exposes fallback steps for env errors', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-compact-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-compact-001',
+          taskSlug: 'orchestrate-compact-demo',
+          targetUrl: 'https://example.com/api/sign',
+          goal: 'compact output',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/sign',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      await updateReverseTaskState(runtime.reverseTaskStore, {
+        taskId: 'task-orchestrate-compact-001',
+        currentStage: 'Patch',
+        status: 'partial',
+        currentSummary: 'ReferenceError: window is not defined',
+        nextStepHint: 'understand_code',
+      });
+
+      const compactResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-compact-001',
+          outputMode: 'compact',
+        },
+      }, compactResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const compactPayload = JSON.parse(compactResponse.lines[1] ?? '{}') as {
+        summary?: unknown;
+        orchestration: {suggestedSteps: Array<{tool: string; reason?: string}>};
+      };
+      assert.strictEqual(compactPayload.summary, undefined);
+      assert.ok(compactPayload.orchestration.suggestedSteps.every((step) => step.reason === undefined));
+
+      const fallbackResponse = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-compact-001',
+          execute: true,
+          onlySteps: ['diff_env_requirements'],
+          executionOverrides: {
+            diff_env_requirements: {
+              status: 'error',
+              error: 'window is not defined',
+            },
+          },
+        },
+      }, fallbackResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const fallbackPayload = JSON.parse(fallbackResponse.lines[1] ?? '{}') as {
+        fallbackPlan?: {reason: string; steps: Array<{tool: string}>};
+      };
+      assert.ok(fallbackPayload.fallbackPlan);
+      assert.ok(fallbackPayload.fallbackPlan?.steps.some((step) => step.tool === 'diff_env_requirements'));
+      assert.ok(fallbackPayload.fallbackPlan?.steps.some((step) => step.tool === 'manage_reverse_task'));
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
 
   it('executes export_rebuild_bundle through the real rebuild tool path', async () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-export-'));

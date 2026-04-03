@@ -11,6 +11,7 @@ import {getReverseTaskState} from './ReverseTaskQuery.js';
 import {executeReverseTaskPlan, type ReverseTaskExecutableStep, type ReverseTaskExecutionOverride} from './ReverseTaskExecutor.js';
 
 type OrchestrationStep = ReverseTaskExecutableStep;
+type OutputMode = 'compact' | 'verbose';
 
 function buildStepKey(tool: string, params: Record<string, unknown>): string {
   if (tool === 'manage_reverse_task') {
@@ -92,6 +93,48 @@ function buildStrategyPrimaryStep(
   return buildPrimaryStep(taskId, nextStepHint, currentStage);
 }
 
+function buildFallbackPlan(
+  taskId: string,
+  execution: Awaited<ReturnType<typeof executeReverseTaskPlan>> | undefined,
+): {reason: string; steps: OrchestrationStep[]} | undefined {
+  if (!execution?.failedStep?.failureType) {
+    return undefined;
+  }
+  if (execution.failedStep.failureType === 'env_error') {
+    return {
+      reason: '当前失败更像补环境缺口，优先切换到 env-fix 路径。',
+      steps: [
+        {
+          key: buildStepKey('diff_env_requirements', {taskId}),
+          tool: 'diff_env_requirements',
+          reason: '先分析 runtime error 对应的环境能力缺口。',
+          params: {taskId},
+        },
+        buildManageTaskStep(taskId, 'summarize', 'Patch'),
+      ],
+    };
+  }
+  if (execution.failedStep.failureType === 'tool_error') {
+    return {
+      reason: '当前失败更像工具执行问题，先回到任务摘要，再决定是否 resume。',
+      steps: [buildManageTaskStep(taskId, 'summarize', 'Observe')],
+    };
+  }
+  return {
+    reason: '当前失败需要先重新对齐任务上下文。',
+    steps: [buildManageTaskStep(taskId, 'get', 'Observe')],
+  };
+}
+
+function compactStep(step: OrchestrationStep): OrchestrationStep {
+  return {
+    key: step.key,
+    tool: step.tool,
+    params: step.params,
+    reason: undefined as unknown as string,
+  };
+}
+
 export async function orchestrateReverseTask(
   store: ReverseTaskStore,
   taskId: string,
@@ -103,6 +146,7 @@ export async function orchestrateReverseTask(
     stopOnError?: boolean;
     executionOverrides?: Record<string, ReverseTaskExecutionOverride>;
     strategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only';
+    outputMode?: OutputMode;
     skipSteps?: string[];
     fromStep?: string;
     onlySteps?: string[];
@@ -125,9 +169,12 @@ export async function orchestrateReverseTask(
     primaryStep: OrchestrationStep;
     suggestedSteps: OrchestrationStep[];
   };
+  outputMode: OutputMode;
+  fallbackPlan?: {reason: string; steps: OrchestrationStep[]};
   execution?: Awaited<ReturnType<typeof executeReverseTaskPlan>>;
   summary?: Awaited<ReturnType<typeof getReverseTaskState>>;
 }> {
+  const outputMode = options.outputMode ?? 'verbose';
   const persistState = options.persistState ?? true;
   const progressed = persistState ? await autoProgressReverseTask(store, taskId) : undefined;
   const snapshot = await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20});
@@ -199,7 +246,7 @@ export async function orchestrateReverseTask(
     })
     : undefined;
   const postExecution = options.execute ? await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20}) : snapshot;
-  const summary = options.includeSummary === false ? undefined : postExecution;
+  const summary = options.includeSummary === false || outputMode === 'compact' ? undefined : postExecution;
   const filtersApplied = Boolean(
     (options.skipSteps && options.skipSteps.length > 0) ||
     options.fromStep ||
@@ -213,10 +260,14 @@ export async function orchestrateReverseTask(
     nextStepHint,
     currentSummary,
     advice,
+    outputMode,
     orchestration: {
-      primaryStep: filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep,
-      suggestedSteps: filteredSteps,
+      primaryStep: outputMode === 'compact'
+        ? compactStep(filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep)
+        : (filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep),
+      suggestedSteps: outputMode === 'compact' ? filteredSteps.map(compactStep) : filteredSteps,
     },
+    ...(buildFallbackPlan(taskId, execution) ? {fallbackPlan: buildFallbackPlan(taskId, execution)} : {}),
     ...(execution ? {execution} : {}),
     ...(summary ? {summary} : {}),
   };

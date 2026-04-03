@@ -32,6 +32,7 @@ interface ParsedArgsLike {
   fromStep?: string;
   onlyStep?: string[];
   strategy?: string;
+  outputMode?: string;
   includeSummary?: boolean;
   persistState?: boolean;
   executionOverrides?: Record<string, {status: string; result?: string; error?: string}>;
@@ -169,6 +170,8 @@ describe('cli extended coverage', () => {
       'understand_code',
       '--strategy',
       'env-fix',
+      '--outputMode',
+      'compact',
       '--includeSummary=false',
       '--persistState=false',
       '--executionOverrides',
@@ -183,6 +186,7 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.fromStep, 'understand_code');
     assert.deepStrictEqual(parsed.onlyStep, ['understand_code']);
     assert.strictEqual(parsed.strategy, 'env-fix');
+    assert.strictEqual(parsed.outputMode, 'compact');
     assert.strictEqual(parsed.includeSummary, false);
     assert.strictEqual(parsed.persistState, false);
     assert.deepStrictEqual(parsed.executionOverrides, {

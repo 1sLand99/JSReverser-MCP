@@ -42,6 +42,11 @@ export const cliOptions = {
     choices: ['observe-first', 'rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'] as const,
     description: 'When used with --orchestrateReverseTask, apply a named orchestration strategy template.',
   },
+  outputMode: {
+    type: 'string',
+    choices: ['compact', 'verbose'] as const,
+    description: 'When used with reverse-task agent flows, choose compact or verbose JSON output.',
+  },
   skipStep: {
     type: 'array',
     description: 'When used with --orchestrateReverseTask, skip one or more planned steps by tool name or step key.',
@@ -417,6 +422,7 @@ export async function executeKnowledgeCliCommand(
       resume: Boolean(args.resume),
       stopOnError: args.stopOnError,
       strategy: args.strategy as 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
+      outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
       skipSteps: Array.isArray(args.skipStep) ? args.skipStep.map(String) : undefined,
       fromStep: typeof args.fromStep === 'string' ? args.fromStep : undefined,
       onlySteps: Array.isArray(args.onlyStep) ? args.onlyStep.map(String) : undefined,

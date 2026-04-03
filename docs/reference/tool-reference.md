@@ -684,6 +684,7 @@ so returned values have to JSON-serializable.
 - `taskId`
 - `persistState`
 - `includeSummary`
+- `outputMode`
 - `execute`
 - `resume`
 - `stopOnError`
@@ -692,6 +693,8 @@ so returned values have to JSON-serializable.
 - `onlySteps`
 - `strategy`
 - `executionOverrides`
+
+**Failure note:** May also return `fallbackPlan` when execution fails and the orchestrator can suggest a safer next path.
 
 ### `get_rebuild_health_report`
 

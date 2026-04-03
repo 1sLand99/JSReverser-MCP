@@ -215,6 +215,7 @@ describe('doctor cli', () => {
         orchestrateReverseTask: 'task-cli-orchestrate-001',
         execute: true,
         resume: true,
+        outputMode: 'compact',
         stopOnError: false,
         onlyStep: ['inject_hook'],
         includeSummary: true,
@@ -229,15 +230,17 @@ describe('doctor cli', () => {
       assert.strictEqual(handled, true);
       const payload = JSON.parse(lines[0]) as {
         taskId: string;
+        outputMode?: string;
         execution?: {executed: boolean; resumed: boolean; checkpoint?: {status: string}};
         summary?: {taskId: string};
         orchestration: {primaryStep: {tool: string}};
       };
       assert.strictEqual(payload.taskId, 'task-cli-orchestrate-001');
+      assert.strictEqual(payload.outputMode, 'compact');
       assert.strictEqual(payload.execution?.executed, true);
       assert.strictEqual(payload.execution?.resumed, true);
       assert.strictEqual(payload.execution?.checkpoint?.status, 'passed');
-      assert.strictEqual(payload.summary?.taskId, 'task-cli-orchestrate-001');
+      assert.strictEqual(payload.summary, undefined);
       assert.strictEqual(payload.orchestration.primaryStep.tool, 'inject_hook');
     } finally {
       if (originalArtifactsDir === undefined) {

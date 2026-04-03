@@ -150,6 +150,8 @@ For durable task artifacts and resumable work:
   - `action: "prune"`
   - `action: "compare"`
 - `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`; failures now include recovery guidance, step-level controls are available through `skipSteps`, `fromStep`, and `onlySteps`, and `strategy` can switch between `observe-first`, `rebuild-first`, `env-fix`, `artifact-sync`, and `evidence-only`
+  - `outputMode: "compact" | "verbose"` lets agent callers trade detail for lower token cost
+  - failed executions now also expose `fallbackPlan` so the model can pivot without replanning from scratch
 - Task CLI shortcuts:
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
