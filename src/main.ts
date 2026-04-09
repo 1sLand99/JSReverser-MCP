@@ -21,6 +21,7 @@ import {
   SetLevelRequestSchema,
 } from './third_party/index.js';
 import * as jshookAnalyzerTools from './tools/analyzer.js';
+import * as agentRunnerTools from './tools/agent-runner.js';
 import * as advisorTools from './tools/advisor.js';
 import {ToolCategory} from './tools/categories.js';
 import * as jshookCollectorTools from './tools/collector.js';
@@ -225,6 +226,7 @@ function asTools(module: object): ToolDefinition[] {
 
 const toolSources: Array<{source: string; tools: ToolDefinition[]}> = [
   {source: 'console', tools: asTools(consoleTools)},
+  {source: 'agentRunner', tools: asTools(agentRunnerTools)},
   {source: 'debugger', tools: asTools(debuggerTools)},
   {source: 'diagnostics', tools: asTools(diagnosticsTools)},
   {source: 'advisor', tools: asTools(advisorTools)},

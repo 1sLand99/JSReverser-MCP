@@ -245,3 +245,77 @@ export function buildRebuildHealthAgentHints(args: {
       : `可执行 --manageReverseTask summarize --taskId ${taskId}`,
   };
 }
+
+export function buildRunReverseAgentHints(args: {
+  taskId: string;
+  stopReason: 'analysis_completed' | 'task_passed' | 'blocked' | 'checkpoint_required' | 'stalled' | 'max_rounds';
+  finalState: {
+    state?: {status?: string; nextStepHint?: string; currentStage?: string};
+  };
+  lastPrimaryStep: ReverseTaskExecutableStep;
+  roundsExecuted: number;
+  maxRounds: number;
+}): ReverseTaskAgentHints {
+  const {taskId, stopReason, finalState, lastPrimaryStep, roundsExecuted, maxRounds} = args;
+  if (stopReason === 'analysis_completed') {
+    return {
+      status: 'ok',
+      summary: `已跑到函数切片结构理解阶段，当前建议先看 summarize，再决定是否进入 deobfuscate / pure extraction。`,
+      recommendedNextAction: '先读取任务摘要和 understand-code 产物，再决定是否继续深挖。',
+      recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['list_pages', 'navigate_page'],
+      recommendedStrategy: 'evidence-only',
+      recommendedParams: {action: 'summarize', taskId},
+      confidence: 0.92,
+      resumeHint: `可执行 --manageReverseTask summarize --taskId ${taskId}`,
+    };
+  }
+
+  if (stopReason === 'task_passed') {
+    return {
+      status: 'ok',
+      summary: '任务已经达到 pass，可直接导出摘要或报告。',
+      recommendedNextAction: '优先 summarize / export report，不要再重复自动续跑。',
+      recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['run_reverse_agent'],
+      recommendedStrategy: 'evidence-only',
+      recommendedParams: {action: 'summarize', taskId},
+      confidence: 0.94,
+      resumeHint: `可执行 --manageReverseTask summarize --taskId ${taskId}`,
+    };
+  }
+
+  if (stopReason === 'checkpoint_required' || stopReason === 'blocked') {
+    return {
+      status: 'needs_input',
+      summary: '自动续跑已停下，当前更适合先看任务摘要和失败上下文。',
+      recommendedNextAction: '先检查失败步骤与任务摘要，确认是否是 env gap / 外部依赖 / 上下文缺失。',
+      recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['run_reverse_agent'],
+      recommendedStrategy: stopReason === 'checkpoint_required' ? 'env-fix' : 'evidence-only',
+      recommendedParams: {action: 'summarize', taskId},
+      confidence: 0.84,
+      resumeHint: `可执行 --manageReverseTask summarize --taskId ${taskId}`,
+    };
+  }
+
+  return {
+    status: 'ok',
+    summary: `自动续跑共执行 ${roundsExecuted}/${maxRounds} 轮，当前停在 ${lastPrimaryStep.tool}。`,
+    recommendedNextAction: '如仍要继续自动推进，可再次执行 run_reverse_agent；若想先看上下文，先 summarize。',
+    recommendedTool: 'run_reverse_agent',
+    toolClass: 'orchestration',
+    routeHint: 'switch_to_orchestration',
+    avoidTools: ['list_pages'],
+    recommendedStrategy: finalState.state?.nextStepHint === 'diff_env_requirements' ? 'env-fix' : undefined,
+    recommendedParams: {taskId, maxRounds},
+    confidence: stopReason === 'stalled' ? 0.63 : 0.75,
+    resumeHint: `可执行 --runReverseAgent ${taskId} --maxRounds ${maxRounds}`,
+  };
+}

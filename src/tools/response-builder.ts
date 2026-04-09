@@ -108,6 +108,16 @@ function buildInvokeHint(tool: string | undefined, params: Record<string, unknow
     };
   }
 
+  if (tool === 'run_reverse_agent') {
+    const requiredParams = ['taskId'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      example: {taskId: normalizedParams.taskId ?? '<taskId>', ...normalizedParams},
+    };
+  }
+
   if (tool === 'get_rebuild_health_report') {
     const requiredParams = ['taskId'];
     const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));

@@ -12,8 +12,10 @@ import {describe, it} from 'node:test';
 
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 import {analyzeTarget, locateSignatureFunction, recordReverseEvidence} from '../../../src/tools/analyzer.js';
+import {runReverseAgentTool} from '../../../src/tools/agent-runner.js';
 import {getHookData} from '../../../src/tools/hook.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
+import {startReverseTaskTool} from '../../../src/tools/task.js';
 import type {CollectCodeResult, DetectCryptoResult, UnderstandCodeResult} from '../../../src/types/index.js';
 
 interface ResponseShape {
@@ -35,6 +37,58 @@ function extractFirstJsonBlock(lines: string[]): Record<string, unknown> {
   const start = lines.indexOf('```json');
   const end = lines.indexOf('```', start + 1);
   return JSON.parse(lines.slice(start + 1, end).join('\n')) as Record<string, unknown>;
+}
+
+function makeAgentContext() {
+  const page = {evaluate: async () => ({})};
+  return {
+    getSelectedPage: () => page,
+    getPageByOptionalIdx: () => page,
+    selectPage: () => undefined,
+    reinitDebugger: async () => undefined,
+    debuggerContext: {
+      isEnabled: () => true,
+      getScripts: () => [{scriptId: '77', url: 'https://example.com/app.js'}],
+      getScriptsByUrlPattern: () => [{scriptId: '77', url: 'https://example.com/app.js'}],
+      getScriptSource: async () => 'function genH5st(){return hash(body)}',
+      getScriptById: () => ({scriptId: '77', url: 'https://example.com/app.js'}),
+      searchInScripts: async () => ({
+        matches: [
+          {
+            scriptId: '77',
+            url: 'https://example.com/app.js',
+            lineNumber: 12,
+            lineContent: 'function genH5st(){return hash(body)}',
+          },
+        ],
+      }),
+      extractFunctionTree: async () => ({
+        mainFunction: 'genH5st',
+        code: 'function genH5st(){return hash(body)}\nfunction hash(v){return v}',
+        functions: [
+          {
+            name: 'genH5st',
+            code: 'function genH5st(){return hash(body)}',
+            dependencies: ['hash'],
+            startLine: 1,
+            endLine: 1,
+            size: 40,
+          },
+          {
+            name: 'hash',
+            code: 'function hash(v){return v}',
+            dependencies: [],
+            startLine: 2,
+            endLine: 2,
+            size: 24,
+          },
+        ],
+        callGraph: {genH5st: ['hash'], hash: []},
+        totalSize: 64,
+        extractedCount: 2,
+      }),
+    },
+  };
 }
 
 describe('reverse task tools', () => {
@@ -352,6 +406,128 @@ describe('reverse task tools', () => {
       runtime.reverseTaskStore = originals.reverseTaskStore;
       runtime.collector.collect = originals.collectorCollect;
       runtime.collector.getTopPriorityFiles = originals.collectorGetTopPriorityFiles;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('runs the full reverse agent loop through locate/search/slice/understand', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-run-agent-'));
+    const runtime = getJSHookRuntime();
+    const originals = {
+      reverseTaskStore: runtime.reverseTaskStore,
+      collectorCollect: runtime.collector.collect,
+      collectorGetTopPriorityFiles: runtime.collector.getTopPriorityFiles,
+      analyzerUnderstand: runtime.analyzer.understand,
+    };
+
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    runtime.collector.collect = async (): Promise<CollectCodeResult> => ({
+      files: [{
+        url: 'https://example.com/app.js',
+        content: 'function genH5st(appid, body, functionId){ return crypto.subtle.digest("SHA-256", body); }',
+        size: 96,
+        type: 'external',
+      }],
+      dependencies: {nodes: [], edges: []},
+      totalSize: 96,
+      collectTime: 1,
+    });
+    runtime.collector.getTopPriorityFiles = () => ({
+      files: [{
+        url: 'https://example.com/app.js',
+        content: 'function genH5st(appid, body, functionId){ return crypto.subtle.digest("SHA-256", body); }',
+        size: 96,
+        type: 'external',
+      }],
+      totalSize: 96,
+      totalFiles: 1,
+    });
+    runtime.analyzer.understand = async (): Promise<UnderstandCodeResult> => ({
+      structure: {
+        functions: [],
+        classes: [],
+        modules: [],
+        callGraph: {nodes: [], edges: []},
+      },
+      techStack: {other: []},
+      businessLogic: {mainFeatures: ['build h5st'], entities: [], rules: [], dataModel: {}},
+      dataFlow: {graph: {nodes: [], edges: []}, sources: [], sinks: [], taintPaths: []},
+      securityRisks: [],
+      qualityScore: 90,
+    });
+
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-run-agent-001',
+          taskSlug: 'run-agent-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'auto run h5st reverse agent',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const response = makeResponse();
+      await runReverseAgentTool.handler({
+        params: {
+          taskId: 'task-run-agent-001',
+          maxRounds: 6,
+        },
+      } as Parameters<typeof runReverseAgentTool.handler>[0], response as unknown as Parameters<typeof runReverseAgentTool.handler>[1], makeAgentContext() as unknown as Parameters<typeof runReverseAgentTool.handler>[2]);
+
+      const payload = extractFirstJsonBlock(response.lines) as {
+        run?: {roundsExecuted?: number; stopReason?: string; rounds?: Array<{primaryTool: string}>};
+        nextBestTool?: string;
+        continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
+      };
+      assert.strictEqual(payload.run?.stopReason, 'analysis_completed');
+      assert.strictEqual(payload.run?.roundsExecuted, 4);
+      assert.deepStrictEqual(payload.run?.rounds?.map((entry) => entry.primaryTool), [
+        'locate_signature_function',
+        'search_in_sources',
+        'extract_function_tree',
+        'understand_code',
+      ]);
+      assert.strictEqual(payload.nextBestTool, 'manage_reverse_task');
+      assert.strictEqual(payload.continuation?.invoke?.tool, 'manage_reverse_task');
+      assert.deepStrictEqual(payload.continuation?.invoke?.params, {
+        action: 'summarize',
+        taskId: 'task-run-agent-001',
+      });
+
+      const targetContext = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'target-context.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.ok(targetContext.locatedSignature);
+      assert.ok(targetContext.locatedSource);
+      assert.ok(targetContext.functionSlice);
+
+      const understandSnapshot = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'understand-code.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual((understandSnapshot.input as Record<string, unknown>).focus, 'structure');
+
+      const evidence = (
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'runtime-evidence.jsonl'), 'utf8')
+      )
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.ok(evidence.some((entry) => entry.kind === 'signature-locate'));
+      assert.ok(evidence.some((entry) => entry.kind === 'source-locate'));
+      assert.ok(evidence.some((entry) => entry.kind === 'function-slice'));
+      assert.ok(evidence.some((entry) => entry.kind === 'understand-code'));
+      assert.ok(evidence.some((entry) => entry.kind === 'auto-agent'));
+    } finally {
+      runtime.reverseTaskStore = originals.reverseTaskStore;
+      runtime.collector.collect = originals.collectorCollect;
+      runtime.collector.getTopPriorityFiles = originals.collectorGetTopPriorityFiles;
+      runtime.analyzer.understand = originals.analyzerUnderstand;
       await rm(rootDir, {recursive: true, force: true});
     }
   });
