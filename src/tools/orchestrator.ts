@@ -3,7 +3,7 @@ import {buildOrchestrationAgentHints} from '../reverse/ReverseTaskAgentProtocol.
 import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
-import {buildOrchestrationContinuation, compactAgentPayload} from './response-builder.js';
+import {buildOrchestrationContinuation, compactAgentPayload, withSchemaVersion} from './response-builder.js';
 import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
 
@@ -51,7 +51,7 @@ export const orchestrateReverseTaskTool = defineTool({
       execution: result.execution,
       confidence: result.advice.confidence,
     });
-    response.appendResponseLine(JSON.stringify(compactAgentPayload({
+    response.appendResponseLine(JSON.stringify(withSchemaVersion(compactAgentPayload({
       ok: true,
       responseSummary: request.params.outputMode === 'compact'
         ? `已生成任务 ${result.taskId} 的 compact orchestration plan。`
@@ -71,7 +71,7 @@ export const orchestrateReverseTaskTool = defineTool({
       }),
       ...result,
       agentGuidance,
-    }, result.outputMode), null, 2));
+    }, result.outputMode)), null, 2));
     response.appendResponseLine('```');
   },
 });

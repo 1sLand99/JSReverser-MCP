@@ -1,5 +1,12 @@
 export type OutputMode = 'compact' | 'verbose';
 export type AgentOutcome = 'success' | 'partial' | 'blocked';
+export const REVERSE_AGENT_SCHEMA_VERSION = '1.0';
+
+export interface ContinuationInvokeHint {
+  requiredParams: string[];
+  optionalParams?: string[];
+  example?: Record<string, unknown>;
+}
 
 export interface ContinuationShape {
   ready: boolean;
@@ -10,6 +17,7 @@ export interface ContinuationShape {
     tool: string;
     params?: Record<string, unknown>;
   };
+  invokeHint?: ContinuationInvokeHint;
   toolClass?: 'task' | 'orchestration' | 'rebuild' | 'analysis';
   routeHint?: 'stay_on_task_flow' | 'switch_to_orchestration' | 'switch_to_rebuild' | 'switch_to_analysis';
   strategy?: string;
@@ -56,6 +64,83 @@ export function compactAgentPayload(
     ...rest,
     detailLevel: 'minimal',
   };
+}
+
+export function withSchemaVersion(payload: Record<string, unknown>): Record<string, unknown> {
+  return {
+    schemaVersion: REVERSE_AGENT_SCHEMA_VERSION,
+    ...payload,
+  };
+}
+
+
+function buildInvokeHint(tool: string | undefined, params: Record<string, unknown> | undefined): ContinuationInvokeHint | undefined {
+  if (!tool) {
+    return undefined;
+  }
+
+  const normalizedParams = params ?? {};
+  const paramKeys = Object.keys(normalizedParams);
+
+  if (tool === 'manage_reverse_task') {
+    const action = typeof normalizedParams.action === 'string' ? normalizedParams.action : undefined;
+    const taskScopedActions = new Set(['get', 'summarize', 'progress', 'update', 'timeline', 'archive', 'restore', 'tag']);
+    const requiredParams = [
+      ...(action ? ['action'] : []),
+      ...(action && taskScopedActions.has(action) ? ['taskId'] : []),
+      ...(action == null && 'taskId' in normalizedParams ? ['taskId'] : []),
+    ];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      ...(paramKeys.length ? {example: normalizedParams} : {}),
+    };
+  }
+
+  if (tool === 'orchestrate_reverse_task') {
+    const requiredParams = ['taskId'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      example: {taskId: normalizedParams.taskId ?? '<taskId>', ...normalizedParams},
+    };
+  }
+
+  if (tool === 'get_rebuild_health_report') {
+    const requiredParams = ['taskId'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      example: {taskId: normalizedParams.taskId ?? '<taskId>', outputMode: normalizedParams.outputMode ?? 'compact', ...normalizedParams},
+    };
+  }
+
+  if (tool === 'export_rebuild_bundle') {
+    const requiredParams = ['taskId'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      ...(paramKeys.length ? {example: normalizedParams} : {}),
+    };
+  }
+
+  if (tool === 'diff_env_requirements') {
+    const requiredParams = ['runtimeError', 'observedCapabilities'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      ...(paramKeys.length ? {example: normalizedParams} : {}),
+    };
+  }
+
+  return paramKeys.length
+    ? {requiredParams: [], example: normalizedParams}
+    : {requiredParams: []};
 }
 
 export function inferBlockedBy(reason: unknown): string | undefined {
@@ -172,6 +257,7 @@ export function buildManageContinuation(
       ...(nextBestTool ? {tool: nextBestTool, actionKey: nextBestTool} : {}),
       ...(nextBestParams ? {params: nextBestParams} : {}),
       ...(nextBestTool ? {invoke: {tool: nextBestTool, ...(nextBestParams ? {params: nextBestParams} : {})}} : {}),
+      ...(nextBestTool ? {invokeHint: buildInvokeHint(nextBestTool, nextBestParams)} : {}),
       ...(hints?.toolClass ? {toolClass: hints.toolClass} : {}),
       ...(hints?.routeHint ? {routeHint: hints.routeHint} : {}),
       ...(hints?.recommendedStrategy ? {strategy: hints.recommendedStrategy} : {}),
@@ -218,6 +304,7 @@ export function buildOrchestrationContinuation(input: {
       ...(nextBestTool ? {tool: nextBestTool, actionKey: nextBestTool} : {}),
       ...(nextBestParams ? {params: nextBestParams} : {}),
       ...(nextBestTool ? {invoke: {tool: nextBestTool, ...(nextBestParams ? {params: nextBestParams} : {})}} : {}),
+      ...(nextBestTool ? {invokeHint: buildInvokeHint(nextBestTool, nextBestParams)} : {}),
       ...(input.agentGuidance?.toolClass ? {toolClass: input.agentGuidance.toolClass} : {}),
       ...(input.agentGuidance?.routeHint ? {routeHint: input.agentGuidance.routeHint} : {}),
       ...(strategy ? {strategy} : {}),
@@ -262,6 +349,7 @@ export function buildRebuildContinuation(input: {
       ...(nextBestTool ? {tool: nextBestTool, actionKey: nextBestTool} : {}),
       ...(nextBestParams ? {params: nextBestParams} : {}),
       ...(nextBestTool ? {invoke: {tool: nextBestTool, ...(nextBestParams ? {params: nextBestParams} : {})}} : {}),
+      ...(nextBestTool ? {invokeHint: buildInvokeHint(nextBestTool, nextBestParams)} : {}),
       ...(input.agentGuidance.toolClass ? {toolClass: input.agentGuidance.toolClass} : {}),
       ...(input.agentGuidance.routeHint ? {routeHint: input.agentGuidance.routeHint} : {}),
       ...(input.agentGuidance.recommendedStrategy ? {strategy: input.agentGuidance.recommendedStrategy} : {}),

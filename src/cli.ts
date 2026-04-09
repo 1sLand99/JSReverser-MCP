@@ -13,6 +13,7 @@ import {
   buildTaskDiagnostics,
   compactAgentPayload,
   compactManagePayload,
+  withSchemaVersion,
   type OutputMode,
 } from './tools/response-builder.js';
 
@@ -444,7 +445,7 @@ export async function executeKnowledgeCliCommand(
       execution: result.execution,
       confidence: result.advice.confidence,
     });
-    writeLine(JSON.stringify(compactAgentPayload({
+    writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload({
       responseSummary: args.outputMode === 'compact'
         ? `已生成任务 ${result.taskId} 的 compact orchestration plan。`
         : `已生成任务 ${result.taskId} 的 orchestration plan。`,
@@ -463,7 +464,7 @@ export async function executeKnowledgeCliCommand(
       }),
       ...result,
       agentGuidance,
-    }, result.outputMode), null, 2));
+    }, result.outputMode)), null, 2));
     return true;
   }
 
@@ -509,7 +510,7 @@ export async function executeKnowledgeCliCommand(
       });
       const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
       const summaryText = buildManageSummaryText(action, {items});
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['artifacts/tasks/<taskId>/'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['artifacts/tasks/<taskId>/'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -524,7 +525,7 @@ export async function executeKnowledgeCliCommand(
         nextStepHint: String((result.state?.nextStepHint ?? 'manage_reverse_task:progress')),
       });
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(compactAgentPayload(compactManagePayload(action, {
+      writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload(compactManagePayload(action, {
         responseSummary: summaryText,
         diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
         ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
@@ -533,7 +534,7 @@ export async function executeKnowledgeCliCommand(
         ...result,
         artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
         agentGuidance,
-      }, outputMode), outputMode), null, 2));
+      }, outputMode), outputMode)), null, 2));
       return true;
     }
 
@@ -550,7 +551,7 @@ export async function executeKnowledgeCliCommand(
         status: result.status,
       });
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(compactAgentPayload(compactManagePayload(action, {
+      writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload(compactManagePayload(action, {
         responseSummary: summaryText,
         diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
         ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
@@ -559,7 +560,7 @@ export async function executeKnowledgeCliCommand(
         ...result,
         artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
         agentGuidance,
-      }, outputMode), outputMode), null, 2));
+      }, outputMode), outputMode)), null, 2));
       return true;
     }
 
@@ -573,7 +574,7 @@ export async function executeKnowledgeCliCommand(
         status: result.status,
       });
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({
+      writeLine(JSON.stringify(withSchemaVersion({
         responseSummary: summaryText,
         diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
         ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
@@ -582,7 +583,7 @@ export async function executeKnowledgeCliCommand(
         ...result,
         artifacts: ['state.json', 'report.md'],
         agentGuidance,
-      }, null, 2));
+      }), null, 2));
       return true;
     }
 
@@ -591,7 +592,7 @@ export async function executeKnowledgeCliCommand(
       const result = await archiveReverseTask(store, String(args.taskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -600,7 +601,7 @@ export async function executeKnowledgeCliCommand(
       const result = await restoreReverseTask(store, String(args.taskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -614,7 +615,7 @@ export async function executeKnowledgeCliCommand(
       });
       const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
       const summaryText = buildManageSummaryText(action, {items});
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['task.json'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['task.json'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -628,7 +629,7 @@ export async function executeKnowledgeCliCommand(
       );
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -639,7 +640,7 @@ export async function executeKnowledgeCliCommand(
       });
       const agentGuidance = buildManageTaskAgentHints({action});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['artifacts/tasks/<archived-task-id>/'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['artifacts/tasks/<archived-task-id>/'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -648,7 +649,7 @@ export async function executeKnowledgeCliCommand(
       const result = await compareReverseTasks(store, String(args.taskId), String(args.otherTaskId));
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.leftTaskId, otherTaskId: result.rightTaskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({
+      writeLine(JSON.stringify(withSchemaVersion({
         responseSummary: summaryText,
         diagnostics: buildTaskDiagnostics(action, outputMode, result.leftTaskId),
         ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
@@ -657,7 +658,7 @@ export async function executeKnowledgeCliCommand(
         ...result,
         artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
         agentGuidance,
-      }, null, 2));
+      }), null, 2));
       return true;
     }
 
@@ -674,7 +675,7 @@ export async function executeKnowledgeCliCommand(
       });
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['state.json', 'report.md'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['state.json', 'report.md'], agentGuidance}), null, 2));
       return true;
     }
 
@@ -692,7 +693,7 @@ export async function executeKnowledgeCliCommand(
       });
       const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
       const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['timeline.jsonl', 'report.md'], agentGuidance}, null, 2));
+      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['timeline.jsonl', 'report.md'], agentGuidance}), null, 2));
       return true;
     }
 

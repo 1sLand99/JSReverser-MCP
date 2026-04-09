@@ -11,7 +11,7 @@ import {updateReverseTaskState} from '../reverse/ReverseTaskState.js';
 import {zod} from '../third_party/index.js';
 
 import {ToolCategory} from './categories.js';
-import {buildManageContinuation, buildManageSummaryText, buildTaskDiagnostics, compactAgentPayload, compactManagePayload, type OutputMode} from './response-builder.js';
+import {buildManageContinuation, buildManageSummaryText, buildTaskDiagnostics, compactAgentPayload, compactManagePayload, type OutputMode, withSchemaVersion} from './response-builder.js';
 import {defineTool} from './ToolDefinition.js';
 import {getJSHookRuntime} from './runtime.js';
 
@@ -77,13 +77,13 @@ export const manageReverseTaskTool = defineTool({
     };
     const writeJson = (payload: Record<string, unknown>) => {
       response.appendResponseLine('```json');
-      response.appendResponseLine(JSON.stringify(compactAgentPayload(compactManagePayload(action, {
+      response.appendResponseLine(JSON.stringify(withSchemaVersion(compactAgentPayload(compactManagePayload(action, {
         responseSummary: buildManageSummaryText(action, payload),
         diagnostics: buildTaskDiagnostics(action, outputMode, typeof payload.taskId === 'string' ? payload.taskId : undefined),
         ...buildManageContinuation(action, payload, buildManageSummaryText(action, payload)),
         ...payload,
         outputMode,
-      }, outputMode), outputMode), null, 2));
+      }, outputMode), outputMode)), null, 2));
       response.appendResponseLine('```');
     };
 

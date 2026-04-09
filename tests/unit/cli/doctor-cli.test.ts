@@ -91,8 +91,9 @@ describe('doctor cli', () => {
       const progressLines: string[] = [];
       const progressHandled = await executeKnowledgeCliCommand({manageReverseTask: 'progress', taskId: 'task-cli-001'}, (line) => progressLines.push(line));
       assert.strictEqual(progressHandled, true);
-      const progressPayload = JSON.parse(progressLines[0]) as {action: string; currentStage: string; nextStepHint: string; reasoning: string[]; outcome?: string; shouldResume?: boolean; nextBestTool?: string; detailLevel?: string; routeGuard?: {preferredToolClass?: string; routeHint?: string}; continuation?: {tool?: string; ready?: boolean; actionKey?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}}; agentGuidance?: {recommendedTool?: string; recommendedStrategy?: string; toolClass?: string; routeHint?: string}};
+      const progressPayload = JSON.parse(progressLines[0]) as {action: string; currentStage: string; nextStepHint: string; reasoning: string[]; schemaVersion?: string; outcome?: string; shouldResume?: boolean; nextBestTool?: string; detailLevel?: string; routeGuard?: {preferredToolClass?: string; routeHint?: string}; continuation?: {tool?: string; ready?: boolean; actionKey?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}}; agentGuidance?: {recommendedTool?: string; recommendedStrategy?: string; toolClass?: string; routeHint?: string}};
       assert.strictEqual(progressPayload.action, 'progress');
+      assert.strictEqual(progressPayload.schemaVersion, '1.0');
       assert.strictEqual(progressPayload.currentStage, 'Rebuild');
       assert.strictEqual(progressPayload.nextStepHint, 'export_rebuild_bundle');
       assert.ok(Array.isArray(progressPayload.reasoning));

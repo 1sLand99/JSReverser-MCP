@@ -73,6 +73,7 @@ describe('orchestrate_reverse_task tool', () => {
       const payload = JSON.parse(response.lines[1] ?? '{}') as {
         ok: boolean;
         currentStage: string;
+        schemaVersion?: string;
         responseSummary?: string;
         diagnostics?: Record<string, unknown>;
         outcome?: string;
@@ -81,11 +82,12 @@ describe('orchestrate_reverse_task tool', () => {
         nextBestTool?: string;
         detailLevel?: string;
         routeGuard?: {preferredToolClass?: string; routeHint?: string; avoidTools?: string[]};
-        continuation?: {ready?: boolean; tool?: string; strategy?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}};
+        continuation?: {ready?: boolean; tool?: string; strategy?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}; invokeHint?: {requiredParams?: string[]; optionalParams?: string[]; example?: Record<string, unknown>}};
         orchestration: {primaryStep: {tool: string}; suggestedSteps: Array<{tool: string}>};
         agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>; recommendedStrategy?: string; resumeHint?: string; confidence?: number; toolClass?: string; routeHint?: string};
       };
       assert.strictEqual(payload.ok, true);
+      assert.strictEqual(payload.schemaVersion, '1.0');
       assert.strictEqual(payload.currentStage, 'Rebuild');
       assert.strictEqual(payload.orchestration.primaryStep.tool, 'export_rebuild_bundle');
       assert.strictEqual(payload.orchestration.suggestedSteps[0]?.tool, 'manage_reverse_task');
@@ -103,6 +105,8 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(payload.continuation?.strategy, 'rebuild-first');
       assert.strictEqual(payload.continuation?.invoke?.tool, 'export_rebuild_bundle');
       assert.deepStrictEqual(payload.continuation?.invoke?.params, {taskId: 'task-orchestrate-001'});
+      assert.deepStrictEqual(payload.continuation?.invokeHint?.requiredParams, ['taskId']);
+      assert.deepStrictEqual(payload.continuation?.invokeHint?.example, {taskId: 'task-orchestrate-001'});
       assert.strictEqual(payload.continuation?.toolClass, 'rebuild');
       assert.strictEqual(payload.continuation?.routeHint, 'switch_to_rebuild');
       assert.strictEqual(payload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
@@ -456,6 +460,7 @@ describe('orchestrate_reverse_task tool', () => {
       }, compactResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
 
       const compactPayload = JSON.parse(compactResponse.lines[1] ?? '{}') as {
+        schemaVersion?: string;
         responseSummary?: unknown;
         detailLevel?: string;
         diagnostics?: Record<string, unknown>;
@@ -465,6 +470,7 @@ describe('orchestrate_reverse_task tool', () => {
         orchestration: {suggestedSteps: Array<{tool: string; reason?: string}>};
       };
       assert.ok(typeof compactPayload.responseSummary === 'string');
+      assert.strictEqual(compactPayload.schemaVersion, '1.0');
       assert.strictEqual(compactPayload.detailLevel, 'minimal');
       assert.ok(compactPayload.diagnostics);
       assert.strictEqual(compactPayload.nextBestTool, undefined);
@@ -488,17 +494,19 @@ describe('orchestrate_reverse_task tool', () => {
       }, fallbackResponse as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
 
       const fallbackPayload = JSON.parse(fallbackResponse.lines[1] ?? '{}') as {
+        schemaVersion?: string;
         outcome?: string;
         shouldResume?: boolean;
         shouldSwitchStrategy?: boolean;
         nextBestTool?: string;
         detailLevel?: string;
         routeGuard?: {preferredToolClass?: string; routeHint?: string};
-        continuation?: {ready?: boolean; tool?: string; strategy?: string; actionKey?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}};
+        continuation?: {ready?: boolean; tool?: string; strategy?: string; actionKey?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}; invokeHint?: {requiredParams?: string[]; optionalParams?: string[]; example?: Record<string, unknown>}};
         agentGuidance?: {recommendedStrategy?: string; toolClass?: string; routeHint?: string};
         fallbackPlan?: {reason: string; recommendedStrategy?: string; steps: Array<{tool: string}>};
       };
       assert.strictEqual(fallbackPayload.outcome, 'partial');
+      assert.strictEqual(fallbackPayload.schemaVersion, '1.0');
       assert.strictEqual(fallbackPayload.shouldResume, true);
       assert.strictEqual(fallbackPayload.shouldSwitchStrategy, true);
       assert.strictEqual(fallbackPayload.nextBestTool, 'diff_env_requirements');
@@ -510,6 +518,7 @@ describe('orchestrate_reverse_task tool', () => {
       assert.strictEqual(fallbackPayload.continuation?.strategy, 'env-fix');
       assert.strictEqual(fallbackPayload.continuation?.actionKey, 'diff_env_requirements');
       assert.strictEqual(fallbackPayload.continuation?.invoke?.tool, 'diff_env_requirements');
+      assert.deepStrictEqual(fallbackPayload.continuation?.invokeHint?.requiredParams, ['runtimeError', 'observedCapabilities']);
       assert.strictEqual(fallbackPayload.continuation?.toolClass, 'task');
       assert.strictEqual(fallbackPayload.continuation?.routeHint, 'stay_on_task_flow');
       assert.strictEqual(fallbackPayload.agentGuidance?.recommendedStrategy, 'env-fix');

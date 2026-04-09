@@ -166,6 +166,7 @@ describe('rebuild bridge tools', () => {
 
       const payload = extractFirstJsonBlock(response.lines);
       assert.strictEqual(payload.currentStage, 'Patch');
+      assert.strictEqual(payload.schemaVersion, '1.0');
       assert.strictEqual(payload.status, 'active');
       assert.strictEqual(payload.currentSummary, 'ReferenceError: window is not defined');
       assert.ok((payload.artifacts as string[]).includes('report.md'));
@@ -241,6 +242,7 @@ describe('rebuild bridge tools', () => {
 
       const payload = extractFirstJsonBlock(response.lines);
       assert.strictEqual(payload.outputMode, 'compact');
+      assert.strictEqual(payload.schemaVersion, '1.0');
       assert.strictEqual(payload.evidenceAggregates, undefined);
       assert.strictEqual(payload.firstDivergence, undefined);
       assert.ok(typeof payload.responseSummary === 'string');
@@ -249,9 +251,10 @@ describe('rebuild bridge tools', () => {
       assert.strictEqual(payload.shouldResume, false);
       assert.strictEqual(payload.detailLevel, 'minimal');
       assert.strictEqual(payload.nextBestTool, undefined);
-      const compactContinuation = payload.continuation as {tool?: string; invoke?: {tool?: string}} | undefined;
+      const compactContinuation = payload.continuation as {tool?: string; invoke?: {tool?: string}; invokeHint?: {requiredParams?: string[]; optionalParams?: string[]; example?: Record<string, unknown>}} | undefined;
       assert.strictEqual(compactContinuation?.tool, 'diff_env_requirements');
       assert.strictEqual(compactContinuation?.invoke?.tool, 'diff_env_requirements');
+      assert.deepStrictEqual(compactContinuation?.invokeHint?.requiredParams, ['runtimeError', 'observedCapabilities']);
       assert.deepStrictEqual(payload.missingCapabilities, ['window']);
       assert.strictEqual(payload.agentGuidance, undefined);
     } finally {

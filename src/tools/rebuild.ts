@@ -12,7 +12,7 @@ import type {CodeFile} from '../types/index.js';
 import {buildRebuildHealthAgentHints} from '../reverse/ReverseTaskAgentProtocol.js';
 
 import {ToolCategory} from './categories.js';
-import {buildRebuildContinuation, compactAgentPayload} from './response-builder.js';
+import {buildRebuildContinuation, compactAgentPayload, withSchemaVersion} from './response-builder.js';
 import {getJSHookRuntime} from './runtime.js';
 import {defineTool} from './ToolDefinition.js';
 
@@ -516,7 +516,7 @@ export const getRebuildHealthReport = defineTool({
       patchSuggestionCount: analyzed.patchSuggestions.length,
       agentGuidance: agentHints,
     });
-    response.appendResponseLine(JSON.stringify(compactAgentPayload({
+    response.appendResponseLine(JSON.stringify(withSchemaVersion(compactAgentPayload({
       taskId: request.params.taskId,
       outputMode,
       responseSummary: `已生成任务 ${request.params.taskId} 的 rebuild health report。`,
@@ -539,7 +539,7 @@ export const getRebuildHealthReport = defineTool({
       patchSuggestions: analyzed.patchSuggestions,
       recommendedNextAction: agentHints.recommendedNextAction,
       agentGuidance: agentHints,
-    }, outputMode), null, 2));
+    }, outputMode)), null, 2));
     response.appendResponseLine('```');
   },
 });
