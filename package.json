@@ -1,6 +1,6 @@
 {
   "name": "jsreverser-mcp",
-  "version": "2.0.5",
+  "version": "2.0.4",
   "description": "MCP server for JavaScript reverse engineering and debugging",
   "type": "module",
   "bin": {
