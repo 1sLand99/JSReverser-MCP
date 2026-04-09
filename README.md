@@ -161,7 +161,7 @@
   - `goalMode: "signature-only" | "pure-draft" | "port-ready"`：控制自动流停在哪一层
     - `signature-only`：停在最小函数切片，适合先只拿 `function-slice.json`
     - `pure-draft`：默认模式，进入 `PureExtraction` 并自动落 `run/fixtures.json`、`run/pure-main.js`、`run/pure-selftest.test.mjs`
-    - `port-ready`：和 `pure-draft` 一样生成草稿，但会把返回契约写得更明确，方便后续跨 runtime port
+    - `port-ready`：和 `pure-draft` 一样生成草稿，但会额外固化 `PORT_CONTRACT`、adapter boundary、`fixtureId` 等 port 侧约束，方便后续跨 runtime port
   - 返回里会补 `generatedArtifacts`，方便外部 agent / client 直接读取本轮新生成的 task-local 文件
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`

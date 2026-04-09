@@ -838,7 +838,7 @@ so returned values have to JSON-serializable.
 
 - `signature-only`
 - `pure-draft`
-- `port-ready`
+- `port-ready`（会在 `run/pure-main.js` 里补 `PORT_CONTRACT` 和 adapter boundary 草稿）
 
 **Typical stop reasons:**
 

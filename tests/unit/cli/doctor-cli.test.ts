@@ -5,7 +5,7 @@
  */
 
 import assert from 'node:assert';
-import {mkdtemp, rm} from 'node:fs/promises';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {describe, it} from 'node:test';
@@ -545,6 +545,12 @@ describe('doctor cli', () => {
       assert.strictEqual(payload.run?.stopReason, 'pure_extraction_ready');
       assert.strictEqual(payload.run?.goalMode, 'port-ready');
       assert.strictEqual(payload.outputMode, 'compact');
+
+      const pureMain = await readFile(
+        path.join(rootDir, 'task-cli-run-agent-001', 'run', 'pure-main.js'),
+        'utf8',
+      );
+      assert.ok(pureMain.includes('PORT_CONTRACT'));
     } finally {
       runtime.analyzer.understand = originals.analyzerUnderstand;
       runtime.deobfuscator.deobfuscate = originals.deobfuscatorDeobfuscate;

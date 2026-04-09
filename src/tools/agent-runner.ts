@@ -349,6 +349,13 @@ async function materializePureExtractionDrafts(taskId: string, goalMode: Reverse
       expectedOutput: goalMode === 'port-ready'
         ? 'signature string + intermediates contract'
         : 'TODO',
+      adapterBoundary: goalMode === 'port-ready'
+        ? {
+          inputAdapter: 'normalize fixture.input into pure algorithm args',
+          outputAdapter: 'map pure result.signature to target request field',
+          runtimeFieldsToEliminate: ['request', 'page'],
+        }
+        : undefined,
     },
     samples: [
       {
@@ -376,6 +383,17 @@ export const GOAL_MODE = ${JSON.stringify(goalMode)};
 export const MAIN_FUNCTION = ${JSON.stringify(mainFunction)};
 export const SOURCE_SCRIPT_URL = ${JSON.stringify(scriptUrl)};
 export const FIXTURE_PATH = './fixtures.json';
+export const PORT_CONTRACT = ${JSON.stringify(goalMode === 'port-ready'
+    ? {
+      outputShape: 'signature-result-v1',
+      requiredFields: ['ok', 'mode', 'stage', 'mainFunction', 'signature', 'intermediates', 'warnings'],
+      preferredSignatureField: 'signature',
+      adapterNotes: [
+        'keep request-specific mapping outside pure function',
+        'runtimeContext is transitional and should shrink over time',
+      ],
+    }
+    : null, null, 2)};
 
 /**
  * understand_code result snapshot:
@@ -387,15 +405,25 @@ export const FIXTURE_PATH = './fixtures.json';
 export function ${mainFunction}(input, runtimeContext = {}) {
   // TODO: keep only explicit algorithm inputs here.
   // TODO: remove remaining environment-derived fields after fixture verification.
+  const normalizedInput = input ?? {};
+  const normalizedRuntimeContext = runtimeContext ?? {};
   return {
     ok: false,
     mode: GOAL_MODE,
     stage: PURE_STAGE,
     mainFunction: MAIN_FUNCTION,
-    input,
-    runtimeContext,
+    input: normalizedInput,
+    runtimeContext: normalizedRuntimeContext,
     signature: null,
     intermediates: {},
+    adapter: GOAL_MODE === 'port-ready'
+      ? {
+        inputAdapterApplied: false,
+        outputAdapterApplied: false,
+        targetField: 'TODO',
+      }
+      : undefined,
+    portContract: GOAL_MODE === 'port-ready' ? PORT_CONTRACT : undefined,
     warnings: ['TODO: replace draft implementation with verified pure algorithm'],
   };
 }
@@ -404,7 +432,13 @@ export const extractedClosure = ${JSON.stringify(extractedClosure)};
 export const deobfuscatedDraft = ${JSON.stringify(deobfuscatedCode)};
 
 export function runFixture(fixture) {
-  return ${mainFunction}(fixture.input ?? {}, fixture.runtimeContext ?? {});
+  const result = ${mainFunction}(fixture.input ?? {}, fixture.runtimeContext ?? {});
+  return GOAL_MODE === 'port-ready'
+    ? {
+      ...result,
+      fixtureId: fixture.caseId ?? 'unknown',
+    }
+    : result;
 }
 
 if (import.meta.url === \`file://\${process.argv[1]}\`) {

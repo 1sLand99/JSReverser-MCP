@@ -694,4 +694,123 @@ describe('reverse task tools', () => {
       await rm(rootDir, {recursive: true, force: true});
     }
   });
+
+  it('materializes explicit port-ready contract drafts', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-task-run-agent-port-'));
+    const runtime = getJSHookRuntime();
+    const originals = {
+      reverseTaskStore: runtime.reverseTaskStore,
+      collectorCollect: runtime.collector.collect,
+      collectorGetTopPriorityFiles: runtime.collector.getTopPriorityFiles,
+      analyzerUnderstand: runtime.analyzer.understand,
+      deobfuscatorDeobfuscate: runtime.deobfuscator.deobfuscate,
+    };
+
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    runtime.collector.collect = async (): Promise<CollectCodeResult> => ({
+      files: [{url: 'app.js', content: 'function sign(){return 1}', size: 32, type: 'external'}],
+      dependencies: {nodes: [], edges: []},
+      totalSize: 32,
+      collectTime: 1,
+    });
+    runtime.collector.getTopPriorityFiles = () => ({
+      files: [{
+        url: 'https://example.com/app.js',
+        content: 'function genH5st(appid, body, functionId) { return hash(body); } fetch("/api/h5st", {method: "POST"})',
+        size: 104,
+        type: 'external',
+      }],
+      totalSize: 104,
+      totalFiles: 1,
+    });
+    runtime.analyzer.understand = async (): Promise<UnderstandCodeResult> => ({
+      structure: {functions: [], classes: [], modules: [], callGraph: {nodes: [], edges: []}},
+      techStack: {other: []},
+      businessLogic: {mainFeatures: ['build h5st'], entities: [], rules: [], dataModel: {}},
+      dataFlow: {graph: {nodes: [], edges: []}, sources: [], sinks: [], taintPaths: []},
+      securityRisks: [],
+      qualityScore: 90,
+    });
+    runtime.deobfuscator.deobfuscate = async (): Promise<DeobfuscateResult> => ({
+      code: 'function genH5st(input){return input}',
+      readabilityScore: 90,
+      confidence: 0.9,
+      obfuscationType: ['webpack'],
+      transformations: [],
+      analysis: 'port ready draft',
+    });
+
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-run-agent-port-001',
+          taskSlug: 'run-agent-port-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'port ready flow',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const opened = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-run-agent-port-001',
+        slug: 'run-agent-port-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'port ready flow',
+      });
+      await opened.appendLog('runtime-evidence', {
+        source: 'capture',
+        kind: 'sample',
+        requestUrl: 'https://example.com/api/h5st',
+        bodyPreview: '{"appid":"app-1","body":{"sku":"1001"},"functionId":"sign.test"}',
+      });
+
+      const response = makeResponse();
+      await runReverseAgentTool.handler({
+        params: {
+          taskId: 'task-run-agent-port-001',
+          maxRounds: 6,
+          goalMode: 'port-ready',
+        },
+      } as Parameters<typeof runReverseAgentTool.handler>[0], response as unknown as Parameters<typeof runReverseAgentTool.handler>[1], makeAgentContext() as unknown as Parameters<typeof runReverseAgentTool.handler>[2]);
+
+      const payload = extractFirstJsonBlock(response.lines) as {
+        run?: {stopReason?: string; goalMode?: string};
+      };
+      assert.strictEqual(payload.run?.stopReason, 'pure_extraction_ready');
+      assert.strictEqual(payload.run?.goalMode, 'port-ready');
+
+      const pureExtraction = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-port-001', 'pure-extraction.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(pureExtraction.goalMode, 'port-ready');
+      assert.strictEqual((((pureExtraction.boundary as Record<string, unknown>).portBoundary)), 'stabilize output contract before cross-runtime port');
+
+      const fixtures = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-port-001', 'run', 'fixtures.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(fixtures.goalMode, 'port-ready');
+      assert.ok(((fixtures.boundary as Record<string, unknown>).adapterBoundary));
+
+      const pureMain = await readFile(
+        path.join(rootDir, 'task-run-agent-port-001', 'run', 'pure-main.js'),
+        'utf8',
+      );
+      assert.ok(pureMain.includes('export const PORT_CONTRACT ='));
+      assert.ok(pureMain.includes("outputShape: 'signature-result-v1'") || pureMain.includes('"outputShape": "signature-result-v1"'));
+      assert.ok(pureMain.includes('inputAdapterApplied'));
+      assert.ok(pureMain.includes('fixtureId'));
+    } finally {
+      runtime.reverseTaskStore = originals.reverseTaskStore;
+      runtime.collector.collect = originals.collectorCollect;
+      runtime.collector.getTopPriorityFiles = originals.collectorGetTopPriorityFiles;
+      runtime.analyzer.understand = originals.analyzerUnderstand;
+      runtime.deobfuscator.deobfuscate = originals.deobfuscatorDeobfuscate;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
 });
