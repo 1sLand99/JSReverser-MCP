@@ -494,6 +494,176 @@ export const findInScript = defineTool({
 });
 
 /**
+ * Extract a function and its dependency tree from a specific script.
+ */
+export const extractFunctionTree = defineTool({
+  name: 'extract_function_tree',
+  description:
+    'Extracts a target function and its local dependency tree from a script, returning a compact code slice for follow-up reverse analysis.',
+  annotations: {
+    title: 'Extract Function Tree',
+    category: ToolCategory.REVERSE_ENGINEERING,
+    readOnlyHint: true,
+  },
+  schema: {
+    ...pageIdxSchema,
+    ...reverseTaskParamsSchema,
+    persistResult: zod
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Persist the extracted function slice back into the reverse task artifact when task params are provided.'),
+    scriptId: zod
+      .string()
+      .describe('The script ID (from list_scripts) to extract from.'),
+    functionName: zod
+      .string()
+      .describe('The function name to extract.'),
+    maxDepth: zod
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .default(3)
+      .describe('Maximum dependency depth to traverse (default: 3).'),
+    maxSize: zod
+      .number()
+      .int()
+      .min(1)
+      .optional()
+      .default(500)
+      .describe('Soft size limit in KB for the extracted result (default: 500).'),
+    includeComments: zod
+      .boolean()
+      .optional()
+      .default(true)
+      .describe('Whether to preserve comments in generated code (default: true).'),
+  },
+  handler: async (request, response, context) => {
+    await withOptionalDebuggerPageContext(
+      context,
+      request.params.pageIdx,
+      async () => {
+        const debugger_ = context.debuggerContext as typeof context.debuggerContext & {
+          extractFunctionTree?: (
+            scriptId: string,
+            functionName: string,
+            options?: {maxDepth?: number; maxSize?: number; includeComments?: boolean},
+          ) => Promise<{
+            mainFunction: string;
+            code: string;
+            functions: Array<{
+              name: string;
+              code: string;
+              dependencies: string[];
+              startLine: number;
+              endLine: number;
+              size: number;
+            }>;
+            callGraph: Record<string, string[]>;
+            totalSize: number;
+            extractedCount: number;
+          }>;
+        };
+
+        if (!debugger_.isEnabled()) {
+          response.appendResponseLine(
+            'Debugger is not enabled. Please select a page first.',
+          );
+          return;
+        }
+
+        if (!debugger_.extractFunctionTree) {
+          response.appendResponseLine(
+            'extract_function_tree is not supported by the current debugger context.',
+          );
+          return;
+        }
+
+        try {
+          const result = await debugger_.extractFunctionTree(
+            request.params.scriptId,
+            request.params.functionName,
+            {
+              maxDepth: request.params.maxDepth,
+              maxSize: request.params.maxSize,
+              includeComments: request.params.includeComments,
+            },
+          );
+
+          response.appendResponseLine(`Function tree for "${result.mainFunction}" in script ${request.params.scriptId}:`);
+          response.appendResponseLine(`- Extracted functions: ${result.extractedCount}`);
+          response.appendResponseLine(`- Total size: ${(result.totalSize / 1024).toFixed(2)} KB`);
+          response.appendResponseLine('');
+          response.appendResponseLine('Dependencies:');
+          for (const fn of result.functions) {
+            response.appendResponseLine(
+              `- ${fn.name}${fn.dependencies.length > 0 ? ` -> ${fn.dependencies.join(', ')}` : ''}`,
+            );
+          }
+          response.appendResponseLine('');
+          response.appendResponseLine('```javascript');
+          response.appendResponseLine(result.code);
+          response.appendResponseLine('```');
+
+          if (
+            request.params.persistResult &&
+            request.params.taskId &&
+            request.params.taskSlug &&
+            request.params.targetUrl &&
+            request.params.goal
+          ) {
+            const runtime = getJSHookRuntime();
+            const task = await runtime.reverseTaskStore.openTask({
+              taskId: request.params.taskId,
+              slug: request.params.taskSlug,
+              targetUrl: request.params.targetUrl,
+              goal: request.params.goal,
+            });
+            const existingTargetContext = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(
+              request.params.taskId,
+              'target-context.json',
+            );
+            const scriptInfo = debugger_.getScriptById?.(request.params.scriptId);
+            await task.writeSnapshot('target-context.json', {
+              ...(existingTargetContext ?? {}),
+              functionSlice: {
+                mainFunction: result.mainFunction,
+                scriptId: request.params.scriptId,
+                scriptUrl: scriptInfo?.url,
+                extractedCount: result.extractedCount,
+                totalSize: result.totalSize,
+              },
+            });
+            await task.writeSnapshot('function-slice.json', {
+              ...result,
+              scriptId: request.params.scriptId,
+              scriptUrl: scriptInfo?.url,
+              persistedAt: Date.now(),
+            });
+            await task.appendLog('runtime-evidence', {
+              source: 'extract_function_tree',
+              kind: 'function-slice',
+              functionName: result.mainFunction,
+              scriptId: request.params.scriptId,
+              url: scriptInfo?.url,
+              extractedCount: result.extractedCount,
+              totalSize: result.totalSize,
+              note: `persisted function slice for ${result.mainFunction}`,
+            });
+            response.appendResponseLine('Persisted function slice into task artifact.');
+          }
+        } catch (error) {
+          response.appendResponseLine(
+            `Error extracting function tree: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
+    );
+  },
+});
+
+/**
  * Search for a string in all loaded scripts.
  */
 export const searchInSources = defineTool({
@@ -507,6 +677,12 @@ export const searchInSources = defineTool({
   },
   schema: {
     ...pageIdxSchema,
+    ...reverseTaskParamsSchema,
+    persistResult: zod
+      .boolean()
+      .optional()
+      .default(false)
+      .describe('Persist a single unambiguous match back into the reverse task artifact when task params are provided.'),
     query: zod.string().describe('The search query (string or regex pattern).'),
     caseSensitive: zod
       .boolean()
@@ -561,6 +737,11 @@ export const searchInSources = defineTool({
         }
 
         const {
+          taskId,
+          taskSlug,
+          targetUrl,
+          goal,
+          persistResult,
           query,
           caseSensitive,
           isRegex,
@@ -671,6 +852,47 @@ export const searchInSources = defineTool({
       response.appendResponseLine(
         'Tip: Use get_script_source(scriptId, startLine, endLine) to view full context around a match.',
       );
+
+      if (
+        persistResult &&
+        taskId &&
+        taskSlug &&
+        targetUrl &&
+        goal &&
+        displayMatches.length === 1
+      ) {
+        const selected = displayMatches[0];
+        const runtime = getJSHookRuntime();
+        const task = await runtime.reverseTaskStore.openTask({
+          taskId,
+          slug: taskSlug,
+          targetUrl,
+          goal,
+        });
+        const existingTargetContext = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(
+          taskId,
+          'target-context.json',
+        );
+        await task.writeSnapshot('target-context.json', {
+          ...(existingTargetContext ?? {}),
+          locatedSource: {
+            query,
+            scriptId: selected.scriptId,
+            url: selected.url,
+            lineNumber: selected.lineNumber + 1,
+          },
+        });
+        await task.appendLog('runtime-evidence', {
+          source: 'search_in_sources',
+          kind: 'source-locate',
+          scriptId: selected.scriptId,
+          url: selected.url,
+          lineNumber: selected.lineNumber + 1,
+          functionName: query,
+          note: `located source for ${query}`,
+        });
+        response.appendResponseLine('Persisted single match into task artifact.');
+      }
         } catch (error) {
           response.appendResponseLine(
             `Error searching: ${error instanceof Error ? error.message : String(error)}`,

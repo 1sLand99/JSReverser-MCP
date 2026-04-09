@@ -11,7 +11,7 @@ import path from 'node:path';
 import {describe, it} from 'node:test';
 
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
-import {analyzeTarget, recordReverseEvidence} from '../../../src/tools/analyzer.js';
+import {analyzeTarget, locateSignatureFunction, recordReverseEvidence} from '../../../src/tools/analyzer.js';
 import {getHookData} from '../../../src/tools/hook.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 import type {CollectCodeResult, DetectCryptoResult, UnderstandCodeResult} from '../../../src/types/index.js';
@@ -265,6 +265,93 @@ describe('reverse task tools', () => {
       runtime.hookManager.create = originals.hookCreate;
       runtime.hookManager.getRecords = originals.hookRecords;
       runtime.pageController.replayActions = originals.replayActions;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('persists locate_signature_function results into task artifacts for later orchestration reuse', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-mcp-locate-persist-'));
+    const runtime = getJSHookRuntime();
+    const originals = {
+      reverseTaskStore: runtime.reverseTaskStore,
+      collectorCollect: runtime.collector.collect,
+      collectorGetTopPriorityFiles: runtime.collector.getTopPriorityFiles,
+    };
+
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    runtime.collector.collect = async (): Promise<CollectCodeResult> => ({
+      files: [{
+        url: 'https://example.com/app.js',
+        content: 'function genH5st(appid, body, functionId){ return crypto.subtle.digest("SHA-256", body); }',
+        size: 96,
+        type: 'external',
+      }],
+      dependencies: {nodes: [], edges: []},
+      totalSize: 96,
+      collectTime: 1,
+    });
+    runtime.collector.getTopPriorityFiles = () => ({
+      files: [{
+        url: 'https://example.com/app.js',
+        content: 'function genH5st(appid, body, functionId){ return crypto.subtle.digest("SHA-256", body); }',
+        size: 96,
+        type: 'external',
+      }],
+      totalSize: 96,
+      totalFiles: 1,
+    });
+
+    try {
+      const response = makeResponse();
+      await locateSignatureFunction.handler({
+        params: {
+          url: 'https://example.com',
+          taskId: 'task-locate-persist-001',
+          taskSlug: 'persist-demo',
+          goal: 'persist h5st location',
+          persistResult: true,
+          targetParam: 'h5st',
+          relatedParams: ['appid', 'body', 'functionId'],
+        },
+      } as Parameters<typeof locateSignatureFunction.handler>[0], response as unknown as Parameters<typeof locateSignatureFunction.handler>[1], {} as Parameters<typeof locateSignatureFunction.handler>[2]);
+
+      const locateJson = extractFirstJsonBlock(response.lines);
+      assert.strictEqual(locateJson.persisted, true);
+
+      const targetContext = JSON.parse(
+        await readFile(path.join(rootDir, 'task-locate-persist-001', 'target-context.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.deepStrictEqual(targetContext.locatedSignature, {
+        functionName: 'genH5st',
+        scriptUrl: 'https://example.com/app.js',
+        score: 23,
+        targetParam: 'h5st',
+        relatedParams: ['appid', 'body', 'functionid'],
+        evidence: [
+          'function name matches target param: h5st',
+          'function name matches signing keywords',
+          'related params matched: appid, body, functionid',
+          'api signals: crypto.subtle, digest',
+        ],
+      });
+
+      const snapshot = JSON.parse(
+        await readFile(path.join(rootDir, 'task-locate-persist-001', 'signature-locate.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(snapshot.targetParam, 'h5st');
+
+      const evidence = (
+        await readFile(path.join(rootDir, 'task-locate-persist-001', 'runtime-evidence.jsonl'), 'utf8')
+      )
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line));
+      assert.strictEqual(evidence[0].kind, 'signature-locate');
+      assert.strictEqual(evidence[0].functionName, 'genH5st');
+    } finally {
+      runtime.reverseTaskStore = originals.reverseTaskStore;
+      runtime.collector.collect = originals.collectorCollect;
+      runtime.collector.getTopPriorityFiles = originals.collectorGetTopPriorityFiles;
       await rm(rootDir, {recursive: true, force: true});
     }
   });

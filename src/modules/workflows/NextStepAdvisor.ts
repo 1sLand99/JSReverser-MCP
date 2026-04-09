@@ -47,11 +47,11 @@ export function recommendNextStep(input: NextStepAdvisorInput): NextStepAdvice {
 
   if ((input.hookRecordCount ?? 0) <= 0) {
     return {
-      stage: 'Capture',
+      stage: 'Observe',
       confidence: 0.9,
-      nextStep: 'inject_hook',
-      why: '已经识别到目标请求，但缺少运行时证据，优先补最小侵入式 hook 采样而不是直接断点。',
-      alternatives: ['trace_function', 'hook_function'],
+      nextStep: 'locate_signature_function',
+      why: '已经识别到目标请求，但还没有运行时样本，优先先缩小到候选签名函数，再决定具体 hook 点位。',
+      alternatives: ['inject_hook', 'hook_function'],
       avoid: ['breakpoint'],
     };
   }

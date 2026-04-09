@@ -42,6 +42,24 @@ export interface SearchResult {
   matches: SearchMatch[];
 }
 
+export interface ExtractedFunctionInfo {
+  name: string;
+  code: string;
+  dependencies: string[];
+  startLine: number;
+  endLine: number;
+  size: number;
+}
+
+export interface ExtractFunctionTreeResult {
+  mainFunction: string;
+  code: string;
+  functions: ExtractedFunctionInfo[];
+  callGraph: Record<string, string[]>;
+  totalSize: number;
+  extractedCount: number;
+}
+
 export interface CallFrame {
   callFrameId: string;
   functionName: string;
@@ -605,6 +623,145 @@ export class DebuggerContext {
     }
 
     return {query, matches};
+  }
+
+  /**
+   * Extract a function and its dependency tree from one script.
+   */
+  async extractFunctionTree(
+    scriptId: string,
+    functionName: string,
+    options: {
+      maxDepth?: number;
+      maxSize?: number;
+      includeComments?: boolean;
+    } = {},
+  ): Promise<ExtractFunctionTreeResult> {
+    const {maxDepth = 3, maxSize = 500, includeComments = true} = options;
+    const source = await this.getScriptSource(scriptId);
+
+    let parser: any;
+    let traverse: any;
+    let generate: any;
+    let t: any;
+
+    try {
+      parser = await import('@babel/parser');
+      traverse = (await import('@babel/traverse')).default;
+      generate = (await import('@babel/generator')).default;
+      t = await import('@babel/types');
+    } catch (error: any) {
+      throw new Error(
+        `Failed to load Babel dependencies. Please install: npm install @babel/parser @babel/traverse @babel/generator @babel/types\nError: ${error.message}`,
+      );
+    }
+
+    let ast: any;
+    try {
+      ast = parser.parse(source, {
+        sourceType: 'unambiguous',
+        plugins: ['jsx', 'typescript'],
+      });
+    } catch (error: any) {
+      throw new Error(`Failed to parse script ${scriptId}: ${error.message}`);
+    }
+
+    const allFunctions = new Map<string, ExtractedFunctionInfo>();
+    const callGraph: Record<string, string[]> = {};
+
+    const extractDependencies = (path: any): string[] => {
+      const deps = new Set<string>();
+      path.traverse({
+        CallExpression(callPath: any) {
+          if (t.isIdentifier(callPath.node.callee)) {
+            deps.add(callPath.node.callee.name);
+          }
+        },
+      });
+      return Array.from(deps);
+    };
+
+    traverse(ast, {
+      FunctionDeclaration(path: any) {
+        const name = path.node.id?.name;
+        if (!name) return;
+        const funcCode = generate(path.node, {comments: includeComments}).code;
+        const dependencies = extractDependencies(path);
+        allFunctions.set(name, {
+          name,
+          code: funcCode,
+          dependencies,
+          startLine: path.node.loc?.start.line || 0,
+          endLine: path.node.loc?.end.line || 0,
+          size: funcCode.length,
+        });
+        callGraph[name] = dependencies;
+      },
+      VariableDeclarator(path: any) {
+        if (
+          t.isIdentifier(path.node.id) &&
+          (t.isFunctionExpression(path.node.init) || t.isArrowFunctionExpression(path.node.init))
+        ) {
+          const name = path.node.id.name;
+          const funcCode = generate(path.node, {comments: includeComments}).code;
+          const dependencies = extractDependencies(path);
+          allFunctions.set(name, {
+            name,
+            code: funcCode,
+            dependencies,
+            startLine: path.node.loc?.start.line || 0,
+            endLine: path.node.loc?.end.line || 0,
+            size: funcCode.length,
+          });
+          callGraph[name] = dependencies;
+        }
+      },
+    });
+
+    const extracted = new Set<string>();
+    let currentLevel = [functionName];
+    let currentDepth = 0;
+
+    while (currentLevel.length > 0 && currentDepth < maxDepth) {
+      const nextLevel: string[] = [];
+      for (const current of currentLevel) {
+        if (extracted.has(current)) continue;
+        const func = allFunctions.get(current);
+        if (!func) continue;
+        extracted.add(current);
+        for (const dep of func.dependencies) {
+          if (!extracted.has(dep) && allFunctions.has(dep)) {
+            nextLevel.push(dep);
+          }
+        }
+      }
+      currentLevel = nextLevel;
+      currentDepth++;
+    }
+
+    const functions = Array.from(extracted)
+      .map((name) => allFunctions.get(name)!)
+      .filter(Boolean);
+
+    if (functions.length === 0) {
+      throw new Error(`Function not found: ${functionName}`);
+    }
+
+    const code = functions.map((item) => item.code).join('\n\n');
+    const totalSize = code.length;
+
+    if (totalSize > maxSize * 1024) {
+      // keep behavior soft; caller can decide how to consume oversized result
+    }
+
+    return {
+      mainFunction: functionName,
+      code,
+      functions,
+      callGraph,
+      totalSize,
+      extractedCount: functions.length,
+    };
   }
 
   // ==================== Breakpoint Management ====================

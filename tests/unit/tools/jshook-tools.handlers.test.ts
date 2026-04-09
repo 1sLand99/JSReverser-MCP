@@ -15,6 +15,7 @@ import {
   deobfuscateCode,
   detectCrypto,
   exportSessionReport,
+  locateSignatureFunction,
   riskPanel,
   summarizeCode,
   understandCode,
@@ -426,6 +427,52 @@ describe('jshook tools handlers', () => {
         waitAfterHookMs: 1,
         maxFingerprints: 4,
       }, res);
+      runtime.collector.collect = async () => ({
+        files: [{
+          url: 'https://example.com/app.js',
+          content: `
+            function helper(){ return Date.now(); }
+            function genH5st(appid, body, functionId){
+              const t = helper();
+              const raw = appid + body + functionId + t;
+              return crypto.subtle.digest('SHA-256', raw);
+            }
+            function noop(){ return "x"; }
+          `,
+          size: 280,
+          type: 'external',
+        }],
+      });
+      runtime.collector.getTopPriorityFiles = () => ({
+        files: [{
+          url: 'https://example.com/app.js',
+          content: `
+            function helper(){ return Date.now(); }
+            function genH5st(appid, body, functionId){
+              const t = helper();
+              const raw = appid + body + functionId + t;
+              return crypto.subtle.digest('SHA-256', raw);
+            }
+            function noop(){ return "x"; }
+          `,
+          size: 280,
+          type: 'external',
+        }],
+        totalSize: 280,
+        totalFiles: 1,
+      });
+      await invokeTool(
+        locateSignatureFunction as unknown as ToolDefinitionHarness,
+        {
+          url: 'https://example.com',
+          targetParam: 'h5st',
+          relatedParams: ['appid', 'body', 'functionId'],
+          candidateScripts: ['app.js'],
+          observedFunctions: ['genH5st'],
+          preferredUrlPatterns: ['example.com/app.js'],
+        },
+        res,
+      );
       await invokeTool(riskPanel as unknown as ToolDefinitionHarness, { code: 'md5(x)' }, res);
       await invokeTool(riskPanel as unknown as ToolDefinitionHarness, { hookId: 'h1' }, res);
       await invokeTool(riskPanel as unknown as ToolDefinitionHarness, { hookId: 'h1', includeHookSignals: false }, res);
@@ -614,6 +661,13 @@ describe('jshook tools handlers', () => {
       assert.ok(res.lines.some((line) => line.includes('"actionPlan"')));
       assert.ok(res.lines.some((line) => line.includes('"requestFingerprints"')));
       assert.ok(res.lines.some((line) => line.includes('"priorityTargets"')));
+      assert.ok(res.lines.some((line) => line.includes('"candidates"')));
+      assert.ok(res.lines.some((line) => line.includes('"followUpPlan"')));
+      assert.ok(res.lines.some((line) => line.includes('"extract_function_tree"')));
+      assert.ok(res.lines.some((line) => line.includes('"observedFunctionHit": true')));
+      assert.ok(res.lines.some((line) => line.includes('"candidateScriptHit": true')));
+      assert.ok(res.lines.some((line) => line.includes('"search_in_sources"')));
+      assert.ok(res.lines.some((line) => line.includes('genH5st')));
       assert.ok(res.lines.some((line) => line.includes('"replay"')));
       assert.ok(res.lines.some((line) => line.includes('"healthy"')));
       assert.ok(res.lines.some((line) => line.includes('BROWSER_DISCONNECTED')));

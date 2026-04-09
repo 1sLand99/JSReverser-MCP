@@ -877,6 +877,159 @@ function extractSignatureChainHints(code: string): {
   };
 }
 
+type SignatureFunctionCandidate = {
+  functionName: string;
+  score: number;
+  evidence: string[];
+  scriptUrl?: string;
+  relatedParams: string[];
+  apiSignals: string[];
+  observedFunctionHit?: boolean;
+  candidateScriptHit?: boolean;
+};
+
+function collectFunctionCandidatesFromCode(input: {
+  code: string;
+  scriptUrl?: string;
+  targetParam: string;
+  relatedParams?: string[];
+  candidateScripts?: string[];
+  observedFunctions?: string[];
+  preferredUrlPatterns?: string[];
+  maxCandidates: number;
+}): SignatureFunctionCandidate[] {
+  const functionBlocks = Array.from(
+    input.code.matchAll(
+      /function\s+([A-Za-z_$][\w$]*)\s*\(([^)]*)\)\s*\{([\s\S]*?)\n?\}/g,
+    ),
+  );
+  const targetParam = input.targetParam.toLowerCase();
+  const relatedParams = (input.relatedParams ?? []).map((item) => item.toLowerCase());
+  const candidateScripts = (input.candidateScripts ?? []).map((item) => item.toLowerCase());
+  const observedFunctions = new Set((input.observedFunctions ?? []).map((item) => item.toLowerCase()));
+  const preferredUrlPatterns = (input.preferredUrlPatterns ?? []).map((item) => item.toLowerCase());
+  const requestSinkRegex = /\b(fetch|XMLHttpRequest|sendBeacon|axios\.(?:get|post|request)|\$.ajax)\b/i;
+  const apiSignals = [
+    'crypto.subtle',
+    'digest',
+    'TextEncoder',
+    'Date.now',
+    'performance.now',
+    'encodeURIComponent',
+    'URLSearchParams',
+  ];
+
+  const candidates = functionBlocks.map((match) => {
+    const functionName = match[1] ?? 'anonymous';
+    const params = (match[2] ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const body = match[3] ?? '';
+    const bodyLower = body.toLowerCase();
+    const scriptUrlLower = input.scriptUrl?.toLowerCase() ?? '';
+    const evidence: string[] = [];
+    let score = 0;
+
+    if (functionName.toLowerCase().includes(targetParam)) {
+      score += 8;
+      evidence.push(`function name matches target param: ${input.targetParam}`);
+    }
+    if (bodyLower.includes(targetParam)) {
+      score += 6;
+      evidence.push(`body references target param: ${input.targetParam}`);
+    }
+    if (/(sign|token|encrypt|hash|auth|nonce|hmac|md5|sha|h5st)/i.test(functionName)) {
+      score += 5;
+      evidence.push('function name matches signing keywords');
+    }
+
+    const matchedRelatedParams = relatedParams.filter((item) => {
+      return params.some((param) => param.toLowerCase().includes(item)) || bodyLower.includes(item);
+    });
+    if (matchedRelatedParams.length > 0) {
+      score += matchedRelatedParams.length * 2;
+      evidence.push(`related params matched: ${matchedRelatedParams.join(', ')}`);
+    }
+
+    const matchedApiSignals = apiSignals.filter((signal) => body.includes(signal));
+    if (matchedApiSignals.length > 0) {
+      score += matchedApiSignals.length * 2;
+      evidence.push(`api signals: ${matchedApiSignals.join(', ')}`);
+    }
+
+    if (requestSinkRegex.test(body)) {
+      score += 2;
+      evidence.push('request sink found in function body');
+    }
+
+    const observedFunctionHit = observedFunctions.has(functionName.toLowerCase());
+    if (observedFunctionHit) {
+      score += 7;
+      evidence.push('function observed in task evidence');
+    }
+
+    const candidateScriptHit = candidateScripts.some((item) => scriptUrlLower.includes(item));
+    if (candidateScriptHit) {
+      score += 4;
+      evidence.push('script matches candidateScripts from task context');
+    }
+
+    const preferredUrlHit = preferredUrlPatterns.some((item) => scriptUrlLower.includes(item));
+    if (preferredUrlHit) {
+      score += 3;
+      evidence.push('script matches preferred URL patterns');
+    }
+
+    return {
+      functionName,
+      score,
+      evidence,
+      scriptUrl: input.scriptUrl,
+      relatedParams: matchedRelatedParams,
+      apiSignals: matchedApiSignals,
+      observedFunctionHit,
+      candidateScriptHit,
+    };
+  });
+
+  return candidates
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.functionName.localeCompare(b.functionName))
+    .slice(0, input.maxCandidates);
+}
+
+async function collectLocateSignatureCode(
+  runtime: ReturnType<typeof getJSHookRuntime>,
+  params: {
+    url: string;
+    topN?: number;
+    collect?: {
+      smartMode?: 'summary' | 'priority' | 'incremental' | 'full';
+      includeInline?: boolean;
+      includeExternal?: boolean;
+      includeDynamic?: boolean;
+      maxTotalSize?: number;
+      maxFileSize?: number;
+    };
+  },
+): Promise<Array<{url: string; content: string; size: number; type: string}>> {
+  const topN = params.topN ?? 8;
+  const collectResult = await runtime.collector.collect({
+    url: params.url,
+    smartMode: params.collect?.smartMode ?? 'priority',
+    includeInline: params.collect?.includeInline,
+    includeExternal: params.collect?.includeExternal,
+    includeDynamic: params.collect?.includeDynamic ?? true,
+    maxTotalSize: params.collect?.maxTotalSize,
+    maxFileSize: params.collect?.maxFileSize,
+  });
+
+  const normalizedFiles = normalizeCollectedFiles(collectResult);
+  const topPriority = runtime.collector.getTopPriorityFiles(topN);
+  return topPriority.files.length > 0 ? topPriority.files : normalizedFiles.slice(0, topN);
+}
+
 function buildActionPlan(result: {
   target: string;
   topHookIds: Array<{hookId: string; type: string}>;
@@ -1290,6 +1443,161 @@ export const analyzeTarget = defineTool({
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();
     const result = await runAnalyzeTargetWorkflow(runtime, request.params);
+
+    response.appendResponseLine('```json');
+    response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));
+    response.appendResponseLine('```');
+  },
+});
+
+export const locateSignatureFunction = defineTool({
+  name: 'locate_signature_function',
+  description: 'Collect candidate scripts and rank likely signature-generation functions for a target parameter.',
+  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
+  schema: {
+    url: zod.string().url(),
+    taskId: zod.string().optional(),
+    taskSlug: zod.string().optional(),
+    goal: zod.string().optional(),
+    persistResult: zod.boolean().optional().default(false),
+    targetParam: zod.string().default('sign'),
+    relatedParams: zod.array(zod.string()).optional(),
+    candidateScripts: zod.array(zod.string()).optional(),
+    observedFunctions: zod.array(zod.string()).optional(),
+    preferredUrlPatterns: zod.array(zod.string()).optional(),
+    topN: zod.number().int().positive().optional(),
+    maxCandidates: zod.number().int().positive().optional(),
+    collect: zod.object({
+      smartMode: zod.enum(['summary', 'priority', 'incremental', 'full']).optional(),
+      includeInline: zod.boolean().optional(),
+      includeExternal: zod.boolean().optional(),
+      includeDynamic: zod.boolean().optional(),
+      maxTotalSize: zod.number().int().positive().optional(),
+      maxFileSize: zod.number().int().positive().optional(),
+    }).optional(),
+  },
+  handler: async (request, response) => {
+    const runtime = getJSHookRuntime();
+    const selectedFiles = await collectLocateSignatureCode(runtime, request.params);
+    const maxCandidates = request.params.maxCandidates ?? 5;
+    const candidates = selectedFiles
+      .flatMap((file) => collectFunctionCandidatesFromCode({
+        code: file.content,
+        scriptUrl: file.url,
+        targetParam: request.params.targetParam,
+        relatedParams: request.params.relatedParams,
+        candidateScripts: request.params.candidateScripts,
+        observedFunctions: request.params.observedFunctions,
+        preferredUrlPatterns: request.params.preferredUrlPatterns,
+        maxCandidates,
+      }))
+      .sort((a, b) => b.score - a.score || a.functionName.localeCompare(b.functionName))
+      .slice(0, maxCandidates);
+
+    const result = {
+      target: request.params.url,
+      persisted: false,
+      targetParam: request.params.targetParam,
+      selectedFiles: selectedFiles.map((file) => ({
+        url: file.url,
+        size: file.size,
+        type: file.type,
+      })),
+      candidates,
+      nextAction: candidates.length > 0
+        ? {
+          tool: 'search_in_scripts',
+          params: {pattern: candidates[0]?.functionName, limit: 5},
+          reason: `先搜索候选函数 "${candidates[0]?.functionName}"，再配合 extract_function_tree 做最小切片。`,
+        }
+        : {
+          tool: 'search_in_scripts',
+          params: {pattern: request.params.targetParam, limit: 10},
+          reason: '当前没有高置信候选函数，先回到参数名和相关字段继续缩圈。',
+        },
+      followUpPlan: candidates.length > 0
+        ? [
+          {
+            step: 1,
+            tool: 'search_in_sources',
+            params: {
+              query: candidates[0]?.functionName,
+              isRegex: false,
+              caseSensitive: true,
+              maxResults: 10,
+              ...(candidates[0]?.scriptUrl ? {urlFilter: candidates[0].scriptUrl} : {}),
+            },
+            reason: '先在已加载源码里按函数名和候选脚本过滤，拿到更接近 extract_function_tree 的 script 线索。',
+          },
+          {
+            step: 2,
+            tool: 'extract_function_tree',
+            params: {
+              scriptId: '<from-search-result>',
+              functionName: candidates[0]?.functionName,
+              maxDepth: 2,
+            },
+            reason: '确认 scriptId 后，立即提取最小依赖闭包，避免全量阅读 bundle。',
+          },
+        ]
+        : [],
+    };
+
+    if (request.params.persistResult && request.params.taskId && request.params.taskSlug && request.params.goal) {
+      const task = await runtime.reverseTaskStore.openTask({
+        taskId: request.params.taskId,
+        slug: request.params.taskSlug,
+        targetUrl: request.params.url,
+        goal: request.params.goal,
+      });
+      const existingTargetContext = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(
+        request.params.taskId,
+        'target-context.json',
+      );
+      const mergedTargetContext = {
+        ...(existingTargetContext ?? {}),
+        ...(candidates[0]?.scriptUrl
+          ? {
+            candidateScripts: Array.from(
+              new Set([
+                ...((existingTargetContext?.candidateScripts as string[] | undefined) ?? []),
+                candidates[0].scriptUrl,
+              ]),
+            ),
+          }
+          : {}),
+        locatedSignature: candidates[0]
+          ? {
+            functionName: candidates[0].functionName,
+            scriptUrl: candidates[0].scriptUrl,
+            score: candidates[0].score,
+            targetParam: request.params.targetParam,
+            relatedParams: candidates[0].relatedParams,
+            evidence: candidates[0].evidence,
+          }
+          : undefined,
+      };
+      await task.writeSnapshot('target-context.json', mergedTargetContext);
+      await task.writeSnapshot('signature-locate.json', {
+        target: request.params.url,
+        targetParam: request.params.targetParam,
+        candidates,
+        followUpPlan: result.followUpPlan,
+        persistedAt: Date.now(),
+      });
+      if (candidates[0]) {
+        await task.appendLog('runtime-evidence', {
+          source: 'locate_signature_function',
+          kind: 'signature-locate',
+          functionName: candidates[0].functionName,
+          url: candidates[0].scriptUrl,
+          note: `located candidate for ${request.params.targetParam}`,
+          score: candidates[0].score,
+          evidence: candidates[0].evidence,
+        });
+      }
+      result.persisted = true;
+    }
 
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(withAIRuntime(result), null, 2));

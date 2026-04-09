@@ -122,6 +122,308 @@ describe('orchestrate_reverse_task tool', () => {
     }
   });
 
+  it('prefers locate_signature_function before capture when target request is known but hook evidence is absent', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-locate-signature-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-locate-001',
+          taskSlug: 'orchestrate-locate-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'locate h5st signature function',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const response = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-locate-001',
+        },
+      }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        currentStage: string;
+        nextBestTool?: string;
+        orchestration: {primaryStep: {tool: string; params?: Record<string, unknown>}};
+        continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
+        agentGuidance?: {recommendedTool?: string; recommendedParams?: Record<string, unknown>};
+      };
+      assert.strictEqual(payload.nextBestTool, 'locate_signature_function');
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'locate_signature_function');
+      assert.strictEqual(payload.orchestration.primaryStep.params?.url, 'https://example.com/api/h5st');
+      assert.strictEqual(payload.orchestration.primaryStep.params?.targetParam, 'h5st');
+      assert.ok(!('preferredUrlPatterns' in (payload.orchestration.primaryStep.params ?? {})));
+      assert.ok(!('observedFunctions' in (payload.orchestration.primaryStep.params ?? {})));
+      assert.ok(!('relatedParams' in (payload.orchestration.primaryStep.params ?? {})));
+      assert.strictEqual(payload.continuation?.invoke?.tool, 'locate_signature_function');
+      assert.strictEqual(payload.agentGuidance?.recommendedParams?.url, 'https://example.com/api/h5st');
+      assert.strictEqual(payload.agentGuidance?.recommendedParams?.targetParam, 'h5st');
+      assert.ok(!('preferredUrlPatterns' in (payload.agentGuidance?.recommendedParams ?? {})));
+      assert.ok(!('observedFunctions' in (payload.agentGuidance?.recommendedParams ?? {})));
+      assert.ok(!('relatedParams' in (payload.agentGuidance?.recommendedParams ?? {})));
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('passes inferred relatedParams into locate_signature_function when the goal exposes known signing fields', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-locate-related-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-locate-params-001',
+          taskSlug: 'orchestrate-locate-params-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'locate h5st builder for appid body functionId',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const response = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-locate-params-001',
+        },
+      }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        orchestration: {primaryStep: {tool: string; params?: Record<string, unknown>}};
+      };
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'locate_signature_function');
+      assert.deepStrictEqual(payload.orchestration.primaryStep.params, {
+        url: 'https://example.com/api/h5st',
+        targetParam: 'h5st',
+        relatedParams: ['appid', 'body', 'functionid'],
+      });
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('reuses persisted locatedSignature and jumps to search_in_sources instead of locating again', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-reuse-located-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-reuse-001',
+          taskSlug: 'orchestrate-reuse-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'reuse located h5st builder',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const task = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-orchestrate-reuse-001',
+        slug: 'orchestrate-reuse-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'reuse located h5st builder',
+      });
+      await task.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/h5st',
+        },
+        locatedSignature: {
+          functionName: 'genH5st',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+
+      const response = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-reuse-001',
+        },
+      }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        nextBestTool?: string;
+        orchestration: {primaryStep: {tool: string; params?: Record<string, unknown>}};
+        continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
+      };
+      assert.strictEqual(payload.nextBestTool, 'search_in_sources');
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'search_in_sources');
+      assert.deepStrictEqual(payload.orchestration.primaryStep.params, {
+        query: 'genH5st',
+        isRegex: false,
+        caseSensitive: true,
+        maxResults: 10,
+        urlFilter: 'https://example.com/app.js',
+      });
+      assert.strictEqual(payload.continuation?.invoke?.tool, 'search_in_sources');
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('jumps to extract_function_tree when both locatedSignature and locatedSource are already persisted', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-reuse-slice-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-slice-001',
+          taskSlug: 'orchestrate-slice-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'reuse located slice',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const task = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-orchestrate-slice-001',
+        slug: 'orchestrate-slice-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'reuse located slice',
+      });
+      await task.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/h5st',
+        },
+        locatedSignature: {
+          functionName: 'genH5st',
+          scriptUrl: 'https://example.com/app.js',
+        },
+        locatedSource: {
+          query: 'genH5st',
+          scriptId: '77',
+          url: 'https://example.com/app.js',
+          lineNumber: 13,
+        },
+      });
+
+      const response = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-slice-001',
+        },
+      }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        nextBestTool?: string;
+        orchestration: {primaryStep: {tool: string; params?: Record<string, unknown>}};
+        continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
+      };
+      assert.strictEqual(payload.nextBestTool, 'extract_function_tree');
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'extract_function_tree');
+      assert.deepStrictEqual(payload.orchestration.primaryStep.params, {
+        scriptId: '77',
+        functionName: 'genH5st',
+        maxDepth: 2,
+      });
+      assert.strictEqual(payload.continuation?.invoke?.tool, 'extract_function_tree');
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('reuses persisted function-slice and jumps straight to understand_code', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-reuse-understand-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      await startReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-understand-001',
+          taskSlug: 'orchestrate-understand-demo',
+          targetUrl: 'https://example.com/api/h5st',
+          goal: 'reuse persisted function slice',
+          targetContext: {
+            targetRequest: {
+              method: 'POST',
+              url: 'https://example.com/api/h5st',
+            },
+          },
+        },
+      }, makeResponse() as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+
+      const task = await runtime.reverseTaskStore.openTask({
+        taskId: 'task-orchestrate-understand-001',
+        slug: 'orchestrate-understand-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'reuse persisted function slice',
+      });
+      await task.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/h5st',
+        },
+        locatedSignature: {
+          functionName: 'genH5st',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+      await task.writeSnapshot('function-slice.json', {
+        mainFunction: 'genH5st',
+        scriptId: '77',
+        scriptUrl: 'https://example.com/app.js',
+        code: 'function genH5st(){return hash(body)}\nfunction hash(v){return v}',
+        extractedCount: 2,
+        totalSize: 68,
+      });
+
+      const response = makeResponse();
+      await orchestrateReverseTaskTool.handler({
+        params: {
+          taskId: 'task-orchestrate-understand-001',
+        },
+      }, response as unknown as Parameters<typeof orchestrateReverseTaskTool.handler>[1], {} as Parameters<typeof orchestrateReverseTaskTool.handler>[2]);
+
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        nextBestTool?: string;
+        orchestration: {primaryStep: {tool: string; params?: Record<string, unknown>}};
+        continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
+      };
+      assert.strictEqual(payload.nextBestTool, 'understand_code');
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'understand_code');
+      assert.strictEqual(payload.orchestration.primaryStep.params?.focus, 'structure');
+      assert.ok(String(payload.orchestration.primaryStep.params?.code ?? '').includes('function genH5st(){return hash(body)}'));
+      assert.strictEqual(payload.continuation?.invoke?.tool, 'understand_code');
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
   it('executes orchestration steps, writes checkpoint, and resumes from failure', async () => {
     const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-orchestrate-task-exec-'));
     const runtime = getJSHookRuntime();

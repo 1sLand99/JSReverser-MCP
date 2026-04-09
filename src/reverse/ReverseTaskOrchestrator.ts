@@ -20,7 +20,31 @@ function buildStepKey(tool: string, params: Record<string, unknown>): string {
   return tool;
 }
 
-function buildPrimaryStep(taskId: string, nextStepHint: string, currentStage: string): OrchestrationStep {
+function inferTargetParam(...inputs: Array<string | undefined>): string {
+  const merged = inputs.filter(Boolean).join(' ').toLowerCase();
+  const knownTargets = ['h5st', 'a_bogus', '_signature', 'signature', 'token', 'sign', 'nonce'];
+  return knownTargets.find((item) => merged.includes(item)) ?? 'sign';
+}
+
+function inferRelatedParams(...inputs: Array<string | undefined>): string[] {
+  const merged = inputs.filter(Boolean).join(' ').toLowerCase();
+  const knownParams = ['appid', 'body', 'functionid', 'client', 'timestamp', 't', 'nonce', 'token'];
+  return knownParams.filter((item) => new RegExp(`\\b${item}\\b`, 'i').test(merged));
+}
+
+function buildPrimaryStep(
+  taskId: string,
+  nextStepHint: string,
+  currentStage: string,
+  options: {
+    targetUrl?: string;
+    targetParam?: string;
+    locatedFunctionName?: string;
+    locatedScriptUrl?: string;
+    locatedScriptId?: string;
+    functionSliceCode?: string;
+  } = {},
+): OrchestrationStep {
   if (nextStepHint.startsWith('manage_reverse_task:')) {
     const action = nextStepHint.split(':')[1] ?? 'summarize';
     return {
@@ -28,6 +52,70 @@ function buildPrimaryStep(taskId: string, nextStepHint: string, currentStage: st
       tool: 'manage_reverse_task',
       reason: '下一步仍属于任务编排域，继续通过统一 task 入口完成。',
       params: {action, taskId},
+    };
+  }
+
+  if (nextStepHint === 'locate_signature_function') {
+    if (options.functionSliceCode && options.locatedFunctionName) {
+      return {
+        key: buildStepKey('understand_code', {
+          code: options.functionSliceCode,
+          focus: 'structure',
+        }),
+        tool: 'understand_code',
+        reason: `已拿到 ${options.locatedFunctionName} 的最小依赖闭包，优先进入结构理解而不是重复定位。`,
+        params: {
+          code: options.functionSliceCode,
+          focus: 'structure',
+        },
+      };
+    }
+    if (options.locatedFunctionName && options.locatedScriptId) {
+      return {
+        key: buildStepKey('extract_function_tree', {
+          scriptId: options.locatedScriptId,
+          functionName: options.locatedFunctionName,
+          maxDepth: 2,
+        }),
+        tool: 'extract_function_tree',
+        reason: `已定位到 ${options.locatedFunctionName} 的源码命中，直接提取最小依赖闭包。`,
+        params: {
+          scriptId: options.locatedScriptId,
+          functionName: options.locatedFunctionName,
+          maxDepth: 2,
+        },
+      };
+    }
+    if (options.locatedFunctionName) {
+      return {
+        key: buildStepKey('search_in_sources', {
+          query: options.locatedFunctionName,
+          isRegex: false,
+          caseSensitive: true,
+          ...(options.locatedScriptUrl ? {urlFilter: options.locatedScriptUrl} : {}),
+        }),
+        tool: 'search_in_sources',
+        reason: `已存在候选签名函数 ${options.locatedFunctionName}，先复用定位结果缩小到具体源码位置。`,
+        params: {
+          query: options.locatedFunctionName,
+          isRegex: false,
+          caseSensitive: true,
+          maxResults: 10,
+          ...(options.locatedScriptUrl ? {urlFilter: options.locatedScriptUrl} : {}),
+        },
+      };
+    }
+    return {
+      key: buildStepKey('locate_signature_function', {
+        url: options.targetUrl ?? '',
+        targetParam: options.targetParam ?? 'sign',
+      }),
+      tool: 'locate_signature_function',
+      reason: `当前阶段为 ${currentStage}，先定位候选签名函数，再决定 hook 与切片策略。`,
+      params: {
+        url: options.targetUrl,
+        targetParam: options.targetParam ?? 'sign',
+      },
     };
   }
 
@@ -61,9 +149,17 @@ function buildStrategyPrimaryStep(
   strategy: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
   nextStepHint: string,
   currentStage: string,
+  options: {
+    targetUrl?: string;
+    targetParam?: string;
+    locatedFunctionName?: string;
+    locatedScriptUrl?: string;
+    locatedScriptId?: string;
+    functionSliceCode?: string;
+  } = {},
 ): OrchestrationStep {
   if (!strategy) {
-    return buildPrimaryStep(taskId, nextStepHint, currentStage);
+    return buildPrimaryStep(taskId, nextStepHint, currentStage, options);
   }
   if (strategy === 'rebuild-first') {
     return {
@@ -90,7 +186,7 @@ function buildStrategyPrimaryStep(
   if (strategy === 'observe-first') {
     return buildManageTaskStep(taskId, 'get', currentStage);
   }
-  return buildPrimaryStep(taskId, nextStepHint, currentStage);
+  return buildPrimaryStep(taskId, nextStepHint, currentStage, options);
 }
 
 function buildFallbackPlan(
@@ -181,6 +277,7 @@ export async function orchestrateReverseTask(
   const persistState = options.persistState ?? true;
   const progressed = persistState ? await autoProgressReverseTask(store, taskId) : undefined;
   const snapshot = await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20});
+  const functionSlice = await store.readSnapshot<Record<string, unknown>>(taskId, 'function-slice.json');
   const successCriteria = (snapshot.state?.successCriteria ?? snapshot.task?.successCriteria ?? {}) as Record<string, unknown>;
   const advice = recommendNextStep({
     taskId,
@@ -208,7 +305,61 @@ export async function orchestrateReverseTask(
   const nextStepHint = progressed?.nextStepHint ?? advice.nextStep;
   const currentSummary = progressed?.currentSummary ??
     String(snapshot.state?.currentSummary ?? snapshot.task?.currentSummary ?? '任务已初始化，等待补充更多证据。');
-  const primaryStep = buildStrategyPrimaryStep(taskId, options.strategy, nextStepHint, currentStage);
+  const targetRequest = (snapshot.targetContext as {targetRequest?: {url?: string}} | undefined)?.targetRequest;
+  const targetUrl = String(targetRequest?.url ?? snapshot.task?.targetUrl ?? '');
+  const targetParam = inferTargetParam(
+    String(snapshot.task?.goal ?? ''),
+    currentSummary,
+    targetUrl,
+  );
+  const topFunctionsText = snapshot.evidenceAggregates.topFunctions.map((entry) => entry.value).join(' ');
+  const relatedParams = inferRelatedParams(
+    String(snapshot.task?.goal ?? ''),
+    currentSummary,
+    targetUrl,
+    topFunctionsText,
+    JSON.stringify(snapshot.targetContext ?? {}),
+  );
+  const targetContext = snapshot.targetContext as {
+    candidateScripts?: string[];
+    targetRequest?: {url?: string};
+    locatedSignature?: {functionName?: string; scriptUrl?: string};
+    locatedSource?: {scriptId?: string; url?: string; query?: string; lineNumber?: number};
+  } | undefined;
+  const candidateScripts = Array.isArray(targetContext?.candidateScripts)
+    ? targetContext.candidateScripts.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    : [];
+  const observedFunctions = snapshot.evidenceAggregates.topFunctions
+    .map((entry) => entry.value)
+    .filter((item) => item.length > 0);
+  const preferredUrlPatterns = [
+    ...snapshot.evidenceAggregates.topUrls.map((entry) => entry.value),
+    ...candidateScripts,
+  ].filter((item, index, arr) => item.length > 0 && arr.indexOf(item) === index);
+  const primaryStep = buildStrategyPrimaryStep(taskId, options.strategy, nextStepHint, currentStage, {
+    targetUrl,
+    targetParam,
+    locatedFunctionName: targetContext?.locatedSignature?.functionName,
+    locatedScriptUrl: targetContext?.locatedSource?.url ?? targetContext?.locatedSignature?.scriptUrl,
+    locatedScriptId: targetContext?.locatedSource?.scriptId,
+    functionSliceCode: typeof functionSlice?.code === 'string'
+      ? String(functionSlice.code).slice(0, 12000)
+      : undefined,
+  });
+  if (primaryStep.tool === 'locate_signature_function' && relatedParams.length > 0) {
+    primaryStep.params = {
+      ...primaryStep.params,
+      relatedParams,
+    };
+  }
+  if (primaryStep.tool === 'locate_signature_function') {
+    primaryStep.params = {
+      ...primaryStep.params,
+      ...(candidateScripts.length > 0 ? {candidateScripts} : {}),
+      ...(observedFunctions.length > 0 ? {observedFunctions} : {}),
+      ...(preferredUrlPatterns.length > 0 ? {preferredUrlPatterns} : {}),
+    };
+  }
   const suggestedSteps: OrchestrationStep[] = [
     {
       key: buildStepKey('manage_reverse_task', {action: persistState ? 'progress' : 'get', taskId}),

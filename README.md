@@ -82,6 +82,7 @@
 - `get_script_source`：查看指定脚本源码，适合继续阅读具体实现。
 - `find_in_script`：在单个脚本里定位字符串、变量名或特征片段。
 - `search_in_scripts`：在已采集脚本缓存中批量搜索，适合缩小候选脚本范围。
+- `extract_function_tree`：从指定脚本里提取目标函数和最小依赖闭包，避免全量阅读大 bundle。
 
 ### Hook 与运行时采样
 
@@ -110,6 +111,7 @@
 - `network_request`：统一查看网络请求，支持 `action=list` 和 `action=get`。
 - `get_request_initiator`：追溯某个请求是谁触发的，帮助定位调用链。
 - `xhr_breakpoint`：统一管理 XHR / Fetch 断点，支持 `action=set` 和 `action=remove`。
+- `locate_signature_function`：在候选脚本里自动排序可能的签名函数，适合已知目标参数但还没开始 Hook 的场景。
 
 ### 页面状态与运行前检查
 
@@ -274,7 +276,7 @@ OPENAI_MODEL = "gpt-4o"
 ### 哪些功能依赖外部 AI
 
 - 强依赖：`understand_code`
-- 可选增强：`detect_crypto`、`analyze_target`、`risk_panel`、`deobfuscate_code`
+- 可选增强：`detect_crypto`、`analyze_target`、`locate_signature_function`、`risk_panel`、`deobfuscate_code`
 - 不依赖外部 AI：浏览器接管、Hook / 断点 / Console / Storage / Network / WebSocket、`collect_code`、`export_rebuild_bundle`、`diff_env_requirements`、`record_reverse_evidence`
 
 如果没配外部 AI，最直接的影响通常是：

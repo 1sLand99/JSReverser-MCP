@@ -52,6 +52,7 @@
 ## 2) 在压缩/混淆代码里定位关键逻辑
 
 - `find_in_script`
+- `extract_function_tree`
 - `set_breakpoint_on_text`
 - `understand_code`
 - `deobfuscate_code`
@@ -60,6 +61,7 @@
 
 ## 3) 追踪请求参数是怎么生成的
 
+- `locate_signature_function`
 - `create_hook`
 - `inject_hook`
 - `get_hook_data`
@@ -67,6 +69,8 @@
 - `get_request_initiator`
 
 推荐先 Hook `fetch/xhr/websocket`，必要时再用 `xhr_breakpoint(action="set")` 卡住目标请求前的现场。
+
+如果目标请求已确认、但还没有运行时样本，先用 `locate_signature_function` 缩小到候选函数，再继续 `search_in_scripts` / `extract_function_tree` / Hook。
 
 同步记录：
 
@@ -143,16 +147,19 @@
 3. `analyze_target`
 4. 设定目标边界：`targetKeywords`、`targetUrlPatterns`、`targetFunctionNames`、`targetActionDescription`
 5. `search_in_scripts`
-6. `create_hook` + `inject_hook`
-7. 触发页面动作
-8. `get_hook_data`
-9. `record_reverse_evidence`
-10. `export_rebuild_bundle`
-11. 运行 `env/entry.js` 并读取代理 env log
-12. 记录 `first divergence`
-13. `diff_env_requirements`（仅辅助）
-14. `risk_panel`
-15. `env-pass` 后再推进纯算法提纯
+6. `locate_signature_function`
+7. `search_in_scripts`
+8. `extract_function_tree`
+9. `create_hook` + `inject_hook`
+10. 触发页面动作
+11. `get_hook_data`
+12. `record_reverse_evidence`
+13. `export_rebuild_bundle`
+14. 运行 `env/entry.js` 并读取代理 env log
+15. 记录 `first divergence`
+16. `diff_env_requirements`（仅辅助）
+17. `risk_panel`
+18. `env-pass` 后再推进纯算法提纯
 
 ## 11) 参数总表
 

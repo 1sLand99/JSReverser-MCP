@@ -14,6 +14,7 @@ import {
   listScripts,
   getScriptSource,
   findInScript,
+  extractFunctionTree,
   searchInSources,
   breakpoint,
   getRequestInitiator,
@@ -71,6 +72,25 @@ interface DebuggerContextHarness {
   getScripts(): ScriptHarness[];
   getScriptsByUrlPattern(pattern: string): ScriptHarness[];
   getScriptSource(scriptId: string): Promise<string>;
+  extractFunctionTree?(
+    scriptId: string,
+    functionName: string,
+    options?: {maxDepth?: number; maxSize?: number; includeComments?: boolean},
+  ): Promise<{
+    mainFunction: string;
+    code: string;
+    functions: Array<{
+      name: string;
+      code: string;
+      dependencies: string[];
+      startLine: number;
+      endLine: number;
+      size: number;
+    }>;
+    callGraph: Record<string, string[]>;
+    totalSize: number;
+    extractedCount: number;
+  }>;
   getScriptById(scriptId: string): ScriptHarness | undefined;
   searchInScripts(query: string, options?: unknown): Promise<{matches: Array<{scriptId: string; url?: string; lineNumber: number; lineContent: string}>}>;
   setBreakpoint(url: string, lineNumber: number, columnNumber: number, condition?: string): Promise<BreakpointHarness>;
@@ -144,6 +164,31 @@ function makeContext(overrides: Partial<ToolContextHarness> = {}): ToolContextHa
     getScripts: () => [],
     getScriptsByUrlPattern: () => [],
     getScriptSource: async () => '',
+    extractFunctionTree: async () => ({
+      mainFunction: 'buildSign',
+      code: 'function buildSign() { return hash(); }\n\nfunction hash() { return "ok"; }',
+      functions: [
+        {
+          name: 'buildSign',
+          code: 'function buildSign() { return hash(); }',
+          dependencies: ['hash'],
+          startLine: 10,
+          endLine: 20,
+          size: 40,
+        },
+        {
+          name: 'hash',
+          code: 'function hash() { return "ok"; }',
+          dependencies: [],
+          startLine: 22,
+          endLine: 25,
+          size: 32,
+        },
+      ],
+      callGraph: { buildSign: ['hash'], hash: [] },
+      totalSize: 72,
+      extractedCount: 2,
+    }),
     getScriptById: () => ({
       scriptId: '1',
       url: 'https://a.js',
@@ -220,7 +265,7 @@ describe('debugger tools extended', () => {
       context as unknown as Parameters<typeof findInScript.handler>[2],
     );
     await searchInSources.handler(
-      { params: { query: 'token', caseSensitive: false, isRegex: false, maxResults: 1, maxLineLength: 20, excludeMinified: true, urlFilter: 'a.js' } },
+      { params: { query: 'token', caseSensitive: false, isRegex: false, maxResults: 1, maxLineLength: 20, excludeMinified: true, urlFilter: 'a.js', persistResult: false } },
       response as unknown as Parameters<typeof searchInSources.handler>[1],
       context as unknown as Parameters<typeof searchInSources.handler>[2],
     );
@@ -228,6 +273,132 @@ describe('debugger tools extended', () => {
     assert.ok(response.lines.some((x) => x.includes('Found "abc"')));
     assert.ok(response.lines.some((x) => x.includes('not found')));
     assert.ok(response.lines.some((x) => x.includes('Tip: Use get_script_source')));
+  });
+
+  it('persists a single search_in_sources match into task artifacts when requested', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-debugger-search-persist-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore;
+    (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      const response = makeResponse();
+      const context = makeContext();
+      context.debuggerContext.searchInScripts = async () => ({
+        matches: [
+          { scriptId: '77', url: 'https://cdn.example.com/security.js', lineNumber: 12, lineContent: 'function genH5st(){ return 1; }' },
+        ],
+      });
+
+      await searchInSources.handler(
+        {
+          params: {
+            query: 'genH5st',
+            caseSensitive: false,
+            isRegex: false,
+            maxResults: 30,
+            maxLineLength: 150,
+            excludeMinified: true,
+            taskId: 'task-search-persist-001',
+            taskSlug: 'search-persist-demo',
+            targetUrl: 'https://example.com/api/h5st',
+            goal: 'persist search hit',
+            persistResult: true,
+          },
+        },
+        response as unknown as Parameters<typeof searchInSources.handler>[1],
+        context as unknown as Parameters<typeof searchInSources.handler>[2],
+      );
+
+      const targetContext = JSON.parse(
+        await readFile(path.join(rootDir, 'task-search-persist-001', 'target-context.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.deepStrictEqual(targetContext.locatedSource, {
+        query: 'genH5st',
+        scriptId: '77',
+        url: 'https://cdn.example.com/security.js',
+        lineNumber: 13,
+      });
+      assert.ok(response.lines.some((x) => x.includes('Persisted single match into task artifact.')));
+    } finally {
+      (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('covers extract_function_tree output', async () => {
+    const response = makeResponse();
+    const context = makeContext();
+
+    await extractFunctionTree.handler(
+      { params: { scriptId: '1', functionName: 'buildSign', maxDepth: 2, maxSize: 128, includeComments: false, persistResult: false } },
+      response as unknown as Parameters<typeof extractFunctionTree.handler>[1],
+      context as unknown as Parameters<typeof extractFunctionTree.handler>[2],
+    );
+
+    assert.ok(response.lines.some((x) => x.includes('Function tree for "buildSign"')));
+    assert.ok(response.lines.some((x) => x.includes('Extracted functions: 2')));
+    assert.ok(response.lines.some((x) => x.includes('buildSign -> hash')));
+  });
+
+  it('persists extract_function_tree results into task artifacts when requested', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-debugger-slice-persist-'));
+    const runtime = getJSHookRuntime();
+    const originalStore = (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore;
+    (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore = new ReverseTaskStore({rootDir});
+    try {
+      const response = makeResponse();
+      const context = makeContext();
+
+      await extractFunctionTree.handler(
+        {
+          params: {
+            scriptId: '1',
+            functionName: 'buildSign',
+            maxDepth: 2,
+            maxSize: 128,
+            includeComments: false,
+            taskId: 'task-slice-persist-001',
+            taskSlug: 'slice-persist-demo',
+            targetUrl: 'https://example.com/api/h5st',
+            goal: 'persist function slice',
+            persistResult: true,
+          },
+        },
+        response as unknown as Parameters<typeof extractFunctionTree.handler>[1],
+        context as unknown as Parameters<typeof extractFunctionTree.handler>[2],
+      );
+
+      const targetContext = JSON.parse(
+        await readFile(path.join(rootDir, 'task-slice-persist-001', 'target-context.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.deepStrictEqual(targetContext.functionSlice, {
+        mainFunction: 'buildSign',
+        scriptId: '1',
+        scriptUrl: 'https://a.js',
+        extractedCount: 2,
+        totalSize: 72,
+      });
+
+      const functionSlice = JSON.parse(
+        await readFile(path.join(rootDir, 'task-slice-persist-001', 'function-slice.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(functionSlice.mainFunction, 'buildSign');
+      assert.strictEqual(functionSlice.scriptId, '1');
+      assert.strictEqual(functionSlice.scriptUrl, 'https://a.js');
+      assert.strictEqual(functionSlice.extractedCount, 2);
+      assert.ok(typeof functionSlice.persistedAt === 'number');
+
+      const runtimeEvidence = await readFile(
+        path.join(rootDir, 'task-slice-persist-001', 'runtime-evidence.jsonl'),
+        'utf8',
+      );
+      assert.ok(runtimeEvidence.includes('"kind":"function-slice"'));
+      assert.ok(runtimeEvidence.includes('"functionName":"buildSign"'));
+      assert.ok(response.lines.some((x) => x.includes('Persisted function slice into task artifact.')));
+    } finally {
+      (runtime as unknown as {reverseTaskStore: ReverseTaskStore}).reverseTaskStore = originalStore;
+      await rm(rootDir, {recursive: true, force: true});
+    }
   });
 
   it('covers breakpoint management and initiator rendering', async () => {
@@ -625,7 +796,7 @@ describe('debugger tools extended', () => {
       context as unknown as Parameters<typeof findInScript.handler>[2],
     );
     await searchInSources.handler(
-      { params: { query: 'sign', pageIdx: 1, caseSensitive: false, isRegex: false, maxResults: 30, maxLineLength: 150, excludeMinified: true } },
+      { params: { query: 'sign', pageIdx: 1, caseSensitive: false, isRegex: false, maxResults: 30, maxLineLength: 150, excludeMinified: true, persistResult: false } },
       response as unknown as Parameters<typeof searchInSources.handler>[1],
       context as unknown as Parameters<typeof searchInSources.handler>[2],
     );

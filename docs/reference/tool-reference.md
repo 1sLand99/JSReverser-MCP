@@ -443,6 +443,19 @@ so returned values have to JSON-serializable.
 - `expression`
 - `frameIndex`
 
+### `extract_function_tree`
+
+**Description:** Extract a target function and its local dependency tree from one script, returning a compact code slice for follow-up reverse analysis.
+
+**Parameters:**
+
+- `pageIdx`
+- `scriptId`
+- `functionName`
+- `maxDepth`
+- `maxSize`
+- `includeComments`
+
 ### `explain_reverse_stage`
 
 **Description:** Explain a reverse-engineering stage with goals, entry criteria, avoid list, and recommended tools.
@@ -615,6 +628,19 @@ so returned values have to JSON-serializable.
 
 - `pageIdx`
 - `filter`
+
+### `locate_signature_function`
+
+**Description:** Collect candidate scripts and rank likely signature-generation functions for a target parameter.
+
+**Parameters:**
+
+- `url`
+- `targetParam`
+- `relatedParams`
+- `topN`
+- `maxCandidates`
+- `collect`
 
 ### `list_stealth_features`
 

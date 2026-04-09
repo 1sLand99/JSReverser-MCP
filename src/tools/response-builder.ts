@@ -138,6 +138,34 @@ function buildInvokeHint(tool: string | undefined, params: Record<string, unknow
     };
   }
 
+  if (tool === 'locate_signature_function') {
+    const requiredParams = ['url', 'targetParam'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      example: {
+        url: normalizedParams.url ?? 'https://example.com/api/sign',
+        targetParam: normalizedParams.targetParam ?? 'sign',
+        ...normalizedParams,
+      },
+    };
+  }
+
+  if (tool === 'extract_function_tree') {
+    const requiredParams = ['scriptId', 'functionName'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      example: {
+        scriptId: normalizedParams.scriptId ?? '<scriptId>',
+        functionName: normalizedParams.functionName ?? 'genSign',
+        ...normalizedParams,
+      },
+    };
+  }
+
   return paramKeys.length
     ? {requiredParams: [], example: normalizedParams}
     : {requiredParams: []};
