@@ -138,6 +138,16 @@ function buildInvokeHint(tool: string | undefined, params: Record<string, unknow
     };
   }
 
+  if (tool === 'export_portable_bundle') {
+    const requiredParams = ['taskId'];
+    const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
+    return {
+      requiredParams,
+      ...(optionalParams.length ? {optionalParams} : {}),
+      ...(paramKeys.length ? {example: normalizedParams} : {}),
+    };
+  }
+
   if (tool === 'diff_env_requirements') {
     const requiredParams = ['runtimeError', 'observedCapabilities'];
     const optionalParams = paramKeys.filter((key) => !requiredParams.includes(key));
