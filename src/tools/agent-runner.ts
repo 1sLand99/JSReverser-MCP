@@ -383,9 +383,25 @@ if (import.meta.url === \`file://\${process.argv[1]}\`) {
 }
 `;
 
+  const selftestSource = `import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+
+import {runFixture} from './pure-main.js';
+
+test('runs first auto-generated fixture', async () => {
+  const fixtures = JSON.parse(await readFile(new URL('./fixtures.json', import.meta.url), 'utf8'));
+  const fixture = fixtures.samples?.[0];
+  assert.ok(fixture, 'expected at least one fixture sample');
+  const result = runFixture(fixture);
+  assert.ok(result && typeof result === 'object');
+});
+`;
+
   await Promise.all([
     writeFile(path.join(runDir, 'fixtures.json'), `${JSON.stringify(fixtures, null, 2)}\n`, 'utf8'),
     writeFile(path.join(runDir, 'pure-main.js'), pureMainSource, 'utf8'),
+    writeFile(path.join(runDir, 'pure-selftest.test.mjs'), selftestSource, 'utf8'),
   ]);
 }
 

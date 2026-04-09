@@ -564,6 +564,13 @@ describe('reverse task tools', () => {
       assert.ok(pureMain.includes('deobfuscatedDraft'));
       assert.ok(pureMain.includes('export function runFixture'));
 
+      const selftest = await readFile(
+        path.join(rootDir, 'task-run-agent-001', 'run', 'pure-selftest.test.mjs'),
+        'utf8',
+      );
+      assert.ok(selftest.includes("import {runFixture} from './pure-main.js'"));
+      assert.ok(selftest.includes("runs first auto-generated fixture"));
+
       const evidence = (
         await readFile(path.join(rootDir, 'task-run-agent-001', 'runtime-evidence.jsonl'), 'utf8')
       )

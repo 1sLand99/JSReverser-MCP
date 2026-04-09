@@ -16,6 +16,7 @@ import {
   withSchemaVersion,
   type OutputMode,
 } from './tools/response-builder.js';
+import {getJSHookRuntime} from './tools/runtime.js';
 
 export const cliOptions = {
   doctor: {
@@ -31,6 +32,14 @@ export const cliOptions = {
   orchestrateReverseTask: {
     type: 'string',
     description: 'Run the reverse-task orchestrator for one task id.',
+  },
+  runReverseAgent: {
+    type: 'string',
+    description: 'Run the one-shot reverse agent loop for one task id.',
+  },
+  maxRounds: {
+    type: 'number',
+    description: 'When used with --runReverseAgent, maximum orchestration rounds to execute.',
   },
   execute: {
     type: 'boolean',
@@ -421,6 +430,45 @@ export async function executeKnowledgeCliCommand(
   args: Partial<CliArguments>,
   writeLine: (line: string) => void = (line) => console.log(line),
 ): Promise<boolean> {
+  if (args.runReverseAgent) {
+    const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
+    const {runReverseAgentTool} = await import('./tools/agent-runner.js');
+    const store = new ReverseTaskStore();
+    const runtime = getJSHookRuntime();
+    const originalStore = runtime.reverseTaskStore;
+    runtime.reverseTaskStore = store;
+    try {
+      const lines: string[] = [];
+      await runReverseAgentTool.handler({
+        params: {
+          taskId: String(args.runReverseAgent),
+          maxRounds: typeof args.maxRounds === 'number' ? args.maxRounds : undefined,
+          strategy: args.strategy as 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
+          outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
+          includeSummary: args.includeSummary,
+        },
+      } as Parameters<typeof runReverseAgentTool.handler>[0], {
+        appendResponseLine(value: string) {
+          lines.push(value);
+        },
+        setIncludePages: () => undefined,
+        setIncludeNetworkRequests: () => undefined,
+        setIncludeConsoleData: () => undefined,
+        attachImage: () => undefined,
+        attachNetworkRequest: () => undefined,
+        attachConsoleMessage: () => undefined,
+        setIncludeWebSocketConnections: () => undefined,
+        attachWebSocket: () => undefined,
+      } as Parameters<typeof runReverseAgentTool.handler>[1], {} as Parameters<typeof runReverseAgentTool.handler>[2]);
+      const start = lines.indexOf('```json');
+      const end = lines.indexOf('```', start + 1);
+      writeLine(lines.slice(start + 1, end).join('\n'));
+      return true;
+    } finally {
+      runtime.reverseTaskStore = originalStore;
+    }
+  }
+
   if (args.orchestrateReverseTask) {
     const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
     const {buildOrchestrationAgentHints} = await import('./reverse/ReverseTaskAgentProtocol.js');

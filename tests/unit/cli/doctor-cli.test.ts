@@ -13,6 +13,8 @@ import {describe, it} from 'node:test';
 import {executeKnowledgeCliCommand, parseArguments} from '../../../src/cli.js';
 import {startReverseTask} from '../../../src/reverse/ReverseTaskBootstrap.js';
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
+import {updateReverseTaskState} from '../../../src/reverse/ReverseTaskState.js';
+import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 
 describe('doctor cli', () => {
   it('parses --doctor', () => {
@@ -159,6 +161,38 @@ describe('doctor cli', () => {
           },
         },
       });
+      const opened = await store.openTask({
+        taskId: 'task-cli-orchestrate-resume-001',
+        slug: 'cli-orchestrate-resume-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'cli orchestrate resume flow',
+      });
+      await opened.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/sign',
+        },
+        locatedSignature: {
+          functionName: 'genSign',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+      await opened.writeSnapshot('function-slice.json', {
+        mainFunction: 'genSign',
+        scriptId: '77',
+        scriptUrl: 'https://example.com/app.js',
+        code: 'function genSign(){return 1}',
+        extractedCount: 1,
+        totalSize: 24,
+      });
+      await updateReverseTaskState(store, {
+        taskId: 'task-cli-orchestrate-resume-001',
+        currentStage: 'PureExtraction',
+        status: 'partial',
+        currentSummary: 'ready to extract pure algorithm',
+        nextStepHint: 'understand_code',
+        successCriteria: {localRebuild: 'pass', browserAlignment: 'pass'},
+      });
 
       const firstLines: string[] = [];
       const firstHandled = await executeKnowledgeCliCommand({
@@ -178,10 +212,10 @@ describe('doctor cli', () => {
         };
       };
       assert.strictEqual(firstPayload.execution?.checkpoint?.status, 'failed');
-      assert.strictEqual(firstPayload.execution?.checkpoint?.failedStepKey, 'inject_hook');
+      assert.strictEqual(firstPayload.execution?.checkpoint?.failedStepKey, 'understand_code');
       assert.strictEqual(firstPayload.execution?.checkpoint?.failureType, 'tool_error');
       assert.strictEqual(firstPayload.execution?.checkpoint?.retryable, true);
-      assert.strictEqual(firstPayload.execution?.failedStep?.tool, 'inject_hook');
+      assert.strictEqual(firstPayload.execution?.failedStep?.tool, 'understand_code');
       assert.strictEqual(firstPayload.errorCode, 'tool_error');
       assert.strictEqual(firstPayload.errorType, 'tool_error');
       assert.strictEqual(firstPayload.retryable, true);
@@ -196,9 +230,9 @@ describe('doctor cli', () => {
         resume: true,
         includeSummary: false,
         executionOverrides: {
-          inject_hook: {
+          understand_code: {
             status: 'ok',
-            result: 'synthetic hook injection completed after resume',
+            result: 'synthetic pure extraction completed after resume',
           },
         },
       }, (line) => resumedLines.push(line));
@@ -214,8 +248,8 @@ describe('doctor cli', () => {
       assert.strictEqual(resumedPayload.execution?.resumed, true);
       assert.strictEqual(resumedPayload.execution?.checkpoint?.status, 'passed');
       assert.strictEqual(resumedPayload.summary, undefined);
-      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'inject_hook' && entry.status === 'failed' && entry.retryCount === 1));
-      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'inject_hook' && entry.status === 'passed'));
+      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'understand_code' && entry.status === 'failed' && entry.retryCount === 1));
+      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'understand_code' && entry.status === 'passed'));
     } finally {
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;
@@ -245,6 +279,38 @@ describe('doctor cli', () => {
           },
         },
       });
+      const opened = await store.openTask({
+        taskId: 'task-cli-orchestrate-001',
+        slug: 'cli-orchestrate-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'cli orchestrate flow',
+      });
+      await opened.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/sign',
+        },
+        locatedSignature: {
+          functionName: 'genSign',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+      await opened.writeSnapshot('function-slice.json', {
+        mainFunction: 'genSign',
+        scriptId: '77',
+        scriptUrl: 'https://example.com/app.js',
+        code: 'function genSign(){return 1}',
+        extractedCount: 1,
+        totalSize: 24,
+      });
+      await updateReverseTaskState(store, {
+        taskId: 'task-cli-orchestrate-001',
+        currentStage: 'PureExtraction',
+        status: 'partial',
+        currentSummary: 'ready to extract pure algorithm',
+        nextStepHint: 'understand_code',
+        successCriteria: {localRebuild: 'pass', browserAlignment: 'pass'},
+      });
 
       const lines: string[] = [];
       const handled = await executeKnowledgeCliCommand({
@@ -253,13 +319,13 @@ describe('doctor cli', () => {
         resume: true,
         outputMode: 'compact',
         stopOnError: false,
-        onlyStep: ['inject_hook'],
+        onlyStep: ['understand_code'],
         includeSummary: true,
         persistState: true,
         executionOverrides: {
-          inject_hook: {
+          understand_code: {
             status: 'ok',
-            result: 'synthetic hook injection completed',
+            result: 'synthetic pure extraction completed',
           },
         },
       }, (line) => lines.push(line));
@@ -285,13 +351,13 @@ describe('doctor cli', () => {
       assert.strictEqual(payload.detailLevel, 'minimal');
       assert.strictEqual(payload.agentGuidance, undefined);
       assert.strictEqual(payload.continuation?.ready, true);
-      assert.strictEqual(payload.continuation?.tool, 'inject_hook');
-      assert.strictEqual(payload.continuation?.actionKey, 'inject_hook');
+      assert.strictEqual(payload.continuation?.tool, 'understand_code');
+      assert.strictEqual(payload.continuation?.actionKey, 'understand_code');
       assert.strictEqual(payload.execution?.executed, true);
       assert.strictEqual(payload.execution?.resumed, true);
       assert.strictEqual(payload.execution?.checkpoint?.status, 'passed');
       assert.strictEqual(payload.summary, undefined);
-      assert.strictEqual(payload.orchestration.primaryStep.tool, 'inject_hook');
+      assert.strictEqual(payload.orchestration.primaryStep.tool, 'understand_code');
     } finally {
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;
@@ -321,14 +387,46 @@ describe('doctor cli', () => {
           },
         },
       });
+      const opened = await store.openTask({
+        taskId: 'task-cli-orchestrate-env-001',
+        slug: 'cli-orchestrate-env-demo',
+        targetUrl: 'https://example.com/api/sign',
+        goal: 'cli orchestrate env flow',
+      });
+      await opened.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/sign',
+        },
+        locatedSignature: {
+          functionName: 'genSign',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+      await opened.writeSnapshot('function-slice.json', {
+        mainFunction: 'genSign',
+        scriptId: '77',
+        scriptUrl: 'https://example.com/app.js',
+        code: 'function genSign(){return 1}',
+        extractedCount: 1,
+        totalSize: 24,
+      });
+      await updateReverseTaskState(store, {
+        taskId: 'task-cli-orchestrate-env-001',
+        currentStage: 'PureExtraction',
+        status: 'partial',
+        currentSummary: 'ready to extract pure algorithm',
+        nextStepHint: 'understand_code',
+        successCriteria: {localRebuild: 'pass', browserAlignment: 'pass'},
+      });
 
       const lines: string[] = [];
       const handled = await executeKnowledgeCliCommand({
         orchestrateReverseTask: 'task-cli-orchestrate-env-001',
         execute: true,
-        onlyStep: ['inject_hook'],
+        onlyStep: ['understand_code'],
         executionOverrides: {
-          inject_hook: {
+          understand_code: {
             status: 'error',
             error: 'window is not defined',
           },
@@ -346,6 +444,108 @@ describe('doctor cli', () => {
       assert.strictEqual(payload.execution?.recovery?.shouldInspectSummary, true);
       assert.strictEqual(payload.execution?.recovery?.shouldResume, true);
     } finally {
+      if (originalArtifactsDir === undefined) {
+        delete process.env.JSREVERSER_ARTIFACTS_DIR;
+      } else {
+        process.env.JSREVERSER_ARTIFACTS_DIR = originalArtifactsDir;
+      }
+      await rm(rootDir, {recursive: true, force: true});
+    }
+  });
+
+  it('supports runReverseAgent CLI execution for pure-extraction drafts', async () => {
+    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-run-agent-'));
+    const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
+    const runtime = getJSHookRuntime();
+    const originals = {
+      analyzerUnderstand: runtime.analyzer.understand,
+      deobfuscatorDeobfuscate: runtime.deobfuscator.deobfuscate,
+    };
+
+    try {
+      process.env.JSREVERSER_ARTIFACTS_DIR = rootDir;
+      const store = new ReverseTaskStore({rootDir});
+      await startReverseTask(store, {
+        taskId: 'task-cli-run-agent-001',
+        taskSlug: 'cli-run-agent-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'cli run agent flow',
+        targetContext: {
+          targetRequest: {
+            method: 'POST',
+            url: 'https://example.com/api/h5st',
+          },
+        },
+        currentStage: 'PureExtraction',
+        currentSummary: 'ready for pure extraction',
+      });
+      const opened = await store.openTask({
+        taskId: 'task-cli-run-agent-001',
+        slug: 'cli-run-agent-demo',
+        targetUrl: 'https://example.com/api/h5st',
+        goal: 'cli run agent flow',
+        currentStage: 'PureExtraction',
+        currentSummary: 'ready for pure extraction',
+      });
+      await opened.writeSnapshot('target-context.json', {
+        targetRequest: {
+          method: 'POST',
+          url: 'https://example.com/api/h5st',
+        },
+        locatedSignature: {
+          functionName: 'genH5st',
+          scriptUrl: 'https://example.com/app.js',
+        },
+      });
+      await opened.writeSnapshot('function-slice.json', {
+        mainFunction: 'genH5st',
+        scriptId: '77',
+        scriptUrl: 'https://example.com/app.js',
+        code: 'function genH5st(){return hash(body)}\nfunction hash(v){return v}',
+        extractedCount: 2,
+        totalSize: 64,
+      });
+      await opened.appendLog('runtime-evidence', {
+        source: 'capture',
+        kind: 'sample',
+        requestUrl: 'https://example.com/api/h5st',
+        bodyPreview: '{"appid":"app-1","body":{"sku":"1001"},"functionId":"sign.test"}',
+      });
+
+      runtime.analyzer.understand = async () => ({
+        structure: {functions: [], classes: [], modules: [], callGraph: {nodes: [], edges: []}},
+        techStack: {other: []},
+        businessLogic: {mainFeatures: ['build h5st'], entities: [], rules: [], dataModel: {}},
+        dataFlow: {graph: {nodes: [], edges: []}, sources: [], sinks: [], taintPaths: []},
+        securityRisks: [],
+        qualityScore: 90,
+      });
+      runtime.deobfuscator.deobfuscate = async () => ({
+        code: 'function genH5st(input){return input}',
+        readabilityScore: 90,
+        confidence: 0.9,
+        obfuscationType: ['webpack'],
+        transformations: [],
+        analysis: 'cli normalized draft',
+      });
+
+      const lines: string[] = [];
+      const handled = await executeKnowledgeCliCommand({
+        runReverseAgent: 'task-cli-run-agent-001',
+        maxRounds: 2,
+        outputMode: 'compact',
+        includeSummary: false,
+      }, (line) => lines.push(line));
+      assert.strictEqual(handled, true);
+      const payload = JSON.parse(lines[0]) as {
+        run?: {stopReason?: string};
+        outputMode?: string;
+      };
+      assert.strictEqual(payload.run?.stopReason, 'pure_extraction_ready');
+      assert.strictEqual(payload.outputMode, 'compact');
+    } finally {
+      runtime.analyzer.understand = originals.analyzerUnderstand;
+      runtime.deobfuscator.deobfuscate = originals.deobfuscatorDeobfuscate;
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;
       } else {

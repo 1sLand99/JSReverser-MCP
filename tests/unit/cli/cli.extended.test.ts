@@ -25,6 +25,8 @@ interface ParsedArgsLike {
   doctor?: boolean;
   manageReverseTask?: string;
   orchestrateReverseTask?: string;
+  runReverseAgent?: string;
+  maxRounds?: number;
   execute?: boolean;
   resume?: boolean;
   stopOnError?: boolean;
@@ -195,6 +197,28 @@ describe('cli extended coverage', () => {
         result: 'done',
       },
     });
+  });
+
+  it('parseArguments supports runReverseAgent flags', () => {
+    const parsed = parseArguments('1.2.3', [
+      'node',
+      'cli.js',
+      '--runReverseAgent',
+      'task-77',
+      '--maxRounds',
+      '4',
+      '--strategy',
+      'evidence-only',
+      '--outputMode',
+      'compact',
+      '--includeSummary=false',
+    ]) as ParsedArgsLike;
+
+    assert.strictEqual(parsed.runReverseAgent, 'task-77');
+    assert.strictEqual(parsed.maxRounds, 4);
+    assert.strictEqual(parsed.strategy, 'evidence-only');
+    assert.strictEqual(parsed.outputMode, 'compact');
+    assert.strictEqual(parsed.includeSummary, false);
   });
 
   it('parseArguments keeps explicit launch target without forcing channel', () => {
