@@ -532,6 +532,19 @@ describe('reverse task tools', () => {
       assert.strictEqual(pureExtraction.stage, 'PureExtraction');
       assert.strictEqual(pureExtraction.mainFunction, 'genH5st');
 
+      const fixtures = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'run', 'fixtures.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(fixtures.stage, 'PureExtraction');
+      assert.strictEqual(fixtures.mainFunction, 'genH5st');
+
+      const pureMain = await readFile(
+        path.join(rootDir, 'task-run-agent-001', 'run', 'pure-main.js'),
+        'utf8',
+      );
+      assert.ok(pureMain.includes('export function genH5st'));
+      assert.ok(pureMain.includes('deobfuscatedDraft'));
+
       const evidence = (
         await readFile(path.join(rootDir, 'task-run-agent-001', 'runtime-evidence.jsonl'), 'utf8')
       )
@@ -543,6 +556,7 @@ describe('reverse task tools', () => {
       assert.ok(evidence.some((entry) => entry.kind === 'function-slice'));
       assert.ok(evidence.some((entry) => entry.kind === 'understand-code'));
       assert.ok(evidence.some((entry) => entry.kind === 'deobfuscate-code'));
+      assert.ok(evidence.some((entry) => entry.kind === 'pure-draft'));
       assert.ok(evidence.some((entry) => entry.kind === 'auto-agent'));
     } finally {
       runtime.reverseTaskStore = originals.reverseTaskStore;
