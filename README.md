@@ -170,6 +170,7 @@
     - `portable`：同时导出 `run/portable.js` 和 `env/replay.js`
     - `pure`：只导出 `run/portable.js`
     - `rebuild`：只导出 `env/replay.js`
+- `export_rebuild_bundle` 现在也支持 `autoExportPortable=true`，在导出 rebuild bundle 后顺手生成 `env/replay.js`
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
