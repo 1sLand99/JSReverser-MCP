@@ -157,6 +157,7 @@
 - `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制，也支持通过 `strategy` 快速切到 `observe-first` / `rebuild-first` / `env-fix` / `artifact-sync` / `evidence-only` 模板
   - `outputMode: "compact" | "verbose"`：给大模型时可优先用 `compact`，减少非必要字段和说明文字
   - 执行失败时会补 `fallbackPlan`，帮助模型直接切换到下一条更稳的链路
+- `run_reverse_agent`：一键 reverse agent 入口；会自动串起 `locate_signature_function -> search_in_sources -> extract_function_tree -> understand_code -> deobfuscate_code`，并在进入 `PureExtraction` 时自动落 `run/fixtures.json`、`run/pure-main.js`、`run/pure-selftest.test.mjs`
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`
@@ -173,6 +174,8 @@
   - `--orchestrateReverseTask <taskId> --strategy env-fix`
   - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
   - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+  - `--runReverseAgent <taskId>`
+  - `--runReverseAgent <taskId> --maxRounds 4 --outputMode compact`
 - 自动化编排的 checkpoint、CLI cheatsheet、失败分类对照表、`codex --resume` 协同方式见 [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
 
 说明：
@@ -385,6 +388,7 @@ args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 - 阶段建议：`recommend_next_step` / `explain_reverse_stage`
 - 任务状态：`start_reverse_task` / `manage_reverse_task`
 - 自动编排：`orchestrate_reverse_task`
+- 一键 agent：`run_reverse_agent`
 - 任务摘要：`manage_reverse_task`
 - 参数蓝图库：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
 - 参数蓝图贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)

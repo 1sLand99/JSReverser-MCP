@@ -63,6 +63,7 @@
   - [`manage_reverse_task`](#manage_reverse_task)
   - [`monitor_events`](#monitor_events)
   - [`orchestrate_reverse_task`](#orchestrate_reverse_task)
+  - [`run_reverse_agent`](#run_reverse_agent)
   - [`pause`](#pause)
   - [`recommend_next_step`](#recommend_next_step)
   - [`recommend_parameter_workflow`](#recommend_parameter_workflow)
@@ -812,6 +813,51 @@ so returned values have to JSON-serializable.
       "params": {
         "runtimeError": "window is not defined",
         "observedCapabilities": ["window", "document"]
+      }
+    }
+  }
+}
+```
+
+### `run_reverse_agent`
+
+**Description:** One-shot reverse agent entry that repeatedly advances the reverse main chain and, when reaching `PureExtraction`, scaffolds `run/fixtures.json`, `run/pure-main.js`, and `run/pure-selftest.test.mjs`.
+
+**Response note:** Returns the same agent-facing continuation fields as orchestration tools, plus a `run` block describing `roundsExecuted`, `stopReason`, and each round's `primaryTool`.
+
+**Parameters:**
+
+- `taskId`
+- `maxRounds`
+- `strategy`
+- `outputMode`
+- `includeSummary`
+
+**Typical stop reasons:**
+
+- `pure_extraction_ready`
+- `blocked`
+- `checkpoint_required`
+- `stalled`
+- `max_rounds`
+
+**Compact response example:**
+
+```json
+{
+  "schemaVersion": "1.0",
+  "responseSummary": "已自动执行 task task-demo-001 的 reverse agent，共 4 轮，停止原因：pure_extraction_ready。",
+  "detailLevel": "minimal",
+  "run": {
+    "roundsExecuted": 4,
+    "stopReason": "pure_extraction_ready"
+  },
+  "continuation": {
+    "invoke": {
+      "tool": "manage_reverse_task",
+      "params": {
+        "action": "summarize",
+        "taskId": "task-demo-001"
       }
     }
   }

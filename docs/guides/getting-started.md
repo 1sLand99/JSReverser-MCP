@@ -93,6 +93,7 @@ node build/src/index.js --doctor
   - `action: "archive" / "restore" / "prune"`：做任务归档与清理
   - `action: "compare"`：对比两个任务的证据和链路差异
 - 如果你想先拿到一组主步骤，再决定是否执行，用 `orchestrate_reverse_task`；要直接执行就传 `execute=true`，需要摘要再加 `includeSummary=true`，建议保留 `persistState=true`，中断后用 `resume=true` 续跑。现在失败返回里会带 recovery 建议，也支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制，还支持 `strategy` 快速切到 `observe-first` / `rebuild-first` / `env-fix` / `artifact-sync` / `evidence-only`
+- 如果你已经要走“定位函数 -> 最小切片 -> understand/deobfuscate -> PureExtraction 草稿”整条链，直接用 `run_reverse_agent`
 - 如果你暂时不想走 MCP，也可以直接用统一 CLI：
   - `jsreverser-mcp --manageReverseTask list`
   - `jsreverser-mcp --manageReverseTask get --taskId <taskId>`
@@ -105,6 +106,12 @@ node build/src/index.js --doctor
   - `jsreverser-mcp --orchestrateReverseTask <taskId> --strategy env-fix`
   - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --stopOnError=false`
   - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+  - `jsreverser-mcp --runReverseAgent <taskId>`
+  - `jsreverser-mcp --runReverseAgent <taskId> --maxRounds 4 --outputMode compact`
+- `run_reverse_agent` 进入 `PureExtraction` 后，会自动落：
+  - `run/fixtures.json`
+  - `run/pure-main.js`
+  - `run/pure-selftest.test.mjs`
 - 编排 checkpoint、`orchestration-checkpoint.json` 结构，以及它和 `codex --resume` 的区别见 [docs/guides/reverse-task-orchestration.md](./reverse-task-orchestration.md)
 - 如果你是给大模型 / agent 接 MCP，先看一页版速查：[docs/guides/mcp-agent-quick-reference.md](./mcp-agent-quick-reference.md)
 - 如果你要自己写 Node.js / TypeScript client 自动续跑，可直接抄：[docs/guides/mcp-client-auto-resume-example.md](./mcp-client-auto-resume-example.md)

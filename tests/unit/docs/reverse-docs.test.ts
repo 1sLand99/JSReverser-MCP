@@ -62,6 +62,7 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('create_reverse_task_from_request'));
     assert.ok(readme.includes('manage_reverse_task'));
     assert.ok(readme.includes('orchestrate_reverse_task'));
+    assert.ok(readme.includes('run_reverse_agent'));
     assert.ok(readme.includes('默认入口就是 `manage_reverse_task`'));
     assert.ok(readme.includes('archive / restore / search / tag / prune / compare'));
     assert.ok(readme.includes('--manageReverseTask list'));
@@ -73,6 +74,7 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('--orchestrateReverseTask <taskId>'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId> --execute --resume'));
     assert.ok(readme.includes('--orchestrateReverseTask <taskId> --strategy env-fix'));
+    assert.ok(readme.includes('--runReverseAgent <taskId>'));
     assert.ok(readme.includes('outputMode'));
     assert.ok(readme.includes('fallbackPlan'));
     assert.ok(readme.includes('skipSteps'));
@@ -133,6 +135,7 @@ describe('reverse workflow docs', () => {
     assert.ok(toolReference.includes('recommend_next_step'));
     assert.ok(toolReference.includes('explain_reverse_stage'));
     assert.ok(toolReference.includes('orchestrate_reverse_task'));
+    assert.ok(toolReference.includes('run_reverse_agent'));
     assert.ok(toolReference.includes('get_rebuild_health_report'));
     assert.ok(toolReference.includes('otherTaskId'));
     assert.ok(toolReference.includes('pruneOlderThanDays'));
@@ -221,7 +224,9 @@ describe('reverse workflow docs', () => {
     const gettingStarted = await readRepoFile('docs/guides/getting-started.md');
     assert.ok(gettingStarted.includes('resume=true'));
     assert.ok(gettingStarted.includes('--orchestrateReverseTask <taskId> --execute --resume'));
+    assert.ok(gettingStarted.includes('--runReverseAgent <taskId>'));
     assert.ok(gettingStarted.includes('orchestration-checkpoint.json'));
+    assert.ok(gettingStarted.includes('run/pure-selftest.test.mjs'));
     assert.ok(gettingStarted.includes('record_reverse_evidence'));
     assert.ok(gettingStarted.includes('mcp-agent-quick-reference.md'));
     assert.ok(gettingStarted.includes('mcp-client-auto-resume-example.md'));
