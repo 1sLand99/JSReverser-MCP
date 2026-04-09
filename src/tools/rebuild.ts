@@ -10,6 +10,7 @@ import path from 'node:path';
 import {zod} from '../third_party/index.js';
 import type {CodeFile} from '../types/index.js';
 import {buildRebuildHealthAgentHints} from '../reverse/ReverseTaskAgentProtocol.js';
+import {updateReverseTaskState} from '../reverse/ReverseTaskState.js';
 
 import {ToolCategory} from './categories.js';
 import {buildRebuildContinuation, compactAgentPayload, withSchemaVersion} from './response-builder.js';
@@ -37,6 +38,52 @@ function makePortableResponse() {
     setIncludeWebSocketConnections: () => undefined,
     attachWebSocket: () => undefined,
   };
+}
+
+async function persistCompactDeliveryStatus(args: {
+  taskId: string;
+  taskDir: string;
+  generatedFiles: string[];
+}): Promise<void> {
+  if (args.generatedFiles.length === 0) {
+    return;
+  }
+  const runtime = getJSHookRuntime();
+  const existingState = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(args.taskId, 'state.json');
+  const taskSnapshot = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(args.taskId, 'task.json');
+  const currentStage = String(existingState?.currentStage ?? taskSnapshot?.currentStage ?? 'Observe');
+  const status = String(existingState?.status ?? 'active') as 'active' | 'blocked' | 'partial' | 'pass';
+  const summary = `已生成便携交付文件：${args.generatedFiles.join(', ')}`;
+
+  await updateReverseTaskState(runtime.reverseTaskStore, {
+    taskId: args.taskId,
+    currentStage,
+    status,
+    currentSummary: summary,
+    nextStepHint: String(existingState?.nextStepHint ?? 'manage_reverse_task:summarize'),
+  });
+
+  const task = await runtime.reverseTaskStore.openTask({
+    taskId: args.taskId,
+    slug: String(taskSnapshot?.slug ?? args.taskId),
+    targetUrl: String(taskSnapshot?.targetUrl ?? ''),
+    goal: String(taskSnapshot?.goal ?? ''),
+    currentStage,
+    currentSummary: summary,
+  });
+  await task.appendTimeline({
+    stage: currentStage.toLowerCase(),
+    action: 'compact_delivery_ready',
+    status: 'ok',
+    result: args.generatedFiles.join(', '),
+    next: 'manage_reverse_task:summarize',
+  });
+  await task.appendLog('runtime-evidence', {
+    source: 'export_portable_bundle',
+    kind: 'compact-delivery',
+    files: args.generatedFiles,
+    note: summary,
+  });
 }
 
 async function artifactExists(taskDir: string, relativePath: string): Promise<boolean> {
@@ -555,6 +602,12 @@ export const exportPortableBundle = defineTool({
       compactDelivery: generatedFiles.length > 0,
     }, null, 2));
     response.appendResponseLine('```');
+
+    await persistCompactDeliveryStatus({
+      taskId: task.taskId,
+      taskDir: task.taskDir,
+      generatedFiles,
+    });
   },
 });
 
