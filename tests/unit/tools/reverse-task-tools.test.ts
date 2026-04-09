@@ -16,7 +16,7 @@ import {runReverseAgentTool} from '../../../src/tools/agent-runner.js';
 import {getHookData} from '../../../src/tools/hook.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 import {startReverseTaskTool} from '../../../src/tools/task.js';
-import type {CollectCodeResult, DetectCryptoResult, UnderstandCodeResult} from '../../../src/types/index.js';
+import type {CollectCodeResult, DeobfuscateResult, DetectCryptoResult, UnderstandCodeResult} from '../../../src/types/index.js';
 
 interface ResponseShape {
   lines: string[];
@@ -418,6 +418,7 @@ describe('reverse task tools', () => {
       collectorCollect: runtime.collector.collect,
       collectorGetTopPriorityFiles: runtime.collector.getTopPriorityFiles,
       analyzerUnderstand: runtime.analyzer.understand,
+      deobfuscatorDeobfuscate: runtime.deobfuscator.deobfuscate,
     };
 
     runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
@@ -455,6 +456,14 @@ describe('reverse task tools', () => {
       securityRisks: [],
       qualityScore: 90,
     });
+    runtime.deobfuscator.deobfuscate = async (): Promise<DeobfuscateResult> => ({
+      code: 'function genH5st(appid, body, functionId) { return hash(body); }',
+      readabilityScore: 85,
+      confidence: 0.88,
+      obfuscationType: ['webpack'],
+      transformations: [],
+      analysis: 'normalized control flow',
+    });
 
     try {
       await startReverseTaskTool.handler({
@@ -485,7 +494,7 @@ describe('reverse task tools', () => {
         nextBestTool?: string;
         continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
       };
-      assert.strictEqual(payload.run?.stopReason, 'analysis_completed');
+      assert.strictEqual(payload.run?.stopReason, 'pure_extraction_ready');
       assert.strictEqual(payload.run?.roundsExecuted, 4);
       assert.deepStrictEqual(payload.run?.rounds?.map((entry) => entry.primaryTool), [
         'locate_signature_function',
@@ -512,6 +521,17 @@ describe('reverse task tools', () => {
       ) as Record<string, unknown>;
       assert.strictEqual((understandSnapshot.input as Record<string, unknown>).focus, 'structure');
 
+      const deobfuscateSnapshot = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'deobfuscate-code.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual((deobfuscateSnapshot.input as Record<string, unknown>).aggressive, true);
+
+      const pureExtraction = JSON.parse(
+        await readFile(path.join(rootDir, 'task-run-agent-001', 'pure-extraction.json'), 'utf8'),
+      ) as Record<string, unknown>;
+      assert.strictEqual(pureExtraction.stage, 'PureExtraction');
+      assert.strictEqual(pureExtraction.mainFunction, 'genH5st');
+
       const evidence = (
         await readFile(path.join(rootDir, 'task-run-agent-001', 'runtime-evidence.jsonl'), 'utf8')
       )
@@ -522,12 +542,14 @@ describe('reverse task tools', () => {
       assert.ok(evidence.some((entry) => entry.kind === 'source-locate'));
       assert.ok(evidence.some((entry) => entry.kind === 'function-slice'));
       assert.ok(evidence.some((entry) => entry.kind === 'understand-code'));
+      assert.ok(evidence.some((entry) => entry.kind === 'deobfuscate-code'));
       assert.ok(evidence.some((entry) => entry.kind === 'auto-agent'));
     } finally {
       runtime.reverseTaskStore = originals.reverseTaskStore;
       runtime.collector.collect = originals.collectorCollect;
       runtime.collector.getTopPriorityFiles = originals.collectorGetTopPriorityFiles;
       runtime.analyzer.understand = originals.analyzerUnderstand;
+      runtime.deobfuscator.deobfuscate = originals.deobfuscatorDeobfuscate;
       await rm(rootDir, {recursive: true, force: true});
     }
   });

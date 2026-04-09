@@ -10,6 +10,7 @@ import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
 export type ReverseAgentStopReason =
   | 'analysis_completed'
+  | 'pure_extraction_ready'
   | 'task_passed'
   | 'blocked'
   | 'checkpoint_required'

@@ -11,7 +11,7 @@ import {orchestrateReverseTask} from '../reverse/ReverseTaskOrchestrator.js';
 import {updateReverseTaskState} from '../reverse/ReverseTaskState.js';
 import {zod} from '../third_party/index.js';
 
-import {locateSignatureFunction, understandCode} from './analyzer.js';
+import {deobfuscateCode, locateSignatureFunction, understandCode} from './analyzer.js';
 import {ToolCategory} from './categories.js';
 import {extractFunctionTree, searchInSources} from './debugger.js';
 import {manageReverseTaskTool} from './task-manager.js';
@@ -160,9 +160,48 @@ async function executeRoundStep(
       focus: step.params.focus,
       note: 'persisted structure understanding result',
     });
+    const deobfuscateResponse = makeToolResponse();
+    await deobfuscateCode.handler({
+      params: {
+        code: String(step.params.code ?? ''),
+        aggressive: true,
+        renameVariables: false,
+      },
+    } as Parameters<typeof deobfuscateCode.handler>[0], deobfuscateResponse as unknown as Parameters<typeof deobfuscateCode.handler>[1], {} as Parameters<typeof deobfuscateCode.handler>[2]);
+    const deobfuscatePayload = extractJsonPayload(deobfuscateResponse.lines);
+    await task.writeSnapshot('deobfuscate-code.json', {
+      input: {
+        code: String(step.params.code ?? ''),
+        aggressive: true,
+        renameVariables: false,
+      },
+      result: deobfuscatePayload,
+      persistedAt: Date.now(),
+    });
+    const functionSlice = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(taskId, 'function-slice.json');
+    await task.writeSnapshot('pure-extraction.json', {
+      stage: 'PureExtraction',
+      mainFunction: functionSlice?.mainFunction ?? 'unknown',
+      scriptId: functionSlice?.scriptId,
+      scriptUrl: functionSlice?.scriptUrl,
+      boundary: {
+        explicitInputsRequired: 'pending fixture freeze',
+        runtimeOnlyState: 'pending manual confirmation',
+        pureImplementationStatus: 'ready-to-start',
+      },
+      derivedFrom: ['understand-code.json', 'deobfuscate-code.json', 'function-slice.json'],
+      nextRecommendedFiles: ['run/fixtures.json', 'run/pure-main.js'],
+      persistedAt: Date.now(),
+    });
+    await task.appendLog('runtime-evidence', {
+      source: 'deobfuscate_code',
+      kind: 'deobfuscate-code',
+      note: 'persisted deobfuscation result for pure extraction prep',
+    });
     await updateReverseTaskState(runtime.reverseTaskStore, {
       taskId,
-      currentSummary: `已完成函数切片结构理解，可进入后续纯算法提纯或人工复核。`,
+      currentStage: 'PureExtraction',
+      currentSummary: `已完成函数切片结构理解与去混淆预处理，可开始固化 fixture 和 Node pure implementation。`,
       nextStepHint: 'manage_reverse_task:summarize',
       status: 'partial',
     });
@@ -184,7 +223,7 @@ function shouldStopAfterRound(result: ReverseAgentRunResult['lastOrchestration']
     return 'task_passed';
   }
   if (result.orchestration.primaryStep.tool === 'understand_code') {
-    return 'analysis_completed';
+    return 'pure_extraction_ready';
   }
   return undefined;
 }

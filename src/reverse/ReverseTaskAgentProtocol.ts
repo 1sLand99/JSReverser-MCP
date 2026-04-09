@@ -248,7 +248,7 @@ export function buildRebuildHealthAgentHints(args: {
 
 export function buildRunReverseAgentHints(args: {
   taskId: string;
-  stopReason: 'analysis_completed' | 'task_passed' | 'blocked' | 'checkpoint_required' | 'stalled' | 'max_rounds';
+  stopReason: 'analysis_completed' | 'pure_extraction_ready' | 'task_passed' | 'blocked' | 'checkpoint_required' | 'stalled' | 'max_rounds';
   finalState: {
     state?: {status?: string; nextStepHint?: string; currentStage?: string};
   };
@@ -269,6 +269,22 @@ export function buildRunReverseAgentHints(args: {
       recommendedStrategy: 'evidence-only',
       recommendedParams: {action: 'summarize', taskId},
       confidence: 0.92,
+      resumeHint: `可执行 --manageReverseTask summarize --taskId ${taskId}`,
+    };
+  }
+
+  if (stopReason === 'pure_extraction_ready') {
+    return {
+      status: 'ok',
+      summary: '已自动完成切片理解与去混淆预处理，当前任务已推进到 PureExtraction 准备态。',
+      recommendedNextAction: '先查看 summarize 与 pure-extraction 产物，接着固化 fixture / Node pure implementation。',
+      recommendedTool: 'manage_reverse_task',
+      toolClass: 'task',
+      routeHint: 'stay_on_task_flow',
+      avoidTools: ['run_reverse_agent'],
+      recommendedStrategy: 'evidence-only',
+      recommendedParams: {action: 'summarize', taskId},
+      confidence: 0.94,
       resumeHint: `可执行 --manageReverseTask summarize --taskId ${taskId}`,
     };
   }
