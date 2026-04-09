@@ -136,6 +136,7 @@ describe('reverse workflow docs', () => {
     assert.ok(toolReference.includes('explain_reverse_stage'));
     assert.ok(toolReference.includes('orchestrate_reverse_task'));
     assert.ok(toolReference.includes('run_reverse_agent'));
+    assert.ok(toolReference.includes('generatedArtifacts'));
     assert.ok(toolReference.includes('get_rebuild_health_report'));
     assert.ok(toolReference.includes('otherTaskId'));
     assert.ok(toolReference.includes('pruneOlderThanDays'));

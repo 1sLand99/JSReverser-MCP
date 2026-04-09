@@ -158,6 +158,7 @@
   - `outputMode: "compact" | "verbose"`：给大模型时可优先用 `compact`，减少非必要字段和说明文字
   - 执行失败时会补 `fallbackPlan`，帮助模型直接切换到下一条更稳的链路
 - `run_reverse_agent`：一键 reverse agent 入口；会自动串起 `locate_signature_function -> search_in_sources -> extract_function_tree -> understand_code -> deobfuscate_code`，并在进入 `PureExtraction` 时自动落 `run/fixtures.json`、`run/pure-main.js`、`run/pure-selftest.test.mjs`
+  - 返回里会补 `generatedArtifacts`，方便外部 agent / client 直接读取本轮新生成的 task-local 文件
 - CLI 也统一成一个 task 入口：
   - `--manageReverseTask list`
   - `--manageReverseTask get --taskId <taskId>`

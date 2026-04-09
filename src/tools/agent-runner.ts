@@ -541,6 +541,14 @@ export const runReverseAgentTool = defineTool({
       timelineLimit: 20,
       evidenceLimit: 20,
     });
+    const generatedArtifacts = [
+      'understand-code.json',
+      'deobfuscate-code.json',
+      'pure-extraction.json',
+      'run/fixtures.json',
+      'run/pure-main.js',
+      'run/pure-selftest.test.mjs',
+    ];
     const agentGuidance = buildRunReverseAgentHints({
       taskId: request.params.taskId,
       stopReason,
@@ -578,6 +586,7 @@ export const runReverseAgentTool = defineTool({
       status: String(finalState.state?.status ?? lastResult.status),
       nextStepHint: String(finalState.state?.nextStepHint ?? lastResult.nextStepHint),
       currentSummary: String(finalState.state?.currentSummary ?? lastResult.currentSummary),
+      generatedArtifacts,
       ...(request.params.includeSummary === false ? {} : {summary: finalState}),
       agentGuidance,
     }, request.params.outputMode ?? 'verbose'));

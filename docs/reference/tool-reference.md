@@ -823,7 +823,7 @@ so returned values have to JSON-serializable.
 
 **Description:** One-shot reverse agent entry that repeatedly advances the reverse main chain and, when reaching `PureExtraction`, scaffolds `run/fixtures.json`, `run/pure-main.js`, and `run/pure-selftest.test.mjs`.
 
-**Response note:** Returns the same agent-facing continuation fields as orchestration tools, plus a `run` block describing `roundsExecuted`, `stopReason`, and each round's `primaryTool`.
+**Response note:** Returns the same agent-facing continuation fields as orchestration tools, plus a `run` block describing `roundsExecuted`, `stopReason`, and each round's `primaryTool`. Also returns `generatedArtifacts` so external agent/client can directly read the newly scaffolded task-local files.
 
 **Parameters:**
 
@@ -848,6 +848,14 @@ so returned values have to JSON-serializable.
   "schemaVersion": "1.0",
   "responseSummary": "已自动执行 task task-demo-001 的 reverse agent，共 4 轮，停止原因：pure_extraction_ready。",
   "detailLevel": "minimal",
+  "generatedArtifacts": [
+    "understand-code.json",
+    "deobfuscate-code.json",
+    "pure-extraction.json",
+    "run/fixtures.json",
+    "run/pure-main.js",
+    "run/pure-selftest.test.mjs"
+  ],
   "run": {
     "roundsExecuted": 4,
     "stopReason": "pure_extraction_ready"

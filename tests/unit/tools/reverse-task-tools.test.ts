@@ -503,11 +503,20 @@ describe('reverse task tools', () => {
 
       const payload = extractFirstJsonBlock(response.lines) as {
         run?: {roundsExecuted?: number; stopReason?: string; rounds?: Array<{primaryTool: string}>};
+        generatedArtifacts?: string[];
         nextBestTool?: string;
         continuation?: {invoke?: {tool?: string; params?: Record<string, unknown>}};
       };
       assert.strictEqual(payload.run?.stopReason, 'pure_extraction_ready');
       assert.strictEqual(payload.run?.roundsExecuted, 4);
+      assert.deepStrictEqual(payload.generatedArtifacts, [
+        'understand-code.json',
+        'deobfuscate-code.json',
+        'pure-extraction.json',
+        'run/fixtures.json',
+        'run/pure-main.js',
+        'run/pure-selftest.test.mjs',
+      ]);
       assert.deepStrictEqual(payload.run?.rounds?.map((entry) => entry.primaryTool), [
         'locate_signature_function',
         'search_in_sources',
