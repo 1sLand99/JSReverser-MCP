@@ -6,7 +6,45 @@
 
 import type {ToolDefinition} from './ToolDefinition.js';
 
-export type ToolProfile = 'compact' | 'full';
+export type ToolProfile = 'kernel' | 'compact' | 'full';
+
+export const KERNEL_TOOL_NAMES = new Set([
+  'analyze_source_maps',
+  'auto_rebuild_fix_loop',
+  'collect_code',
+  'create_reverse_task_from_request',
+  'diagnose_environment',
+  'diff_session_state',
+  'explain_reverse_stage',
+  'export_diagnostic_bundle',
+  'export_har_snapshot',
+  'export_rebuild_bundle',
+  'generate_parameter_report',
+  'get_rebuild_health_report',
+  'get_reference',
+  'get_reference_route',
+  'infer_websocket_schema',
+  'list_pages',
+  'list_task_artifacts',
+  'locate_candidate_functions',
+  'manage_reverse_task',
+  'navigate_page',
+  'network_request',
+  'orchestrate_reverse_task',
+  'probe_runtime_capabilities',
+  'recommend_next_step',
+  'record_page_flow',
+  'record_reverse_evidence',
+  'repair_browser_connection',
+  'replay_page_flow',
+  'run_reverse_agent',
+  'search_in_scripts',
+  'search_in_sources',
+  'select_page',
+  'start_reverse_task',
+  'trace_request_to_code',
+  'understand_code',
+]);
 
 export const COMPACT_TOOL_NAMES = new Set([
   'check_browser_health',
@@ -76,18 +114,20 @@ export const COMPACT_TOOL_NAMES = new Set([
 
 export function selectToolsForProfile(
   tools: ToolDefinition[],
-  profile: ToolProfile = 'compact',
+  profile: ToolProfile = 'kernel',
 ): ToolDefinition[] {
   if (profile === 'full') {
     return tools;
   }
 
-  return tools.filter(tool => COMPACT_TOOL_NAMES.has(tool.name));
+  const selectedNames =
+    profile === 'compact' ? COMPACT_TOOL_NAMES : KERNEL_TOOL_NAMES;
+  return tools.filter(tool => selectedNames.has(tool.name));
 }
 
 export function describeToolProfileSelection(
   tools: ToolDefinition[],
-  profile: ToolProfile = 'compact',
+  profile: ToolProfile = 'kernel',
 ): {
   profile: ToolProfile;
   selectedToolNames: string[];
@@ -110,7 +150,9 @@ export function describeToolProfileSelection(
     hiddenToolNames: hidden,
     hint:
       hidden.length > 0
-        ? `Compact profile hid ${hidden.length} tools. Restart with --toolProfile full or set toolProfile=full when you need low-level debugging controls.`
+        ? profile === 'kernel'
+          ? `Kernel profile hid ${hidden.length} tools. Restart with --toolProfile compact for broader workflow controls, or --toolProfile full when you need low-level debugging controls.`
+          : `Compact profile hid ${hidden.length} tools. Restart with --toolProfile full or set toolProfile=full when you need low-level debugging controls.`
         : 'All registered tools are available in this profile.',
   };
 }

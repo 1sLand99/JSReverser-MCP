@@ -16,9 +16,18 @@
 
 ## 工具暴露模式
 
-默认配置不写 `--toolProfile`，等价于 `--toolProfile compact`。
-`compact` 只暴露 63 个高频工具，目的是减少 MCP tool list 进入模型上下文时的 token 占用。
+默认配置不写 `--toolProfile`，等价于 `--toolProfile kernel`。
+`kernel` 只暴露 35 个自动化优先工具，目的是减少 MCP tool list 进入模型上下文时的 token 占用，同时保留任务编排、请求追踪、代码定位、诊断和产物导出入口。
 这不是缺工具；低频手工调试工具只是默认隐藏。
+
+需要更宽的常用工作流工具时，在 `args` 里加入：
+
+```json
+"--toolProfile",
+"compact"
+```
+
+`compact` 会暴露 63 个高频工具，适合需要手动页面操作、Hook、截图和环境微调的场景。
 
 需要全量工具时，在 `args` 里加入：
 
@@ -492,7 +501,7 @@ GEMINI_CLI_PATH = "gemini-cli"
 
 ### `tools: none`
 
-`tools: none` 不是 compact 模式。compact 仍会暴露 63 个高频工具，full 会暴露全部 110 个工具。
+`tools: none` 不是 kernel / compact 模式。kernel 仍会暴露 35 个自动化优先工具，compact 会暴露 63 个高频工具，full 会暴露全部 110 个工具。
 
 如果客户端显示 none，优先检查：
 

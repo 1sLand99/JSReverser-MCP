@@ -15,7 +15,7 @@
 
 这不是正常状态，会影响后续调用。
 
-`--toolProfile compact` 只会减少工具数量，不会让工具变成 none。默认 compact 应暴露 63 个高频工具；`--toolProfile full` 会暴露全部 110 个工具。
+`--toolProfile kernel` / `--toolProfile compact` 只会减少工具数量，不会让工具变成 none。默认 kernel 应暴露 35 个自动化优先工具；`--toolProfile compact` 会暴露 63 个高频工具；`--toolProfile full` 会暴露全部 110 个工具。
 
 常见原因：
 
@@ -46,7 +46,14 @@ MCP 客户端最小配置：
 }
 ```
 
-如果 compact 能看到工具但缺少低频调试工具，再加：
+如果 kernel 能看到工具但缺少更宽的工作流工具，先加：
+
+```json
+"--toolProfile",
+"compact"
+```
+
+如果还需要低频调试工具，再加：
 
 ```json
 "--toolProfile",

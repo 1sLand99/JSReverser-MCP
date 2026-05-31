@@ -243,9 +243,17 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.includeSummary, false);
   });
 
-  it('parseArguments defaults to compact tool profile and supports full profile', () => {
+  it('parseArguments defaults to kernel tool profile and supports compact/full profiles', () => {
     const defaultArgs = parseArguments('1.0.0', ['node', 'mcp']);
-    assert.strictEqual(defaultArgs.toolProfile, 'compact');
+    assert.strictEqual(defaultArgs.toolProfile, 'kernel');
+
+    const compactArgs = parseArguments('1.0.0', [
+      'node',
+      'mcp',
+      '--toolProfile',
+      'compact',
+    ]);
+    assert.strictEqual(compactArgs.toolProfile, 'compact');
 
     const fullArgs = parseArguments('1.0.0', [
       'node',

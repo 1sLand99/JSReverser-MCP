@@ -104,10 +104,10 @@ export const cliOptions = {
   },
   toolProfile: {
     type: 'string',
-    choices: ['compact', 'full'] as const,
-    default: 'compact',
+    choices: ['kernel', 'compact', 'full'] as const,
+    default: 'kernel',
     description:
-      'Choose which MCP tools are exposed at startup. compact keeps the high-value workflow tools visible; full exposes every low-level debugging tool.',
+      'Choose which MCP tools are exposed at startup. kernel keeps automated reverse workflows visible; compact adds broader workflow controls; full exposes every low-level debugging tool.',
   },
   traceOutput: {
     type: 'string',

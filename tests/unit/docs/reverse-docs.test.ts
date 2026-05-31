@@ -115,8 +115,9 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('支持的能力'));
     assert.ok(readme.includes('第一次启动建议'));
     assert.ok(readme.includes('工具暴露模式'));
-    assert.ok(readme.includes('默认启动使用 `--toolProfile compact`'));
-    assert.ok(readme.includes('只暴露 63 个高频工具'));
+    assert.ok(readme.includes('默认启动使用 `--toolProfile kernel`'));
+    assert.ok(readme.includes('只暴露 35 个自动化优先工具'));
+    assert.ok(readme.includes('`compact` 会暴露 63 个高频工具'));
     assert.ok(readme.includes('`full` 会暴露全部 110 个工具'));
     assert.ok(
       readme.includes('https://github.com/ChromeDevTools/chrome-devtools-mcp'),
@@ -124,10 +125,11 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('--traceOutput errors'));
     assert.ok(
       clientConfigurationGuide.includes(
-        '默认配置不写 `--toolProfile`，等价于 `--toolProfile compact`。',
+        '默认配置不写 `--toolProfile`，等价于 `--toolProfile kernel`。',
       ),
     );
-    assert.ok(clientConfigurationGuide.includes('只暴露 63 个高频工具'));
+    assert.ok(clientConfigurationGuide.includes('35 个自动化优先工具'));
+    assert.ok(clientConfigurationGuide.includes('63 个高频工具'));
     assert.ok(clientConfigurationGuide.includes('暴露全部 110 个工具'));
     assert.ok(clientConfigurationGuide.includes('`tools: none`'));
     assert.ok(clientConfigurationGuide.includes('useAI` 是工具调用参数'));

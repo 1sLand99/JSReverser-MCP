@@ -306,9 +306,12 @@ See:
 
 ## Tool Exposure Modes
 
-The default startup mode is `--toolProfile compact`.
-This mode exposes 63 high-frequency tools to reduce MCP tool-list token usage.
+The default startup mode is `--toolProfile kernel`.
+This mode exposes 35 automation-first tools to reduce MCP tool-list token usage while keeping task orchestration, request tracing, code location, diagnostics, and artifact export entry points visible.
 It does not mean tools are missing; low-frequency manual debugging tools are hidden by default.
+
+Use `--toolProfile compact` when you need broader workflow controls.
+`compact` exposes 63 high-frequency tools for manual page actions, hooks, screenshots, and environment adjustments.
 
 Use `--toolProfile full` when you need the complete tool set.
 `full` exposes all 110 tools, including pause, stepping, breakpoints, WebSocket details, and fine-grained DOM controls.
