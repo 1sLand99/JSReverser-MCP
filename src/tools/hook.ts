@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -20,37 +19,57 @@ interface NormalizedHookRecord {
   timestamp?: number;
 }
 
-function normalizeHookRecord(record: Record<string, unknown>): NormalizedHookRecord {
-  const body = typeof record.body === 'string'
-    ? record.body
-    : typeof record.requestBody === 'string'
-      ? record.requestBody
-      : typeof record.data === 'string'
-        ? record.data
-        : '';
+function normalizeHookRecord(
+  record: Record<string, unknown>,
+): NormalizedHookRecord {
+  const body =
+    typeof record.body === 'string'
+      ? record.body
+      : typeof record.requestBody === 'string'
+        ? record.requestBody
+        : typeof record.data === 'string'
+          ? record.data
+          : '';
   return {
     target: typeof record.target === 'string' ? record.target : 'unknown',
     event: typeof record.event === 'string' ? record.event : '',
-    method: typeof record.method === 'string' ? record.method.toUpperCase() : '',
+    method:
+      typeof record.method === 'string' ? record.method.toUpperCase() : '',
     url: typeof record.url === 'string' ? record.url : '',
     status: typeof record.status === 'number' ? record.status : undefined,
     bodySnippet: body.slice(0, 200),
-    timestamp: typeof record.timestamp === 'number' ? record.timestamp : undefined,
+    timestamp:
+      typeof record.timestamp === 'number' ? record.timestamp : undefined,
   };
 }
 
-function normalizeRecordForDedupe(record: NormalizedHookRecord): {key: string; summary: NormalizedHookRecord} {
-  const key = [record.target, record.event, record.method, record.url, record.bodySnippet.slice(0, 256)].join('::');
+function normalizeRecordForDedupe(record: NormalizedHookRecord): {
+  key: string;
+  summary: NormalizedHookRecord;
+} {
+  const key = [
+    record.target,
+    record.event,
+    record.method,
+    record.url,
+    record.bodySnippet.slice(0, 256),
+  ].join('::');
   return {key, summary: record};
 }
 
-function summarizeHookRecords(records: NormalizedHookRecord[], maxRecords: number): {
+function summarizeHookRecords(
+  records: NormalizedHookRecord[],
+  maxRecords: number,
+): {
   total: number;
   unique: number;
   dropped: number;
   records: Array<Record<string, unknown>>;
 } {
-  const byKey = new Map<string, {count: number; sample: NormalizedHookRecord}>();
+  const byKey = new Map<
+    string,
+    {count: number; sample: NormalizedHookRecord}
+  >();
   for (const record of records) {
     const normalized = normalizeRecordForDedupe(record);
     const existing = byKey.get(normalized.key);
@@ -61,7 +80,7 @@ function summarizeHookRecords(records: NormalizedHookRecord[], maxRecords: numbe
     byKey.set(normalized.key, {count: 1, sample: normalized.summary});
   }
 
-  const deduped = Array.from(byKey.values()).map((item) => ({
+  const deduped = Array.from(byKey.values()).map(item => ({
     ...(item.sample as unknown as Record<string, unknown>),
     count: item.count,
   }));
@@ -82,22 +101,30 @@ function inferCandidateEnvNeeds(records: NormalizedHookRecord[]): string[] {
       needs.add('location');
       needs.add('fetch');
     }
-    if (record.bodySnippet.includes('token') || record.bodySnippet.includes('cookie')) {
+    if (
+      record.bodySnippet.includes('token') ||
+      record.bodySnippet.includes('cookie')
+    ) {
       needs.add('cookie');
       needs.add('storage');
     }
-    if (record.bodySnippet.includes('nonce') || record.bodySnippet.includes('timestamp')) {
+    if (
+      record.bodySnippet.includes('nonce') ||
+      record.bodySnippet.includes('timestamp')
+    ) {
       needs.add('Date');
     }
   }
   return Array.from(needs).sort();
 }
 
-function buildRequestBindings(records: NormalizedHookRecord[]): Array<Record<string, unknown>> {
+function buildRequestBindings(
+  records: NormalizedHookRecord[],
+): Array<Record<string, unknown>> {
   return records
-    .filter((record) => record.url)
+    .filter(record => record.url)
     .slice(0, 10)
-    .map((record) => ({
+    .map(record => ({
       target: record.target,
       event: record.event,
       method: record.method || 'UNKNOWN',
@@ -110,17 +137,24 @@ function toHookRecordArray(data: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(data)) {
     return [];
   }
-  return data.filter((item): item is Record<string, unknown> => !!item && typeof item === 'object');
+  return data.filter(
+    (item): item is Record<string, unknown> =>
+      !!item && typeof item === 'object',
+  );
 }
 
-async function syncHookRecordsFromPage(runtime: ReturnType<typeof getJSHookRuntime>, hookId?: string): Promise<void> {
-  type EvaluatingPage = {
+async function syncHookRecordsFromPage(
+  runtime: ReturnType<typeof getJSHookRuntime>,
+  hookId?: string,
+): Promise<void> {
+  interface EvaluatingPage {
     evaluate: (fn: (id?: string) => unknown, id?: string) => Promise<unknown>;
-  };
+  }
 
   let page: EvaluatingPage | null = null;
   try {
-    page = await runtime.collector.getActivePage() as unknown as EvaluatingPage;
+    page =
+      (await runtime.collector.getActivePage()) as unknown as EvaluatingPage;
   } catch {
     return;
   }
@@ -130,12 +164,14 @@ async function syncHookRecordsFromPage(runtime: ReturnType<typeof getJSHookRunti
   }
 
   const storeSnapshot = await page.evaluate((id?: string) => {
-    const rawStore = (window as typeof window & {__hookStore?: unknown}).__hookStore;
-    const store = rawStore && typeof rawStore === 'object'
-      ? rawStore as Record<string, unknown>
-      : {};
+    const rawStore = (window as typeof window & {__hookStore?: unknown})
+      .__hookStore;
+    const store =
+      rawStore && typeof rawStore === 'object'
+        ? (rawStore as Record<string, unknown>)
+        : {};
 
-    const normalize = (value: unknown) => Array.isArray(value) ? value : [];
+    const normalize = (value: unknown) => (Array.isArray(value) ? value : []);
 
     if (typeof id === 'string' && id.length > 0) {
       return {[id]: normalize(store[id])};
@@ -154,12 +190,15 @@ async function syncHookRecordsFromPage(runtime: ReturnType<typeof getJSHookRunti
     return;
   }
 
-  for (const [id, records] of Object.entries(storeSnapshot as Record<string, unknown>)) {
+  for (const [id, records] of Object.entries(
+    storeSnapshot as Record<string, unknown>,
+  )) {
     runtime.hookManager.clearRecords(id);
     for (const record of toHookRecordArray(records)) {
       runtime.hookManager.addRecord(id, {
         hookId: id,
-        timestamp: typeof record.timestamp === 'number' ? record.timestamp : Date.now(),
+        timestamp:
+          typeof record.timestamp === 'number' ? record.timestamp : Date.now(),
         ...record,
       });
     }
@@ -168,8 +207,12 @@ async function syncHookRecordsFromPage(runtime: ReturnType<typeof getJSHookRunti
 
 export const createHook = defineTool({
   name: 'create_hook',
-  description: 'RECOMMENDED: Create hook script for function/fetch/xhr/property/cookie/websocket/eval/timer. Hooks run without pausing page execution and are the preferred approach over breakpoints for monitoring and interception.',
-  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
+  description:
+    'RECOMMENDED: Create hook script for function/fetch/xhr/property/cookie/websocket/eval/timer. Hooks run without pausing page execution and are the preferred approach over breakpoints for monitoring and interception.',
+  annotations: {
+    category: ToolCategory.REVERSE_ENGINEERING,
+    readOnlyHint: false,
+  },
   schema: {
     type: zod.string(),
     params: zod.record(zod.string(), zod.unknown()).optional(),
@@ -188,7 +231,10 @@ export const createHook = defineTool({
 export const injectHook = defineTool({
   name: 'inject_hook',
   description: 'Inject an existing hook into the current page.',
-  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
+  annotations: {
+    category: ToolCategory.REVERSE_ENGINEERING,
+    readOnlyHint: false,
+  },
   schema: {hookId: zod.string()},
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();
@@ -203,7 +249,8 @@ export const injectHook = defineTool({
 
 export const getHookData = defineTool({
   name: 'get_hook_data',
-  description: 'Get captured data for one hook or all hooks. Supports raw view and summary view for noise reduction.',
+  description:
+    'Get captured data for one hook or all hooks. Supports raw view and summary view for noise reduction.',
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
   schema: {
     hookId: zod.string().optional(),
@@ -217,20 +264,27 @@ export const getHookData = defineTool({
     const maxRecords = request.params.maxRecords ?? 100;
     let data: unknown;
     if (request.params.hookId) {
-      const records = (runtime.hookManager.getRecords(request.params.hookId) as Array<Record<string, unknown>>)
-        .map(normalizeHookRecord);
-      data = view === 'summary'
-        ? {
-            ...summarizeHookRecords(records, maxRecords),
-            candidateEnvNeeds: inferCandidateEnvNeeds(records),
-            requestBindings: buildRequestBindings(records),
-          }
-        : records;
+      const records = (
+        runtime.hookManager.getRecords(request.params.hookId) as Array<
+          Record<string, unknown>
+        >
+      ).map(normalizeHookRecord);
+      data =
+        view === 'summary'
+          ? {
+              ...summarizeHookRecords(records, maxRecords),
+              candidateEnvNeeds: inferCandidateEnvNeeds(records),
+              requestBindings: buildRequestBindings(records),
+            }
+          : records;
     } else if (view === 'summary') {
       const hookIds = runtime.hookManager.getAllKnownHookIds();
-      data = hookIds.map((hookId) => {
-        const records = (runtime.hookManager.getRecords(hookId) as Array<Record<string, unknown>>)
-          .map(normalizeHookRecord);
+      data = hookIds.map(hookId => {
+        const records = (
+          runtime.hookManager.getRecords(hookId) as Array<
+            Record<string, unknown>
+          >
+        ).map(normalizeHookRecord);
         const meta = runtime.hookManager.getHook(hookId);
         return {
           hookId,
@@ -244,7 +298,9 @@ export const getHookData = defineTool({
       data = runtime.hookManager.exportData('json');
     }
     response.appendResponseLine('```json');
-    response.appendResponseLine(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+    response.appendResponseLine(
+      typeof data === 'string' ? data : JSON.stringify(data, null, 2),
+    );
     response.appendResponseLine('```');
   },
 });
@@ -252,7 +308,10 @@ export const getHookData = defineTool({
 export const removeHook = defineTool({
   name: 'remove_hook',
   description: 'Remove a hook by id.',
-  annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: false},
+  annotations: {
+    category: ToolCategory.REVERSE_ENGINEERING,
+    readOnlyHint: false,
+  },
   schema: {hookId: zod.string()},
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();

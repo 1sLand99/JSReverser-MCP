@@ -4,10 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type {ReverseTaskStore} from './ReverseTaskStore.js';
 import type {ReverseTaskExecutableStep} from './ReverseTaskExecutor.js';
+import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
-export type ReverseTaskFailureType = 'tool_error' | 'env_error' | 'validation_error' | 'external_error' | 'unknown';
+export type ReverseTaskFailureType =
+  | 'tool_error'
+  | 'env_error'
+  | 'validation_error'
+  | 'external_error'
+  | 'unknown';
 
 export interface ReverseTaskExecutionStepResult {
   key: string;
@@ -42,7 +47,10 @@ export async function readReverseTaskCheckpoint(
   store: ReverseTaskStore,
   taskId: string,
 ): Promise<ReverseTaskExecutionCheckpoint | undefined> {
-  return store.readSnapshot<ReverseTaskExecutionCheckpoint>(taskId, CHECKPOINT_FILE);
+  return store.readSnapshot<ReverseTaskExecutionCheckpoint>(
+    taskId,
+    CHECKPOINT_FILE,
+  );
 }
 
 export async function writeReverseTaskCheckpoint(
@@ -50,16 +58,29 @@ export async function writeReverseTaskCheckpoint(
   taskId: string,
   checkpoint: ReverseTaskExecutionCheckpoint,
 ): Promise<ReverseTaskExecutionCheckpoint> {
-  const existingTask = await store.readSnapshot<Record<string, unknown>>(taskId, 'task.json');
+  const existingTask = await store.readSnapshot<Record<string, unknown>>(
+    taskId,
+    'task.json',
+  );
   const task = await store.openTask({
     taskId,
     slug: String(existingTask?.slug ?? taskId),
     targetUrl: String(existingTask?.targetUrl ?? ''),
     goal: String(existingTask?.goal ?? ''),
-    currentStage: typeof existingTask?.currentStage === 'string' ? existingTask.currentStage : undefined,
-    currentSummary: typeof existingTask?.currentSummary === 'string' ? existingTask.currentSummary : undefined,
-    successCriteria: existingTask?.successCriteria as Record<string, unknown> | undefined,
-    targetContext: existingTask?.targetContext as Record<string, unknown> | undefined,
+    currentStage:
+      typeof existingTask?.currentStage === 'string'
+        ? existingTask.currentStage
+        : undefined,
+    currentSummary:
+      typeof existingTask?.currentSummary === 'string'
+        ? existingTask.currentSummary
+        : undefined,
+    successCriteria: existingTask?.successCriteria as
+      | Record<string, unknown>
+      | undefined,
+    targetContext: existingTask?.targetContext as
+      | Record<string, unknown>
+      | undefined,
   });
   await task.writeSnapshot(CHECKPOINT_FILE, checkpoint);
   return checkpoint;

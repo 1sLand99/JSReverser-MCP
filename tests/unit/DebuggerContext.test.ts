@@ -24,7 +24,7 @@ class FakeCDPSession {
     const arr = this.#handlers.get(event) ?? [];
     this.#handlers.set(
       event,
-      arr.filter((h) => h !== handler),
+      arr.filter(h => h !== handler),
     );
   }
 
@@ -95,12 +95,20 @@ describe('DebuggerContext auto recovery', () => {
     client.emit('Debugger.paused', pausedEvent);
     client.emit('Debugger.paused', pausedEvent);
     client.emit('Debugger.paused', pausedEvent);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 0));
 
-    const resumeCalls = client.calls.filter((x) => x.method === 'Debugger.resume');
-    const removeCalls = client.calls.filter((x) => x.method === 'Debugger.removeBreakpoint');
+    const resumeCalls = client.calls.filter(
+      x => x.method === 'Debugger.resume',
+    );
+    const removeCalls = client.calls.filter(
+      x => x.method === 'Debugger.removeBreakpoint',
+    );
     assert.ok(resumeCalls.length >= 1);
-    assert.ok(removeCalls.some((x) => (x.params as {breakpointId?: string})?.breakpointId === 'bp-1'));
+    assert.ok(
+      removeCalls.some(
+        x => (x.params as {breakpointId?: string})?.breakpointId === 'bp-1',
+      ),
+    );
 
     const recovery = context.getLastAutoRecoveryEvent();
     assert.ok(recovery);

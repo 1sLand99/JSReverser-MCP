@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * HookCodeBuilder — 可组合的 Hook 代码构建器
  *
  * 设计理念：
@@ -83,7 +88,7 @@ export class HookCodeBuilder {
 
   constructor(hookId?: string) {
     this.config = {
-      target: { expression: '' },
+      target: {expression: ''},
       capture: {},
       condition: {},
       store: {
@@ -94,7 +99,9 @@ export class HookCodeBuilder {
       },
       lifecycle: {},
       action: 'log',
-      hookId: hookId || `hook-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      hookId:
+        hookId ||
+        `hook-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       asyncAware: false,
     };
   }
@@ -103,7 +110,7 @@ export class HookCodeBuilder {
 
   /** 设置 hook 目标 */
   intercept(expression: string, label?: string): this {
-    this.config.target = { expression, label: label || expression };
+    this.config.target = {expression, label: label || expression};
     return this;
   }
 
@@ -249,13 +256,13 @@ export class HookCodeBuilder {
 
   /** 获取当前配置（用于调试或序列化） */
   getConfig(): Readonly<BuilderConfig> {
-    return { ...this.config };
+    return {...this.config};
   }
 
   /** 从配置对象构建（用于反序列化） */
   static fromConfig(config: BuilderConfig): HookCodeBuilder {
     const builder = new HookCodeBuilder();
-    builder.config = { ...config };
+    builder.config = {...config};
     return builder;
   }
 
@@ -270,7 +277,16 @@ export class HookCodeBuilder {
       throw new Error('Hook target is required. Call .intercept() first.');
     }
 
-    const { target, hookId, description, action, capture, condition, store, lifecycle, asyncAware } = this.config;
+    const {
+      target,
+      hookId,
+      description,
+      action,
+      capture,
+      store,
+      lifecycle,
+      asyncAware,
+    } = this.config;
     const label = target.label || target.expression;
 
     // 如果是完全替换模式
@@ -294,7 +310,9 @@ export class HookCodeBuilder {
     // -- 保存原始引用 --
     lines.push(`  const __original = ${target.expression};`);
     lines.push(`  if (typeof __original !== 'function') {`);
-    lines.push(`    console.warn('[${hookId}] Target is not a function: ${label}');`);
+    lines.push(
+      `    console.warn('[${hookId}] Target is not a function: ${label}');`,
+    );
     lines.push(`    return;`);
     lines.push(`  }`);
     lines.push(``);
@@ -321,14 +339,18 @@ export class HookCodeBuilder {
     if (capture.thisContext) lines.push(`      thisArg: this,`);
     if (capture.stack) {
       const maxFrames = typeof capture.stack === 'number' ? capture.stack : 10;
-      lines.push(`      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+      lines.push(
+        `      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+      );
     }
     lines.push(`    };`);
     lines.push(``);
 
     // console 输出（调用前）
     if (store.console) {
-      lines.push(...this.buildConsoleLog('called', store.consoleFormat || 'compact'));
+      lines.push(
+        ...this.buildConsoleLog('called', store.consoleFormat || 'compact'),
+      );
     }
 
     // before 生命周期
@@ -357,7 +379,9 @@ export class HookCodeBuilder {
       lines.push(`      const result = ${callExpr};`);
 
       if (capture.timing) {
-        lines.push(`      hookData.duration = +(performance.now() - __startTime).toFixed(2);`);
+        lines.push(
+          `      hookData.duration = +(performance.now() - __startTime).toFixed(2);`,
+        );
       }
       if (capture.returnValue) {
         lines.push(`      hookData.returnValue = result;`);
@@ -397,8 +421,12 @@ export class HookCodeBuilder {
     lines.push(``);
 
     // 保留原始函数属性
-    lines.push(`  try { Object.defineProperty(${target.expression}, 'length', { value: __original.length }); } catch(e) {}`);
-    lines.push(`  try { Object.defineProperty(${target.expression}, 'name', { value: __original.name }); } catch(e) {}`);
+    lines.push(
+      `  try { Object.defineProperty(${target.expression}, 'length', { value: __original.length }); } catch(e) {}`,
+    );
+    lines.push(
+      `  try { Object.defineProperty(${target.expression}, 'name', { value: __original.name }); } catch(e) {}`,
+    );
     lines.push(``);
 
     lines.push(`  console.log('[${hookId}] ✅ Hooked: ${label}');`);
@@ -410,7 +438,7 @@ export class HookCodeBuilder {
   // ==================== 内部构建方法 ====================
 
   private buildReplaceHook(): string {
-    const { target, hookId, lifecycle, description } = this.config;
+    const {target, hookId, lifecycle, description} = this.config;
     const label = target.label || target.expression;
 
     return [
@@ -429,7 +457,7 @@ export class HookCodeBuilder {
   }
 
   private buildStorageInit(): string[] {
-    const { store, hookId } = this.config;
+    const {store, hookId} = this.config;
     const key = store.globalKey || '__hookStore';
     return [
       `  if (!window.${key}) window.${key} = {};`,
@@ -451,7 +479,7 @@ export class HookCodeBuilder {
   }
 
   private buildConditionCheck(): string[] {
-    const { condition, hookId } = this.config;
+    const {condition, hookId} = this.config;
     const lines: string[] = [];
 
     lines.push(`    __callCount++;`);
@@ -464,7 +492,9 @@ export class HookCodeBuilder {
 
     if (condition.minInterval) {
       lines.push(`    const __now = Date.now();`);
-      lines.push(`    if (__now - __lastCallTime < ${condition.minInterval}) {`);
+      lines.push(
+        `    if (__now - __lastCallTime < ${condition.minInterval}) {`,
+      );
       lines.push(`      return __original.apply(this, args);`);
       lines.push(`    }`);
       lines.push(`    __lastCallTime = __now;`);
@@ -472,10 +502,16 @@ export class HookCodeBuilder {
 
     if (condition.expression) {
       lines.push(`    try {`);
-      lines.push(`      const __conditionPassed = (function() { return ${condition.expression}; })();`);
-      lines.push(`      if (!__conditionPassed) return __original.apply(this, args);`);
+      lines.push(
+        `      const __conditionPassed = (function() { return ${condition.expression}; })();`,
+      );
+      lines.push(
+        `      if (!__conditionPassed) return __original.apply(this, args);`,
+      );
       lines.push(`    } catch (__condErr) {`);
-      lines.push(`      console.warn('[${hookId}] Condition error:', __condErr.message);`);
+      lines.push(
+        `      console.warn('[${hookId}] Condition error:', __condErr.message);`,
+      );
       lines.push(`    }`);
     }
 
@@ -484,7 +520,7 @@ export class HookCodeBuilder {
   }
 
   private buildConsoleLog(phase: string, format: string): string[] {
-    const { hookId } = this.config;
+    const {hookId} = this.config;
     const label = this.config.target.label || this.config.target.expression;
 
     if (format === 'json') {
@@ -502,13 +538,15 @@ export class HookCodeBuilder {
   }
 
   private buildStore(): string[] {
-    const { store, hookId } = this.config;
+    const {store, hookId} = this.config;
     const key = store.globalKey || '__hookStore';
     const max = store.maxRecords || 500;
     const lines: string[] = [];
 
     if (store.serializer) {
-      lines.push(`    const __storeData = (function() { ${store.serializer} })(hookData);`);
+      lines.push(
+        `    const __storeData = (function() { ${store.serializer} })(hookData);`,
+      );
     } else {
       lines.push(`    const __storeData = hookData;`);
     }

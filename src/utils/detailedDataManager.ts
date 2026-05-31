@@ -1,14 +1,19 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 详细数据管理器 - 解决上下文溢出问题
- * 
+ *
  * 核心思想：
  * 1. 大数据不直接返回，而是缓存到服务器
  * 2. 返回摘要 + 访问令牌（detailId）
  * 3. AI 可以用令牌按需获取完整数据
  */
 
-import { logger } from './logger.js';
-import { safeStringify } from './safeJson.js';
+import {logger} from './logger.js';
+import {safeStringify} from './safeJson.js';
 
 export interface DataSummary {
   type: string;
@@ -78,7 +83,9 @@ export class DetailedDataManager {
     }
 
     // 大数据返回摘要 + detailId
-    logger.info(`Data too large (${(size / 1024).toFixed(1)}KB), returning summary with detailId`);
+    logger.info(
+      `Data too large (${(size / 1024).toFixed(1)}KB), returning summary with detailId`,
+    );
     return this.createDetailedResponse(data);
   }
 
@@ -122,7 +129,9 @@ export class DetailedDataManager {
     };
 
     this.cache.set(detailId, entry);
-    logger.debug(`Stored detailed data: ${detailId}, size: ${(size / 1024).toFixed(1)}KB, expires in ${ttl / 1000}s`);
+    logger.debug(
+      `Stored detailed data: ${detailId}, size: ${(size / 1024).toFixed(1)}KB, expires in ${ttl / 1000}s`,
+    );
 
     return detailId;
   }
@@ -153,8 +162,13 @@ export class DetailedDataManager {
     if (this.AUTO_EXTEND_ON_ACCESS) {
       const remainingTime = cached.expiresAt - now;
       if (remainingTime < 5 * 60 * 1000) {
-        cached.expiresAt = Math.min(now + this.EXTEND_DURATION, now + this.MAX_TTL);
-        logger.debug(`Auto-extended detailId ${detailId}, new expiry: ${new Date(cached.expiresAt).toISOString()}`);
+        cached.expiresAt = Math.min(
+          now + this.EXTEND_DURATION,
+          now + this.MAX_TTL,
+        );
+        logger.debug(
+          `Auto-extended detailId ${detailId}, new expiry: ${new Date(cached.expiresAt).toISOString()}`,
+        );
       }
     }
 
@@ -209,8 +223,8 @@ export class DetailedDataManager {
 
       if (!Array.isArray(data)) {
         // 区分方法和属性
-        const methods = keys.filter((k) => typeof data[k] === 'function');
-        const properties = keys.filter((k) => typeof data[k] !== 'function');
+        const methods = keys.filter(k => typeof data[k] === 'function');
+        const properties = keys.filter(k => typeof data[k] !== 'function');
 
         summary.structure.methods = methods.slice(0, 30);
         summary.structure.properties = properties.slice(0, 30);
@@ -261,7 +275,9 @@ export class DetailedDataManager {
     if (oldestId) {
       const entry = this.cache.get(oldestId)!;
       this.cache.delete(oldestId);
-      logger.info(`Evicted LRU entry: ${oldestId}, last accessed: ${new Date(entry.lastAccessedAt).toISOString()}, access count: ${entry.accessCount}`);
+      logger.info(
+        `Evicted LRU entry: ${oldestId}, last accessed: ${new Date(entry.lastAccessedAt).toISOString()}, access count: ${entry.accessCount}`,
+      );
     }
   }
 
@@ -281,10 +297,15 @@ export class DetailedDataManager {
     }
 
     const extendBy = additionalTime || this.EXTEND_DURATION;
-    const newExpiresAt = Math.min(cached.expiresAt + extendBy, now + this.MAX_TTL);
+    const newExpiresAt = Math.min(
+      cached.expiresAt + extendBy,
+      now + this.MAX_TTL,
+    );
     cached.expiresAt = newExpiresAt;
 
-    logger.info(`Extended detailId ${detailId} by ${extendBy / 1000}s, new expiry: ${new Date(newExpiresAt).toISOString()}`);
+    logger.info(
+      `Extended detailId ${detailId} by ${extendBy / 1000}s, new expiry: ${new Date(newExpiresAt).toISOString()}`,
+    );
   }
 
   /**
@@ -306,7 +327,10 @@ export class DetailedDataManager {
       defaultTTLSeconds: this.DEFAULT_TTL / 1000,
       maxTTLSeconds: this.MAX_TTL / 1000,
       totalSizeKB: (totalSize / 1024).toFixed(1),
-      avgAccessCount: entries.length > 0 ? (totalAccessCount / entries.length).toFixed(1) : '0',
+      avgAccessCount:
+        entries.length > 0
+          ? (totalAccessCount / entries.length).toFixed(1)
+          : '0',
       autoExtendEnabled: this.AUTO_EXTEND_ON_ACCESS,
       extendDurationSeconds: this.EXTEND_DURATION / 1000,
     };
@@ -329,7 +353,11 @@ export class DetailedDataManager {
     }));
 
     // 按最后访问时间排序
-    entries.sort((a, b) => new Date(b.lastAccessedAt).getTime() - new Date(a.lastAccessedAt).getTime());
+    entries.sort(
+      (a, b) =>
+        new Date(b.lastAccessedAt).getTime() -
+        new Date(a.lastAccessedAt).getTime(),
+    );
 
     return entries;
   }

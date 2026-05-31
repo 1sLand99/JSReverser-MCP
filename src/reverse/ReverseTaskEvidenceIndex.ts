@@ -19,7 +19,10 @@ export interface ReverseTaskEvidenceAggregates {
   links: {
     requestToFunctions: Array<{url: string; functions: string[]}>;
     blockerToUrls: Array<{blocker: string; urls: string[]}>;
-    functionToCandidateScripts: Array<{functionName: string; candidateScripts: string[]}>;
+    functionToCandidateScripts: Array<{
+      functionName: string;
+      candidateScripts: string[];
+    }>;
   };
 }
 
@@ -32,15 +35,19 @@ function normalizeText(value: unknown): string | undefined {
 }
 
 function pickUrl(entry: Record<string, unknown>): string | undefined {
-  return normalizeText(entry.url) ??
+  return (
+    normalizeText(entry.url) ??
     normalizeText(entry.requestUrl) ??
-    normalizeText((entry.request as Record<string, unknown> | undefined)?.url);
+    normalizeText((entry.request as Record<string, unknown> | undefined)?.url)
+  );
 }
 
 function pickFunctionName(entry: Record<string, unknown>): string | undefined {
-  return normalizeText(entry.functionName) ??
+  return (
+    normalizeText(entry.functionName) ??
     normalizeText(entry.function) ??
-    normalizeText(entry.targetFunctionName);
+    normalizeText(entry.targetFunctionName)
+  );
 }
 
 function buildEvidenceKey(entry: Record<string, unknown>): string {
@@ -53,7 +60,10 @@ function buildEvidenceKey(entry: Record<string, unknown>): string {
   return [source, kind, url, functionName, note, result].join('::');
 }
 
-function topEntries(counts: Map<string, number>, limit = 5): ReverseTaskEvidenceAggregateEntry[] {
+function topEntries(
+  counts: Map<string, number>,
+  limit = 5,
+): ReverseTaskEvidenceAggregateEntry[] {
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, limit)
@@ -61,16 +71,16 @@ function topEntries(counts: Map<string, number>, limit = 5): ReverseTaskEvidence
 }
 
 export function buildReverseTaskEvidenceIndex(
-  entries: Record<string, unknown>[],
+  entries: Array<Record<string, unknown>>,
   options: {
     targetContext?: Record<string, unknown>;
   } = {},
 ): {
-  dedupedEntries: Record<string, unknown>[];
+  dedupedEntries: Array<Record<string, unknown>>;
   aggregates: ReverseTaskEvidenceAggregates;
 } {
   const seen = new Set<string>();
-  const dedupedEntries: Record<string, unknown>[] = [];
+  const dedupedEntries: Array<Record<string, unknown>> = [];
   const bySource = new Map<string, number>();
   const urlCounts = new Map<string, number>();
   const functionCounts = new Map<string, number>();
@@ -96,7 +106,10 @@ export function buildReverseTaskEvidenceIndex(
 
     const functionName = pickFunctionName(entry);
     if (functionName) {
-      functionCounts.set(functionName, (functionCounts.get(functionName) ?? 0) + 1);
+      functionCounts.set(
+        functionName,
+        (functionCounts.get(functionName) ?? 0) + 1,
+      );
     }
     if (url && functionName) {
       if (!requestToFunctions.has(url)) {
@@ -107,7 +120,8 @@ export function buildReverseTaskEvidenceIndex(
 
     const kind = normalizeText(entry.kind);
     if (kind === 'env-gap') {
-      const blocker = normalizeText(entry.note) ?? normalizeText(entry.result) ?? 'env-gap';
+      const blocker =
+        normalizeText(entry.note) ?? normalizeText(entry.result) ?? 'env-gap';
       blockers.add(blocker);
       if (!blockerToUrls.has(blocker)) {
         blockerToUrls.set(blocker, new Set());
@@ -118,14 +132,16 @@ export function buildReverseTaskEvidenceIndex(
     }
   }
 
-  const candidateScripts = Array.isArray(options.targetContext?.candidateScripts)
+  const candidateScripts = Array.isArray(
+    options.targetContext?.candidateScripts,
+  )
     ? options.targetContext?.candidateScripts
-        .map((item) => normalizeText(item))
+        .map(item => normalizeText(item))
         .filter((item): item is string => Boolean(item))
     : [];
   const functionToCandidateScripts = topEntries(functionCounts, 10)
-    .filter((entry) => candidateScripts.length > 0)
-    .map((entry) => ({
+    .filter(() => candidateScripts.length > 0)
+    .map(entry => ({
       functionName: entry.value,
       candidateScripts,
     }));
@@ -135,15 +151,19 @@ export function buildReverseTaskEvidenceIndex(
     aggregates: {
       total: entries.length,
       dedupedTotal: dedupedEntries.length,
-      bySource: Object.fromEntries([...bySource.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+      bySource: Object.fromEntries(
+        [...bySource.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+      ),
       topUrls: topEntries(urlCounts),
       topFunctions: topEntries(functionCounts),
       blockers: [...blockers],
       links: {
-        requestToFunctions: [...requestToFunctions.entries()].map(([url, functions]) => ({
-          url,
-          functions: [...functions].sort(),
-        })),
+        requestToFunctions: [...requestToFunctions.entries()].map(
+          ([url, functions]) => ({
+            url,
+            functions: [...functions].sort(),
+          }),
+        ),
         blockerToUrls: [...blockerToUrls.entries()].map(([blocker, urls]) => ({
           blocker,
           urls: [...urls].sort(),

@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {appendReverseTimeline} from './ReverseTaskTimeline.js';
-import {orchestrateReverseTask} from './ReverseTaskOrchestrator.js';
+import type {orchestrateReverseTask} from './ReverseTaskOrchestrator.js';
 import type {ReverseTaskStore} from './ReverseTaskStore.js';
+import {appendReverseTimeline} from './ReverseTaskTimeline.js';
 
 export type ReverseAgentStopReason =
   | 'analysis_completed'
@@ -48,7 +48,10 @@ export async function appendReverseAgentLog(
   taskId: string,
   entry: Record<string, unknown>,
 ): Promise<void> {
-  const task = await store.readSnapshot<Record<string, unknown>>(taskId, 'task.json');
+  const task = await store.readSnapshot<Record<string, unknown>>(
+    taskId,
+    'task.json',
+  );
   if (!task) {
     return;
   }
@@ -59,7 +62,9 @@ export async function appendReverseAgentLog(
     goal: String(task.goal ?? ''),
     currentStage: String(task.currentStage ?? 'Observe'),
     currentSummary: String(task.currentSummary ?? ''),
-    successCriteria: task.successCriteria as Record<string, unknown> | undefined,
+    successCriteria: task.successCriteria as
+      | Record<string, unknown>
+      | undefined,
     targetContext: task.targetContext as Record<string, unknown> | undefined,
   });
   await opened.appendLog('runtime-evidence', {

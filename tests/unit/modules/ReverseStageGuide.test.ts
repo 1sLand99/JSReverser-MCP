@@ -11,7 +11,14 @@ import {getReverseStageGuide} from '../../../src/modules/workflows/ReverseStageG
 
 describe('ReverseStageGuide', () => {
   it('returns structured guidance for key stages', () => {
-    for (const stage of ['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction'] as const) {
+    for (const stage of [
+      'Observe',
+      'Capture',
+      'Rebuild',
+      'Patch',
+      'DeepDive',
+      'PureExtraction',
+    ] as const) {
       const guide = getReverseStageGuide(stage);
       assert.strictEqual(guide.stage, stage);
       assert.ok(guide.goal.length > 0);

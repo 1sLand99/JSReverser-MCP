@@ -16,7 +16,9 @@ import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 
 describe('ReverseTaskAutoProgress', () => {
   it('moves a task with hook evidence toward Rebuild and stores nextStepHint', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-auto-progress-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-auto-progress-'),
+    );
     try {
       const store = new ReverseTaskStore({rootDir});
       const task = await startReverseTask(store, {
@@ -34,7 +36,11 @@ describe('ReverseTaskAutoProgress', () => {
           targetRequest: {method: 'POST', url: 'https://example.com/api/sign'},
         },
       });
-      await opened.appendLog('runtime-evidence', {source: 'hook', kind: 'hook-hit', note: 'captured sign sample'});
+      await opened.appendLog('runtime-evidence', {
+        source: 'hook',
+        kind: 'hook-hit',
+        note: 'captured sign sample',
+      });
 
       const result = await autoProgressReverseTask(store, 'task-auto-001');
       assert.strictEqual(result.currentStage, 'Rebuild');
@@ -48,7 +54,9 @@ describe('ReverseTaskAutoProgress', () => {
   });
 
   it('moves a task with passing rebuild and acceptance toward Port', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-auto-progress-port-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-auto-progress-port-'),
+    );
     try {
       const store = new ReverseTaskStore({rootDir});
       await startReverseTask(store, {
@@ -67,7 +75,7 @@ describe('ReverseTaskAutoProgress', () => {
       assert.strictEqual(result.currentStage, 'Port');
       assert.strictEqual(result.status, 'pass');
       assert.strictEqual(result.nextStepHint, 'manage_reverse_task:summarize');
-      assert.ok(result.reasoning.some((item) => item.includes('Port')));
+      assert.ok(result.reasoning.some(item => item.includes('Port')));
     } finally {
       await rm(rootDir, {recursive: true, force: true});
     }

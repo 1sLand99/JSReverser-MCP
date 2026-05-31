@@ -1,12 +1,17 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * Manual test for GeminiProvider
- * 
+ *
  * This script tests the GeminiProvider implementation
  * Run with: node --experimental-strip-types tests/manual/test-gemini-provider.ts
  */
 
-import { GeminiProvider } from '../../src/services/GeminiProvider.js';
-import { createAIService } from '../../src/utils/config.js';
+import {GeminiProvider} from '../../src/services/GeminiProvider.js';
+import {createAIService} from '../../src/utils/config.js';
 
 async function testGeminiProvider() {
   console.log('Testing GeminiProvider...\n');
@@ -14,7 +19,7 @@ async function testGeminiProvider() {
   // Test 1: Initialize with CLI mode
   console.log('Test 1: Initialize GeminiProvider in CLI mode');
   try {
-    const provider = new GeminiProvider({
+    new GeminiProvider({
       cliPath: 'gemini-cli',
       useAPI: false,
     });
@@ -26,7 +31,7 @@ async function testGeminiProvider() {
   // Test 2: Initialize with API mode (should work even without API key)
   console.log('Test 2: Initialize GeminiProvider in API mode');
   try {
-    const provider = new GeminiProvider({
+    new GeminiProvider({
       apiKey: 'test-key',
       useAPI: true,
     });
@@ -38,7 +43,7 @@ async function testGeminiProvider() {
   // Test 3: Test fallback to CLI mode when no API key
   console.log('Test 3: Test fallback to CLI mode when no API key');
   try {
-    const provider = new GeminiProvider({
+    new GeminiProvider({
       useAPI: true, // Request API mode
       // No API key provided
     });
@@ -53,12 +58,14 @@ async function testGeminiProvider() {
     // Set environment variable for testing
     process.env.DEFAULT_LLM_PROVIDER = 'gemini';
     process.env.GEMINI_CLI_PATH = 'gemini-cli';
-    
+
     const aiService = createAIService();
     if (aiService) {
       console.log('✓ AIService created successfully with Gemini provider\n');
     } else {
-      console.log('✓ AIService returned undefined (expected when no provider configured)\n');
+      console.log(
+        '✓ AIService returned undefined (expected when no provider configured)\n',
+      );
     }
   } catch (error) {
     console.error('✗ Failed to create AIService:', error);
@@ -71,14 +78,16 @@ async function testGeminiProvider() {
       cliPath: 'gemini-cli',
       useAPI: false,
     });
-    
+
     // Try to chat (will fail if CLI not available)
     try {
-      await provider.chat([{ role: 'user', content: 'Hello' }]);
+      await provider.chat([{role: 'user', content: 'Hello'}]);
       console.log('✓ CLI is available and working\n');
     } catch (error: any) {
       if (error.message.includes('gemini-cli is not available')) {
-        console.log('✓ CLI availability check working correctly (CLI not installed)\n');
+        console.log(
+          '✓ CLI availability check working correctly (CLI not installed)\n',
+        );
       } else {
         console.error('✗ Unexpected error:', error.message);
       }

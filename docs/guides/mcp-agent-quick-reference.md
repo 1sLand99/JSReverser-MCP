@@ -9,13 +9,13 @@
 
 ## 1. 工具怎么选
 
-| 目标 | 优先工具 |
-| --- | --- |
-| 查任务状态 / 摘要 / timeline / compare | `manage_reverse_task` |
-| 自动推进 reverse 主链路 | `orchestrate_reverse_task` |
-| 诊断 env gap / rebuild 缺口 | `get_rebuild_health_report` |
-| 把 hook / network / runtime 证据落盘 | `record_reverse_evidence` |
-| 只拿轻量 next-step 建议 | `recommend_next_step` |
+| 目标                                   | 优先工具                    |
+| -------------------------------------- | --------------------------- |
+| 查任务状态 / 摘要 / timeline / compare | `manage_reverse_task`       |
+| 自动推进 reverse 主链路                | `orchestrate_reverse_task`  |
+| 诊断 env gap / rebuild 缺口            | `get_rebuild_health_report` |
+| 把 hook / network / runtime 证据落盘   | `record_reverse_evidence`   |
+| 只拿轻量 next-step 建议                | `recommend_next_step`       |
 
 ## 2. 响应先读什么
 

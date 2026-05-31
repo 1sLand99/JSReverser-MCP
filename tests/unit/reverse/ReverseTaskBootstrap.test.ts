@@ -15,7 +15,9 @@ import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 
 describe('ReverseTaskBootstrap', () => {
   it('initializes task.json, state.json, report.md and timeline entry', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-bootstrap-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-bootstrap-'),
+    );
 
     try {
       const store = new ReverseTaskStore({rootDir});
@@ -38,10 +40,19 @@ describe('ReverseTaskBootstrap', () => {
         },
       });
 
-      const taskJson = JSON.parse(await readFile(result.taskFile, 'utf8')) as Record<string, unknown>;
-      const stateJson = JSON.parse(await readFile(result.stateFile, 'utf8')) as Record<string, unknown>;
+      const taskJson = JSON.parse(
+        await readFile(result.taskFile, 'utf8'),
+      ) as Record<string, unknown>;
+      const stateJson = JSON.parse(
+        await readFile(result.stateFile, 'utf8'),
+      ) as Record<string, unknown>;
       const report = await readFile(result.reportFile, 'utf8');
-      const timeline = (await readFile(path.join(result.taskDir, 'timeline.jsonl'), 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+      const timeline = (
+        await readFile(path.join(result.taskDir, 'timeline.jsonl'), 'utf8')
+      )
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line));
 
       assert.strictEqual(taskJson.currentStage, 'Observe');
       assert.strictEqual(stateJson.currentStage, 'Observe');

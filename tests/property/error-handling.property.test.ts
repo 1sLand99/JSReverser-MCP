@@ -1,6 +1,13 @@
-import {describe, it} from 'node:test';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
+import {describe, it} from 'node:test';
+
 import fc from 'fast-check';
+
 import {formatError, ErrorCodes} from '../../src/utils/errors.js';
 import {TokenBudgetManager} from '../../src/utils/TokenBudgetManager.js';
 
@@ -25,14 +32,20 @@ describe('Property 26: Tool Call Logging', () => {
     manager.reset();
 
     fc.assert(
-      fc.property(fc.array(fc.string({minLength: 1, maxLength: 16}), {minLength: 1, maxLength: 20}), names => {
-        for (const name of names) {
-          manager.recordToolCall(name, {x: 1}, {ok: true});
-        }
-        const stats = manager.getStats();
-        assert.ok(stats.toolCallCount > 0);
-        assert.ok(stats.recentCalls.length > 0);
-      }),
+      fc.property(
+        fc.array(fc.string({minLength: 1, maxLength: 16}), {
+          minLength: 1,
+          maxLength: 20,
+        }),
+        names => {
+          for (const name of names) {
+            manager.recordToolCall(name, {x: 1}, {ok: true});
+          }
+          const stats = manager.getStats();
+          assert.ok(stats.toolCallCount > 0);
+          assert.ok(stats.recentCalls.length > 0);
+        },
+      ),
       {numRuns: 100},
     );
   });

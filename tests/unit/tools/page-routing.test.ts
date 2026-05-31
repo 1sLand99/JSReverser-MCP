@@ -6,6 +6,7 @@
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
+import {zod} from '../../../src/third_party/index.js';
 import {consoleMessage} from '../../../src/tools/console.js';
 import {queryDom} from '../../../src/tools/dom.js';
 import {networkRequest} from '../../../src/tools/network.js';
@@ -18,7 +19,6 @@ import {
   getWebSocketMessages,
   listWebSocketConnections,
 } from '../../../src/tools/websocket.js';
-import {zod} from '../../../src/third_party/index.js';
 
 type RuntimeMethod = (...args: any[]) => any;
 
@@ -32,8 +32,14 @@ interface ResponseHarness {
   images: unknown[];
   appendResponseLine(value: string): void;
   setIncludePages(value: boolean): void;
-  setIncludeNetworkRequests(value: boolean, options?: Record<string, unknown>): void;
-  setIncludeConsoleData(value: boolean, options?: Record<string, unknown>): void;
+  setIncludeNetworkRequests(
+    value: boolean,
+    options?: Record<string, unknown>,
+  ): void;
+  setIncludeConsoleData(
+    value: boolean,
+    options?: Record<string, unknown>,
+  ): void;
   attachImage(value: unknown): void;
   attachNetworkRequest(reqid: number, targetPageIdx?: number): void;
   attachConsoleMessage(msgid: number, targetPageIdx?: number): void;
@@ -52,14 +58,24 @@ interface ToolContextHarness {
     isEnabled(): boolean;
     waitForPause(timeoutMs?: number): Promise<unknown>;
   };
-  getWebSocketById?(wsid: number, targetPageIdx?: number): {
-    frames: Array<{direction: 'sent' | 'received'; opcode: number; payloadData: string}>;
+  getWebSocketById?(
+    wsid: number,
+    targetPageIdx?: number,
+  ): {
+    frames: Array<{
+      direction: 'sent' | 'received';
+      opcode: number;
+      payloadData: string;
+    }>;
     connection: {url: string};
   };
   getCachedTrafficSummary?(wsid: number): unknown;
   cacheTrafficSummary?(wsid: number, summary: unknown): void;
   saveFile(data: Uint8Array, filename: string): Promise<{filename: string}>;
-  saveTemporaryFile(data: Uint8Array, mimeType: string): Promise<{filename: string}>;
+  saveTemporaryFile(
+    data: Uint8Array,
+    mimeType: string,
+  ): Promise<{filename: string}>;
 }
 
 interface PageHarness {
@@ -93,7 +109,10 @@ function makeResponse(): ResponseHarness {
       this.lines.push(value);
     },
     setIncludePages: () => undefined,
-    setIncludeNetworkRequests(value: boolean, options?: Record<string, unknown>) {
+    setIncludeNetworkRequests(
+      value: boolean,
+      options?: Record<string, unknown>,
+    ) {
       this.networkInclude = {value, options};
     },
     setIncludeConsoleData(value: boolean, options?: Record<string, unknown>) {
@@ -106,7 +125,10 @@ function makeResponse(): ResponseHarness {
       this.attachedNetworkRequest = {reqid, targetPageIdx};
     },
     attachConsoleMessage: () => undefined,
-    setIncludeWebSocketConnections(value: boolean, options?: Record<string, unknown>) {
+    setIncludeWebSocketConnections(
+      value: boolean,
+      options?: Record<string, unknown>,
+    ) {
       this.webSocketInclude = {value, options};
     },
     attachWebSocket(wsid: number, targetPageIdx?: number) {
@@ -140,7 +162,8 @@ describe('page scoped tool routing', () => {
         assert.strictEqual(idx, 1);
         return targetPage;
       },
-      getPageByOptionalIdx: (idx?: number) => idx === undefined ? selectedPage : targetPage,
+      getPageByOptionalIdx: (idx?: number) =>
+        idx === undefined ? selectedPage : targetPage,
       saveFile: async () => ({filename: 'x.png'}),
       saveTemporaryFile: async () => ({filename: 'tmp.png'}),
     };
@@ -154,16 +177,27 @@ describe('page scoped tool routing', () => {
       syncedPages.push(page.id);
     };
     runtime.bindPageContext = () => undefined;
-    runtime.domInspector.querySelector = async (selector: string) => ({found: true, selector});
+    runtime.domInspector.querySelector = async (selector: string) => ({
+      found: true,
+      selector,
+    });
 
     try {
       await queryDom.handler(
-        {params: zod.object(queryDom.schema).parse({selector: '#target', pageIdx: 1})},
+        {
+          params: zod
+            .object(queryDom.schema)
+            .parse({selector: '#target', pageIdx: 1}),
+        },
         response as unknown as Parameters<typeof queryDom.handler>[1],
         context as unknown as Parameters<typeof queryDom.handler>[2],
       );
       await clickElement.handler(
-        {params: zod.object(clickElement.schema).parse({selector: '#submit', pageIdx: 1})},
+        {
+          params: zod
+            .object(clickElement.schema)
+            .parse({selector: '#submit', pageIdx: 1}),
+        },
         response as unknown as Parameters<typeof clickElement.handler>[1],
         context as unknown as Parameters<typeof clickElement.handler>[2],
       );
@@ -177,7 +211,7 @@ describe('page scoped tool routing', () => {
   });
 
   it('returns promptly when click triggers a paused debugger state', async () => {
-    const runtime = getJSHookRuntime() as unknown as RuntimeHarness;
+    getJSHookRuntime() as unknown as RuntimeHarness;
     const selectedPage: PageHarness = {
       id: 'selected',
       url: () => 'https://selected.example',
@@ -194,7 +228,7 @@ describe('page scoped tool routing', () => {
       debuggerContext: {
         isEnabled: () => true,
         waitForPause: async () => {
-          await new Promise((resolve) => setTimeout(resolve, 20));
+          await new Promise(resolve => setTimeout(resolve, 20));
           return {isPaused: true};
         },
       },
@@ -209,7 +243,11 @@ describe('page scoped tool routing', () => {
       context as unknown as Parameters<typeof clickElement.handler>[2],
     );
 
-    assert.ok(response.lines.some((line) => line.includes('Execution paused at breakpoint.')));
+    assert.ok(
+      response.lines.some(line =>
+        line.includes('Execution paused at breakpoint.'),
+      ),
+    );
   });
 
   it('uses explicit pageIdx for screenshot without changing selected page', async () => {
@@ -232,13 +270,18 @@ describe('page scoped tool routing', () => {
         assert.strictEqual(idx, 1);
         return targetPage;
       },
-      getPageByOptionalIdx: (idx?: number) => idx === undefined ? selectedPage : targetPage,
+      getPageByOptionalIdx: (idx?: number) =>
+        idx === undefined ? selectedPage : targetPage,
       saveFile: async () => ({filename: 'x.png'}),
       saveTemporaryFile: async () => ({filename: 'tmp.png'}),
     };
 
     await screenshot.handler(
-      {params: zod.object(screenshot.schema).parse({format: 'png', pageIdx: 1})},
+      {
+        params: zod
+          .object(screenshot.schema)
+          .parse({format: 'png', pageIdx: 1}),
+      },
       response as unknown as Parameters<typeof screenshot.handler>[1],
       context as unknown as Parameters<typeof screenshot.handler>[2],
     );
@@ -250,14 +293,24 @@ describe('page scoped tool routing', () => {
     const response = makeResponse();
 
     await consoleMessage.handler(
-      {params: zod.object(consoleMessage.schema).parse({action: 'list', targetPageIdx: 2})},
+      {
+        params: zod
+          .object(consoleMessage.schema)
+          .parse({action: 'list', targetPageIdx: 2}),
+      },
       response as unknown as Parameters<typeof consoleMessage.handler>[1],
       {} as Parameters<typeof consoleMessage.handler>[2],
     );
 
     assert.deepStrictEqual(response.consoleInclude, {
       value: true,
-      options: {targetPageIdx: 2, includePreservedMessages: undefined, pageIdx: undefined, pageSize: undefined, types: undefined},
+      options: {
+        targetPageIdx: 2,
+        includePreservedMessages: undefined,
+        pageIdx: undefined,
+        pageSize: undefined,
+        types: undefined,
+      },
     });
   });
 
@@ -279,7 +332,11 @@ describe('page scoped tool routing', () => {
       } as unknown as Parameters<typeof networkRequest.handler>[2],
     );
     await networkRequest.handler(
-      {params: zod.object(networkRequest.schema).parse({action: 'get', reqid: 9, targetPageIdx: 2})},
+      {
+        params: zod
+          .object(networkRequest.schema)
+          .parse({action: 'get', reqid: 9, targetPageIdx: 2}),
+      },
       response as unknown as Parameters<typeof networkRequest.handler>[1],
       {} as Parameters<typeof networkRequest.handler>[2],
     );
@@ -290,7 +347,9 @@ describe('page scoped tool routing', () => {
           targetPageIdx: 2,
         }),
       },
-      response as unknown as Parameters<typeof listWebSocketConnections.handler>[1],
+      response as unknown as Parameters<
+        typeof listWebSocketConnections.handler
+      >[1],
       {} as Parameters<typeof listWebSocketConnections.handler>[2],
     );
 
@@ -388,8 +447,12 @@ describe('page scoped tool routing', () => {
           targetPageIdx: 2,
         }),
       },
-      response as unknown as Parameters<typeof analyzeWebSocketMessages.handler>[1],
-      context as unknown as Parameters<typeof analyzeWebSocketMessages.handler>[2],
+      response as unknown as Parameters<
+        typeof analyzeWebSocketMessages.handler
+      >[1],
+      context as unknown as Parameters<
+        typeof analyzeWebSocketMessages.handler
+      >[2],
     );
 
     assert.deepStrictEqual(calls, [
@@ -416,7 +479,8 @@ describe('page scoped tool routing', () => {
     const context: ToolContextHarness = {
       getSelectedPage: () => selectedPage,
       getPageByIdx: () => targetPage,
-      getPageByOptionalIdx: (idx?: number) => idx === undefined ? selectedPage : targetPage,
+      getPageByOptionalIdx: (idx?: number) =>
+        idx === undefined ? selectedPage : targetPage,
       saveFile: async () => ({filename: 'x.png'}),
       saveTemporaryFile: async () => ({filename: 'tmp.png'}),
     };

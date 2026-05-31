@@ -7,6 +7,7 @@
 import path from 'node:path';
 
 import type {ReverseTaskState} from '../types/index.js';
+
 import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
 export interface UpdateReverseTaskStateInput {
@@ -48,29 +49,51 @@ export async function updateReverseTaskState(
   taskFile: string;
   stateFile: string;
 }> {
-  const existingTask = await store.readSnapshot<Record<string, unknown>>(input.taskId, 'task.json');
-  const existingState = await store.readSnapshot<ReverseTaskState>(input.taskId, 'state.json');
+  const existingTask = await store.readSnapshot<Record<string, unknown>>(
+    input.taskId,
+    'task.json',
+  );
+  const existingState = await store.readSnapshot<ReverseTaskState>(
+    input.taskId,
+    'state.json',
+  );
 
   const task = await store.openTask({
     taskId: input.taskId,
     slug: input.taskSlug ?? String(existingTask?.slug ?? input.taskId),
     targetUrl: input.targetUrl ?? String(existingTask?.targetUrl ?? ''),
     goal: input.goal ?? String(existingTask?.goal ?? ''),
-    currentStage: input.currentStage ?? String(existingTask?.currentStage ?? existingState?.currentStage ?? 'Observe'),
-    currentSummary: input.currentSummary ?? String(existingTask?.currentSummary ?? existingState?.currentSummary ?? ''),
+    currentStage:
+      input.currentStage ??
+      String(
+        existingTask?.currentStage ?? existingState?.currentStage ?? 'Observe',
+      ),
+    currentSummary:
+      input.currentSummary ??
+      String(
+        existingTask?.currentSummary ?? existingState?.currentSummary ?? '',
+      ),
     successCriteria: mergeRecord(
-      (existingTask?.successCriteria as Record<string, unknown> | undefined),
+      existingTask?.successCriteria as Record<string, unknown> | undefined,
       input.successCriteria,
     ),
-    targetContext: existingTask?.targetContext as Record<string, unknown> | undefined,
+    targetContext: existingTask?.targetContext as
+      | Record<string, unknown>
+      | undefined,
   });
 
   const nextState: ReverseTaskState = {
     taskId: input.taskId,
-    currentStage: input.currentStage ?? existingState?.currentStage ?? String(existingTask?.currentStage ?? 'Observe'),
+    currentStage:
+      input.currentStage ??
+      existingState?.currentStage ??
+      String(existingTask?.currentStage ?? 'Observe'),
     status: input.status ?? existingState?.status ?? 'active',
     nextStepHint: input.nextStepHint ?? existingState?.nextStepHint,
-    successCriteria: mergeRecord(existingState?.successCriteria, input.successCriteria),
+    successCriteria: mergeRecord(
+      existingState?.successCriteria,
+      input.successCriteria,
+    ),
     currentSummary: input.currentSummary ?? existingState?.currentSummary,
     signals: input.signals ?? existingState?.signals,
     reasoning: input.reasoning ?? existingState?.reasoning,

@@ -573,15 +573,17 @@ export class McpResponse implements Response {
     return response;
   }
 
-  #getConsoleSourceMapHints(context: McpContext): Record<string, string> | undefined {
+  #getConsoleSourceMapHints(
+    context: McpContext,
+  ): Record<string, string> | undefined {
     const scripts = context.debuggerContext?.getScripts?.();
     if (!scripts?.length) {
       return undefined;
     }
     const hints = Object.fromEntries(
       scripts
-        .filter((script) => Boolean(script.url) && Boolean(script.sourceMapURL))
-        .map((script) => [script.url, script.sourceMapURL as string]),
+        .filter(script => Boolean(script.url) && Boolean(script.sourceMapURL))
+        .map(script => [script.url, script.sourceMapURL as string]),
     );
     return Object.keys(hints).length > 0 ? hints : undefined;
   }

@@ -11,8 +11,8 @@ import path from 'node:path';
 import {describe, it} from 'node:test';
 
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
-import {startReverseTaskTool} from '../../../src/tools/task.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
+import {startReverseTaskTool} from '../../../src/tools/task.js';
 
 function makeResponse() {
   return {
@@ -33,28 +33,44 @@ function makeResponse() {
 
 describe('start_reverse_task tool', () => {
   it('creates initialized task artifacts through the MCP tool', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-start-task-tool-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-start-task-tool-'),
+    );
     const runtime = getJSHookRuntime();
     const originalStore = runtime.reverseTaskStore;
     runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
 
     try {
       const response = makeResponse();
-      await startReverseTaskTool.handler({
-        params: {
-          taskId: 'task-tool-001',
-          taskSlug: 'tool-demo',
-          targetUrl: 'https://example.com/api/sign',
-          goal: '初始化任务',
-          currentStage: 'Observe',
+      await startReverseTaskTool.handler(
+        {
+          params: {
+            taskId: 'task-tool-001',
+            taskSlug: 'tool-demo',
+            targetUrl: 'https://example.com/api/sign',
+            goal: '初始化任务',
+            currentStage: 'Observe',
+          },
         },
-      }, response as unknown as Parameters<typeof startReverseTaskTool.handler>[1], {} as Parameters<typeof startReverseTaskTool.handler>[2]);
+        response as unknown as Parameters<
+          typeof startReverseTaskTool.handler
+        >[1],
+        {} as Parameters<typeof startReverseTaskTool.handler>[2],
+      );
 
-      const payload = JSON.parse(response.lines[1] ?? '{}') as {ok?: boolean; taskDir?: string};
+      const payload = JSON.parse(response.lines[1] ?? '{}') as {
+        ok?: boolean;
+        taskDir?: string;
+      };
       assert.strictEqual(payload.ok, true);
       assert.ok(payload.taskDir);
 
-      const state = JSON.parse(await readFile(path.join(rootDir, 'task-tool-001', 'state.json'), 'utf8')) as Record<string, unknown>;
+      const state = JSON.parse(
+        await readFile(
+          path.join(rootDir, 'task-tool-001', 'state.json'),
+          'utf8',
+        ),
+      ) as Record<string, unknown>;
       assert.strictEqual(state.currentStage, 'Observe');
     } finally {
       runtime.reverseTaskStore = originalStore;

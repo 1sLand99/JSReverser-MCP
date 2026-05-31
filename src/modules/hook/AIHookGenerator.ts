@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * AIHookGenerator — AI 驱动的 Hook 代码生成器
  *
  * 设计理念：
@@ -8,7 +13,7 @@
  * - 生成的代码可直接注入浏览器执行
  */
 
-import { HookManager, type HookCreateOptions } from './HookManager.js';
+import {HookManager, type HookCreateOptions} from './HookManager.js';
 
 // ==================== AI Hook 请求类型 ====================
 
@@ -102,7 +107,7 @@ export class AIHookGenerator {
     const options = this.translateRequest(request);
 
     // 2. 委托给 HookManager 创建
-    const { hookId, script } = this.manager.create(options);
+    const {hookId, script} = this.manager.create(options);
 
     // 3. 构建结果
     return {
@@ -136,11 +141,11 @@ export class AIHookGenerator {
       action?: 'log' | 'block';
       before?: string;
       after?: string;
-    }
+    },
   ): AIHookResult {
     return this.generate({
       description: options?.description || `Hook ${target}`,
-      target: { type: 'function', name: target },
+      target: {type: 'function', name: target},
       behavior: {
         captureArgs: options?.captureAll ?? true,
         captureReturn: options?.captureAll ?? true,
@@ -168,7 +173,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook fetch API',
-      target: { type: 'fetch' },
+      target: {type: 'fetch'},
       behavior: {
         captureArgs: options?.captureBody ?? true,
         captureReturn: options?.captureResponse ?? true,
@@ -194,7 +199,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook XMLHttpRequest',
-      target: { type: 'xhr' },
+      target: {type: 'xhr'},
       behavior: {
         captureArgs: options?.captureBody ?? true,
         captureReturn: options?.captureResponse ?? true,
@@ -217,7 +222,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook WebSocket',
-      target: { type: 'websocket' },
+      target: {type: 'websocket'},
       behavior: {
         captureArgs: true,
         captureReturn: true,
@@ -239,11 +244,11 @@ export class AIHookGenerator {
       description?: string;
       action?: 'log' | 'block';
       captureStack?: boolean | number;
-    }
+    },
   ): AIHookResult {
     return this.generate({
       description: options?.description || `Hook ${object}.${property}`,
-      target: { type: 'property', object, property },
+      target: {type: 'property', object, property},
       behavior: {
         captureStack: options?.captureStack ?? 3,
         logToConsole: true,
@@ -260,11 +265,13 @@ export class AIHookGenerator {
     options?: {
       description?: string;
       action?: 'log' | 'block';
-    }
+    },
   ): AIHookResult {
     return this.generate({
-      description: options?.description || `Hook addEventListener${eventName ? ` (${eventName})` : ''}`,
-      target: { type: 'event', name: eventName },
+      description:
+        options?.description ||
+        `Hook addEventListener${eventName ? ` (${eventName})` : ''}`,
+      target: {type: 'event', name: eventName},
       behavior: {
         captureStack: 3,
         logToConsole: true,
@@ -285,11 +292,11 @@ export class AIHookGenerator {
       action?: 'log' | 'block';
       before?: string;
       after?: string;
-    }
+    },
   ): AIHookResult {
     return this.generate({
       description: options?.description || `Hook ${object}.${method}`,
-      target: { type: 'object-method', object, property: method },
+      target: {type: 'object-method', object, property: method},
       behavior: {
         captureArgs: options?.captureAll ?? true,
         captureReturn: options?.captureAll ?? true,
@@ -314,7 +321,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook eval & Function',
-      target: { type: 'eval' },
+      target: {type: 'eval'},
       behavior: {
         captureArgs: true,
         captureStack: 5,
@@ -334,7 +341,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook localStorage',
-      target: { type: 'localstorage' },
+      target: {type: 'localstorage'},
       behavior: {
         captureArgs: true,
         captureReturn: true,
@@ -357,7 +364,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook document.cookie',
-      target: { type: 'cookie' },
+      target: {type: 'cookie'},
       behavior: {
         captureStack: 5,
         logToConsole: true,
@@ -376,7 +383,7 @@ export class AIHookGenerator {
   }): AIHookResult {
     return this.generate({
       description: options?.description || 'Hook timers',
-      target: { type: 'timer', name: options?.timerType || 'both' },
+      target: {type: 'timer', name: options?.timerType || 'both'},
       behavior: {
         captureStack: 3,
         logToConsole: true,
@@ -391,9 +398,9 @@ export class AIHookGenerator {
   injectCustom(script: string, description?: string): AIHookResult {
     return this.generate({
       description: description || 'Custom hook script',
-      target: { type: 'custom' },
-      behavior: { logToConsole: true },
-      customCode: { replace: script },
+      target: {type: 'custom'},
+      behavior: {logToConsole: true},
+      customCode: {replace: script},
     });
   }
 
@@ -450,7 +457,7 @@ export class AIHookGenerator {
    * 将 AIHookRequest 翻译为 HookCreateOptions
    */
   private translateRequest(request: AIHookRequest): HookCreateOptions {
-    const { target, behavior, condition, customCode, description } = request;
+    const {target, behavior, condition, customCode, description} = request;
 
     // 确定 hook 类型
     const type = target.type;
@@ -524,7 +531,8 @@ export class AIHookGenerator {
     if (customCode?.before) lifecycle.before = customCode.before;
     if (customCode?.after) lifecycle.after = customCode.after;
     if (customCode?.onError) lifecycle.onError = customCode.onError;
-    if (customCode?.replace && type !== 'custom') lifecycle.replace = customCode.replace;
+    if (customCode?.replace && type !== 'custom')
+      lifecycle.replace = customCode.replace;
 
     // 构建 store
     const store: HookCreateOptions['store'] = {

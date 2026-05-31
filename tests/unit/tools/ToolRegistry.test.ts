@@ -24,7 +24,10 @@ describe('ToolRegistry', () => {
     registry.register(tool);
 
     assert.ok(registry.get('sample_tool'));
-    assert.strictEqual(registry.getByCategory(ToolCategory.DEBUGGING).length, 1);
+    assert.strictEqual(
+      registry.getByCategory(ToolCategory.DEBUGGING).length,
+      1,
+    );
   });
 
   it('rejects duplicated tool names', () => {
@@ -39,7 +42,10 @@ describe('ToolRegistry', () => {
 
     registry.register(tool);
 
-    assert.throws(() => registry.register(tool), /Tool name conflict: dup_tool/);
+    assert.throws(
+      () => registry.register(tool),
+      /Tool name conflict: dup_tool/,
+    );
   });
 
   it('covers registerMany/values/validateName/get-miss', () => {
@@ -67,7 +73,10 @@ describe('ToolRegistry', () => {
     assert.strictEqual(registry.validateName('tool_a'), false);
     assert.strictEqual(registry.validateName('tool_new'), true);
     assert.strictEqual(registry.get('missing_tool'), undefined);
-    assert.strictEqual(registry.getByCategory(ToolCategory.NAVIGATION).length, 1);
+    assert.strictEqual(
+      registry.getByCategory(ToolCategory.NAVIGATION).length,
+      1,
+    );
   });
 
   it('supports aliases and validates alias conflicts', () => {
@@ -87,8 +96,19 @@ describe('ToolRegistry', () => {
     assert.ok(registry.get('legacy_tool'));
     assert.strictEqual(registry.get('legacy_tool')?.name, 'canonical_tool');
     assert.strictEqual(registry.validateName('legacy_tool'), false);
-    assert.deepStrictEqual(registry.aliasesFor('canonical_tool').sort(), ['compat_tool', 'legacy_tool']);
-    assert.ok(registry.aliasEntries().some((entry) => entry.alias === 'legacy_tool' && entry.canonical === 'canonical_tool'));
+    assert.deepStrictEqual(registry.aliasesFor('canonical_tool').sort(), [
+      'compat_tool',
+      'legacy_tool',
+    ]);
+    assert.ok(
+      registry
+        .aliasEntries()
+        .some(
+          entry =>
+            entry.alias === 'legacy_tool' &&
+            entry.canonical === 'canonical_tool',
+        ),
+    );
 
     assert.throws(() => {
       registry.register({

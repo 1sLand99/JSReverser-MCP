@@ -4,13 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { networkRequest } from '../../../src/tools/network.js';
-import { listPages, navigatePage, newPage, selectPage } from '../../../src/tools/pages.js';
-import { getJSHookRuntime } from '../../../src/tools/runtime.js';
-import { screenshot } from '../../../src/tools/screenshot.js';
-import { evaluateScript } from '../../../src/tools/script.js';
+import {networkRequest} from '../../../src/tools/network.js';
+import {
+  listPages,
+  navigatePage,
+  newPage,
+  selectPage,
+} from '../../../src/tools/pages.js';
+import {getJSHookRuntime} from '../../../src/tools/runtime.js';
+import {screenshot} from '../../../src/tools/screenshot.js';
+import {evaluateScript} from '../../../src/tools/script.js';
 
 interface BasicResponseState {
   includePages: boolean;
@@ -39,7 +44,10 @@ interface BasicResponseHarness {
   state: BasicResponseState;
   appendResponseLine(value: string): void;
   setIncludePages(value: boolean): void;
-  setIncludeNetworkRequests(value: boolean, options?: BasicResponseState['includeNetworkOpts']): void;
+  setIncludeNetworkRequests(
+    value: boolean,
+    options?: BasicResponseState['includeNetworkOpts'],
+  ): void;
   setIncludeConsoleData(value: boolean): void;
   attachImage(value: ImageAttachment): void;
   attachNetworkRequest(id: number): void;
@@ -57,12 +65,12 @@ interface TestPageHarness {
   reload(options?: unknown): Promise<void>;
   url(): string;
   screenshot(options: unknown): Promise<Uint8Array>;
-  evaluateHandle(script: string): Promise<{ dispose(): Promise<void> }>;
+  evaluateHandle(script: string): Promise<{dispose(): Promise<void>}>;
   evaluate(fnHandle: unknown): Promise<string>;
 }
 
 interface TestFrameHarness {
-  evaluateHandle(script: string): Promise<{ dispose(): Promise<void> }>;
+  evaluateHandle(script: string): Promise<{dispose(): Promise<void>}>;
   evaluate(fn: unknown, arg: unknown): Promise<string>;
 }
 
@@ -76,15 +84,18 @@ interface PageToolContextHarness {
 }
 
 interface NetworkContextHarness {
-  getDevToolsData(): Promise<{ cdpRequestId?: string }>;
+  getDevToolsData(): Promise<{cdpRequestId?: string}>;
   resolveCdpRequestId(id: string): number | undefined;
 }
 
 interface ScreenshotContextHarness {
   getSelectedPage(): TestPageHarness;
   getPageByOptionalIdx(idx?: number): TestPageHarness;
-  saveFile(data: Uint8Array, filename: string): Promise<{ filename: string }>;
-  saveTemporaryFile(data: Uint8Array, mimeType: 'image/png' | 'image/jpeg' | 'image/webp'): Promise<{ filename: string }>;
+  saveFile(data: Uint8Array, filename: string): Promise<{filename: string}>;
+  saveTemporaryFile(
+    data: Uint8Array,
+    mimeType: 'image/png' | 'image/jpeg' | 'image/webp',
+  ): Promise<{filename: string}>;
 }
 
 interface ScriptContextHarness {
@@ -110,13 +121,16 @@ function makeResponse(): BasicResponseHarness {
     setIncludePages: (v: boolean) => {
       state.includePages = v;
     },
-    setIncludeNetworkRequests: (v: boolean, opts?: BasicResponseState['includeNetworkOpts']) => {
+    setIncludeNetworkRequests: (
+      v: boolean,
+      opts?: BasicResponseState['includeNetworkOpts'],
+    ) => {
       state.includeNetwork = v;
       state.includeNetworkOpts = opts;
     },
     setIncludeConsoleData: () => undefined,
     attachImage: (v: ImageAttachment) => attached.push(v),
-    attachNetworkRequest: (id: number) => attached.push({ reqid: id }),
+    attachNetworkRequest: (id: number) => attached.push({reqid: id}),
     attachConsoleMessage: () => undefined,
     setIncludeWebSocketConnections: () => undefined,
     attachWebSocket: () => undefined,
@@ -127,7 +141,7 @@ describe('tools extended coverage', () => {
   it('covers list/select/new page and navigate branches', async () => {
     const response = makeResponse();
 
-    const selected = { idx: -1 };
+    const selected = {idx: -1};
     const syncedPages: TestPageHarness[] = [];
     const page: TestPageHarness = {
       currentUrl: 'https://now.example',
@@ -140,7 +154,7 @@ describe('tools extended coverage', () => {
       reload: async () => undefined,
       url: () => page.currentUrl ?? '',
       screenshot: async () => new Uint8Array(),
-      evaluateHandle: async () => ({ dispose: async () => undefined }),
+      evaluateHandle: async () => ({dispose: async () => undefined}),
       evaluate: async () => '',
     };
 
@@ -166,46 +180,86 @@ describe('tools extended coverage', () => {
     };
 
     try {
-      await listPages.handler({ params: {} }, response as unknown as Parameters<typeof listPages.handler>[1], context as unknown as Parameters<typeof listPages.handler>[2]);
+      await listPages.handler(
+        {params: {}},
+        response as unknown as Parameters<typeof listPages.handler>[1],
+        context as unknown as Parameters<typeof listPages.handler>[2],
+      );
       assert.strictEqual(response.state.includePages, true);
 
-      await selectPage.handler({ params: { pageIdx: 0 } }, response as unknown as Parameters<typeof selectPage.handler>[1], context as unknown as Parameters<typeof selectPage.handler>[2]);
+      await selectPage.handler(
+        {params: {pageIdx: 0}},
+        response as unknown as Parameters<typeof selectPage.handler>[1],
+        context as unknown as Parameters<typeof selectPage.handler>[2],
+      );
       assert.strictEqual(selected.idx, 2);
       assert.deepStrictEqual(syncedPages, [page]);
 
-      await newPage.handler({ params: { url: 'https://a.com' } }, response as unknown as Parameters<typeof newPage.handler>[1], context as unknown as Parameters<typeof newPage.handler>[2]);
+      await newPage.handler(
+        {params: {url: 'https://a.com'}},
+        response as unknown as Parameters<typeof newPage.handler>[1],
+        context as unknown as Parameters<typeof newPage.handler>[2],
+      );
       assert.strictEqual(response.state.includePages, true);
 
       await assert.rejects(async () => {
-        await navigatePage.handler({ params: {} }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
+        await navigatePage.handler(
+          {params: {}},
+          response as unknown as Parameters<typeof navigatePage.handler>[1],
+          context as unknown as Parameters<typeof navigatePage.handler>[2],
+        );
       });
 
-      await navigatePage.handler({ params: { url: 'https://b.com' } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
-      assert.ok(response.lines.some((x) => x.includes('Successfully navigated')));
+      await navigatePage.handler(
+        {params: {url: 'https://b.com'}},
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.ok(response.lines.some(x => x.includes('Successfully navigated')));
 
       page.goto = async () => {
         throw new Error('goto failed');
       };
-      await navigatePage.handler({ params: { type: 'url', url: 'https://c.com' } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
-      assert.ok(response.lines.some((x) => x.includes('Unable to navigate in')));
+      await navigatePage.handler(
+        {params: {type: 'url', url: 'https://c.com'}},
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.ok(response.lines.some(x => x.includes('Unable to navigate in')));
 
       page.goBack = async () => {
         throw new Error('back failed');
       };
-      await navigatePage.handler({ params: { type: 'back' } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
-      assert.ok(response.lines.some((x) => x.includes('Unable to navigate back')));
+      await navigatePage.handler(
+        {params: {type: 'back'}},
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.ok(
+        response.lines.some(x => x.includes('Unable to navigate back')),
+      );
 
       page.goForward = async () => {
         throw new Error('forward failed');
       };
-      await navigatePage.handler({ params: { type: 'forward' } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
-      assert.ok(response.lines.some((x) => x.includes('Unable to navigate forward')));
+      await navigatePage.handler(
+        {params: {type: 'forward'}},
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.ok(
+        response.lines.some(x => x.includes('Unable to navigate forward')),
+      );
 
       page.reload = async () => {
         throw new Error('reload failed');
       };
-      await navigatePage.handler({ params: { type: 'reload', ignoreCache: true } }, response as unknown as Parameters<typeof navigatePage.handler>[1], context as unknown as Parameters<typeof navigatePage.handler>[2]);
-      assert.ok(response.lines.some((x) => x.includes('Unable to reload')));
+      await navigatePage.handler(
+        {params: {type: 'reload', ignoreCache: true}},
+        response as unknown as Parameters<typeof navigatePage.handler>[1],
+        context as unknown as Parameters<typeof navigatePage.handler>[2],
+      );
+      assert.ok(response.lines.some(x => x.includes('Unable to reload')));
 
       const explicitPage: TestPageHarness = {
         ...page,
@@ -218,9 +272,10 @@ describe('tools extended coverage', () => {
         assert.strictEqual(idx, 1);
         return explicitPage;
       };
-      context.getPageByOptionalIdx = (idx?: number) => idx === undefined ? page : explicitPage;
+      context.getPageByOptionalIdx = (idx?: number) =>
+        idx === undefined ? page : explicitPage;
       await navigatePage.handler(
-        { params: { pageIdx: 1, url: 'https://target.example' } },
+        {params: {pageIdx: 1, url: 'https://target.example'}},
         response as unknown as Parameters<typeof navigatePage.handler>[1],
         context as unknown as Parameters<typeof navigatePage.handler>[2],
       );
@@ -234,7 +289,7 @@ describe('tools extended coverage', () => {
     const response = makeResponse();
 
     const context: NetworkContextHarness = {
-      getDevToolsData: async () => ({ cdpRequestId: 'abc' }),
+      getDevToolsData: async () => ({cdpRequestId: 'abc'}),
       resolveCdpRequestId: (id: string) => (id === 'abc' ? 12 : undefined),
     };
 
@@ -254,20 +309,37 @@ describe('tools extended coverage', () => {
 
     assert.strictEqual(response.state.includeNetwork, true);
     assert.ok(response.state.includeNetworkOpts);
-    assert.strictEqual(response.state.includeNetworkOpts.networkRequestIdInDevToolsUI, 12);
+    assert.strictEqual(
+      response.state.includeNetworkOpts.networkRequestIdInDevToolsUI,
+      12,
+    );
 
-    await networkRequest.handler({ params: { action: 'get', reqid: 33 } }, response as unknown as Parameters<typeof networkRequest.handler>[1], context as unknown as Parameters<typeof networkRequest.handler>[2]);
-    assert.ok(response.attached.some((x) => 'reqid' in x && x.reqid === 33));
+    await networkRequest.handler(
+      {params: {action: 'get', reqid: 33}},
+      response as unknown as Parameters<typeof networkRequest.handler>[1],
+      context as unknown as Parameters<typeof networkRequest.handler>[2],
+    );
+    assert.ok(response.attached.some(x => 'reqid' in x && x.reqid === 33));
 
-    await networkRequest.handler({ params: { action: 'get' } }, response as unknown as Parameters<typeof networkRequest.handler>[1], context as unknown as Parameters<typeof networkRequest.handler>[2]);
-    assert.ok(response.attached.some((x) => 'reqid' in x && x.reqid === 12));
+    await networkRequest.handler(
+      {params: {action: 'get'}},
+      response as unknown as Parameters<typeof networkRequest.handler>[1],
+      context as unknown as Parameters<typeof networkRequest.handler>[2],
+    );
+    assert.ok(response.attached.some(x => 'reqid' in x && x.reqid === 12));
 
     const contextNoReq: NetworkContextHarness = {
       getDevToolsData: async () => ({}),
       resolveCdpRequestId: () => undefined,
     };
-    await networkRequest.handler({ params: { action: 'get' } }, response as unknown as Parameters<typeof networkRequest.handler>[1], contextNoReq as unknown as Parameters<typeof networkRequest.handler>[2]);
-    assert.ok(response.lines.some((x) => x.includes('Nothing is currently selected')));
+    await networkRequest.handler(
+      {params: {action: 'get'}},
+      response as unknown as Parameters<typeof networkRequest.handler>[1],
+      contextNoReq as unknown as Parameters<typeof networkRequest.handler>[2],
+    );
+    assert.ok(
+      response.lines.some(x => x.includes('Nothing is currently selected')),
+    );
   });
 
   it('covers screenshot branches: save file, temp file and attach image', async () => {
@@ -288,38 +360,42 @@ describe('tools extended coverage', () => {
       goForward: async () => undefined,
       reload: async () => undefined,
       url: () => '',
-      evaluateHandle: async () => ({ dispose: async () => undefined }),
+      evaluateHandle: async () => ({dispose: async () => undefined}),
       evaluate: async () => '',
     };
 
     const context: ScreenshotContextHarness = {
       getSelectedPage: () => page,
       getPageByOptionalIdx: () => page,
-      saveFile: async (_data: Uint8Array, filename: string) => ({ filename }),
-      saveTemporaryFile: async () => ({ filename: '/tmp/shot.png' }),
+      saveFile: async (_data: Uint8Array, filename: string) => ({filename}),
+      saveTemporaryFile: async () => ({filename: '/tmp/shot.png'}),
     };
 
     await screenshot.handler(
-      { params: { format: 'png', fullPage: true, filePath: '/tmp/a.png' } },
+      {params: {format: 'png', fullPage: true, filePath: '/tmp/a.png'}},
       response as unknown as Parameters<typeof screenshot.handler>[1],
       context as unknown as Parameters<typeof screenshot.handler>[2],
     );
-    assert.ok(response.lines.some((x) => x.includes('full current page')));
-    assert.ok(response.lines.some((x) => x.includes('/tmp/a.png')));
+    assert.ok(response.lines.some(x => x.includes('full current page')));
+    assert.ok(response.lines.some(x => x.includes('/tmp/a.png')));
 
     await screenshot.handler(
-      { params: { format: 'jpeg', quality: 80, fullPage: false } },
+      {params: {format: 'jpeg', quality: 80, fullPage: false}},
       response as unknown as Parameters<typeof screenshot.handler>[1],
       context as unknown as Parameters<typeof screenshot.handler>[2],
     );
-    assert.ok(response.lines.some((x) => x.includes('/tmp/shot.png')));
+    assert.ok(response.lines.some(x => x.includes('/tmp/shot.png')));
 
     await screenshot.handler(
-      { params: { format: 'webp', fullPage: false } },
+      {params: {format: 'webp', fullPage: false}},
       response as unknown as Parameters<typeof screenshot.handler>[1],
       context as unknown as Parameters<typeof screenshot.handler>[2],
     );
-    assert.ok(response.attached.some((x) => 'mimeType' in x && x.mimeType === 'image/webp'));
+    assert.ok(
+      response.attached.some(
+        x => 'mimeType' in x && x.mimeType === 'image/webp',
+      ),
+    );
   });
 
   it('covers evaluateScript success and dispose-on-error path', async () => {
@@ -358,12 +434,14 @@ describe('tools extended coverage', () => {
     };
 
     await evaluateScript.handler(
-      { params: { function: '() => ({ ok: true })' } },
+      {params: {function: '() => ({ ok: true })'}},
       response as unknown as Parameters<typeof evaluateScript.handler>[1],
       contextSuccess as unknown as Parameters<typeof evaluateScript.handler>[2],
     );
 
-    assert.ok(response.lines.some((x) => x.includes('Script ran on page and returned')));
+    assert.ok(
+      response.lines.some(x => x.includes('Script ran on page and returned')),
+    );
     assert.strictEqual(disposed, 1);
 
     const frameError: TestFrameHarness = {
@@ -397,7 +475,7 @@ describe('tools extended coverage', () => {
 
     await assert.rejects(async () => {
       await evaluateScript.handler(
-        { params: { function: '() => { throw new Error("x") }' } },
+        {params: {function: '() => { throw new Error("x") }'}},
         response as unknown as Parameters<typeof evaluateScript.handler>[1],
         contextError as unknown as Parameters<typeof evaluateScript.handler>[2],
       );

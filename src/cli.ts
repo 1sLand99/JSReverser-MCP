@@ -26,7 +26,8 @@ export const cliOptions = {
   },
   manageReverseTask: {
     type: 'string',
-    description: 'Unified reverse task CLI entry. Actions: list|get|summarize|progress|update|timeline|archive|restore|search|tag|prune|compare.',
+    description:
+      'Unified reverse task CLI entry. Actions: list|get|summarize|progress|update|timeline|archive|restore|search|tag|prune|compare.',
   },
 
   orchestrateReverseTask: {
@@ -39,89 +40,134 @@ export const cliOptions = {
   },
   exportPortableBundle: {
     type: 'string',
-    description: 'Export portable single-file reverse artifacts for one task id.',
+    description:
+      'Export portable single-file reverse artifacts for one task id.',
   },
   maxRounds: {
     type: 'number',
-    description: 'When used with --runReverseAgent, maximum orchestration rounds to execute.',
+    description:
+      'When used with --runReverseAgent, maximum orchestration rounds to execute.',
   },
   artifactMode: {
     type: 'string',
     choices: ['portable', 'rebuild', 'pure'] as const,
-    description: 'When used with --exportPortableBundle, choose whether to export both portable files, rebuild-only, or pure-only.',
+    description:
+      'When used with --exportPortableBundle, choose whether to export both portable files, rebuild-only, or pure-only.',
   },
   goalMode: {
     type: 'string',
     choices: ['signature-only', 'pure-draft', 'port-ready'] as const,
-    description: 'When used with --runReverseAgent, choose where the auto flow should stop: function slice only, pure draft, or port-ready draft.',
+    description:
+      'When used with --runReverseAgent, choose where the auto flow should stop: function slice only, pure draft, or port-ready draft.',
   },
   autoExportPortable: {
     type: 'boolean',
-    description: 'When used with --runReverseAgent and --goalMode port-ready, automatically export run/portable.js after reaching PureExtraction.',
+    description:
+      'When used with --runReverseAgent and --goalMode port-ready, automatically export run/portable.js after reaching PureExtraction.',
     default: false,
   },
   execute: {
     type: 'boolean',
-    description: 'When used with --orchestrateReverseTask, execute the generated plan.',
+    description:
+      'When used with --orchestrateReverseTask, execute the generated plan.',
     default: false,
   },
   resume: {
     type: 'boolean',
-    description: 'When used with --orchestrateReverseTask, resume from the saved checkpoint.',
+    description:
+      'When used with --orchestrateReverseTask, resume from the saved checkpoint.',
     default: false,
   },
   stopOnError: {
     type: 'boolean',
-    description: 'When used with --orchestrateReverseTask, stop immediately after the first step failure.',
+    description:
+      'When used with --orchestrateReverseTask, stop immediately after the first step failure.',
     default: true,
   },
   strategy: {
     type: 'string',
-    choices: ['observe-first', 'rebuild-first', 'env-fix', 'artifact-sync', 'evidence-only'] as const,
-    description: 'When used with --orchestrateReverseTask, apply a named orchestration strategy template.',
+    choices: [
+      'observe-first',
+      'rebuild-first',
+      'env-fix',
+      'artifact-sync',
+      'evidence-only',
+    ] as const,
+    description:
+      'When used with --orchestrateReverseTask, apply a named orchestration strategy template.',
   },
   outputMode: {
     type: 'string',
     choices: ['compact', 'verbose'] as const,
-    description: 'When used with reverse-task agent flows, choose compact or verbose JSON output.',
+    description:
+      'When used with reverse-task agent flows, choose compact or verbose JSON output.',
+  },
+  toolProfile: {
+    type: 'string',
+    choices: ['compact', 'full'] as const,
+    default: 'compact',
+    description:
+      'Choose which MCP tools are exposed at startup. compact keeps the high-value workflow tools visible; full exposes every low-level debugging tool.',
+  },
+  traceOutput: {
+    type: 'string',
+    choices: ['errors', 'all'] as const,
+    default: 'errors',
+    description:
+      'Choose when tool responses include traceId metadata. errors keeps successful responses smaller; all preserves traceId on every response.',
   },
   skipStep: {
     type: 'array',
-    description: 'When used with --orchestrateReverseTask, skip one or more planned steps by tool name or step key.',
+    description:
+      'When used with --orchestrateReverseTask, skip one or more planned steps by tool name or step key.',
   },
   fromStep: {
     type: 'string',
-    description: 'When used with --orchestrateReverseTask, start execution from the matched step key or tool name.',
+    description:
+      'When used with --orchestrateReverseTask, start execution from the matched step key or tool name.',
   },
   onlyStep: {
     type: 'array',
-    description: 'When used with --orchestrateReverseTask, run only the selected step keys or tool names.',
+    description:
+      'When used with --orchestrateReverseTask, run only the selected step keys or tool names.',
   },
   includeSummary: {
     type: 'boolean',
-    description: 'When used with --orchestrateReverseTask, include the post-run task summary in CLI output.',
+    description:
+      'When used with --orchestrateReverseTask, include the post-run task summary in CLI output.',
     default: true,
   },
   persistState: {
     type: 'boolean',
-    description: 'When used with --orchestrateReverseTask, sync task state before planning/execution.',
+    description:
+      'When used with --orchestrateReverseTask, sync task state before planning/execution.',
     default: true,
   },
   executionOverrides: {
     type: 'string',
-    description: 'JSON object of execution overrides for orchestrated tool steps.',
+    description:
+      'JSON object of execution overrides for orchestrated tool steps.',
     coerce: (val: string | undefined) => {
       if (!val) {
         return;
       }
       try {
         const parsed = JSON.parse(val);
-        if (typeof parsed !== 'object' || Array.isArray(parsed) || parsed === null) {
+        if (
+          typeof parsed !== 'object' ||
+          Array.isArray(parsed) ||
+          parsed === null
+        ) {
           throw new Error('Overrides must be a JSON object');
         }
-        return parsed as Record<string, {status: string; result?: string; error?: string}>;
+        return parsed as Record<
+          string,
+          {status: string; result?: string; error?: string}
+        >;
       } catch (error) {
-        throw new Error(`Invalid JSON for executionOverrides: ${(error as Error).message}`);
+        throw new Error(
+          `Invalid JSON for executionOverrides: ${(error as Error).message}`,
+        );
       }
     },
   },
@@ -131,15 +177,18 @@ export const cliOptions = {
   },
   reverseTimelineLimit: {
     type: 'number',
-    description: 'Timeline item limit for reverse task query/summary CLI commands.',
+    description:
+      'Timeline item limit for reverse task query/summary CLI commands.',
   },
   reverseEvidenceLimit: {
     type: 'number',
-    description: 'Evidence item limit for reverse task query/summary CLI commands.',
+    description:
+      'Evidence item limit for reverse task query/summary CLI commands.',
   },
   taskId: {
     type: 'string',
-    description: 'Reverse task id for --manageReverseTask actions that target one task.',
+    description:
+      'Reverse task id for --manageReverseTask actions that target one task.',
   },
   otherTaskId: {
     type: 'string',
@@ -159,7 +208,8 @@ export const cliOptions = {
   },
   replaceTags: {
     type: 'boolean',
-    description: 'When used with --manageReverseTask tag, replace existing tags instead of appending.',
+    description:
+      'When used with --manageReverseTask tag, replace existing tags instead of appending.',
     default: false,
   },
   includeArchived: {
@@ -169,23 +219,35 @@ export const cliOptions = {
   },
   pruneOlderThanDays: {
     type: 'number',
-    description: 'When used with --manageReverseTask prune, only remove archived tasks older than this many days.',
+    description:
+      'When used with --manageReverseTask prune, only remove archived tasks older than this many days.',
   },
   taskSlug: {
     type: 'string',
-    description: 'Optional reverse task slug for --manageReverseTask update/timeline.',
+    description:
+      'Optional reverse task slug for --manageReverseTask update/timeline.',
   },
   taskTargetUrl: {
     type: 'string',
-    description: 'Optional reverse task target URL for --manageReverseTask update/timeline.',
+    description:
+      'Optional reverse task target URL for --manageReverseTask update/timeline.',
   },
   taskGoal: {
     type: 'string',
-    description: 'Optional reverse task goal for --manageReverseTask update/timeline.',
+    description:
+      'Optional reverse task goal for --manageReverseTask update/timeline.',
   },
   taskStage: {
     type: 'string',
-    choices: ['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port'] as const,
+    choices: [
+      'Observe',
+      'Capture',
+      'Rebuild',
+      'Patch',
+      'DeepDive',
+      'PureExtraction',
+      'Port',
+    ] as const,
     description: 'Reverse task stage for --manageReverseTask update.',
   },
   taskStatus: {
@@ -228,11 +290,13 @@ export const cliOptions = {
   },
   showParameterWorkflow: {
     type: 'string',
-    description: 'Show one packaged parameter workflow by id or alias and exit.',
+    description:
+      'Show one packaged parameter workflow by id or alias and exit.',
   },
   exportParameterWorkflowTemplate: {
     type: 'string',
-    description: 'Export a starter parameter workflow template directory and exit.',
+    description:
+      'Export a starter parameter workflow template directory and exit.',
   },
   validateParameterWorkflow: {
     type: 'string',
@@ -390,7 +454,7 @@ export const cliOptions = {
 
 export function parseArguments(version: string, argv = process.argv) {
   const yargsInstance = yargs(hideBin(argv))
-    .scriptName('npx jsreverser-mcp@latest')
+    .scriptName('jsreverser-mcp')
     .options(cliOptions)
     .check(args => {
       // We can't set default in the options else
@@ -447,7 +511,7 @@ export type CliArguments = ReturnType<typeof parseArguments>;
 
 export async function executeKnowledgeCliCommand(
   args: Partial<CliArguments>,
-  writeLine: (line: string) => void = (line) => console.log(line),
+  writeLine: (line: string) => void = line => console.log(line),
 ): Promise<boolean> {
   if (args.exportPortableBundle) {
     const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
@@ -458,24 +522,32 @@ export async function executeKnowledgeCliCommand(
     runtime.reverseTaskStore = store;
     try {
       const lines: string[] = [];
-      await exportPortableBundle.handler({
-        params: {
-          taskId: String(args.exportPortableBundle),
-          artifactMode: args.artifactMode as 'portable' | 'rebuild' | 'pure' | undefined,
-        },
-      } as Parameters<typeof exportPortableBundle.handler>[0], {
-        appendResponseLine(value: string) {
-          lines.push(value);
-        },
-        setIncludePages: () => undefined,
-        setIncludeNetworkRequests: () => undefined,
-        setIncludeConsoleData: () => undefined,
-        attachImage: () => undefined,
-        attachNetworkRequest: () => undefined,
-        attachConsoleMessage: () => undefined,
-        setIncludeWebSocketConnections: () => undefined,
-        attachWebSocket: () => undefined,
-      } as Parameters<typeof exportPortableBundle.handler>[1], {} as Parameters<typeof exportPortableBundle.handler>[2]);
+      await exportPortableBundle.handler(
+        {
+          params: {
+            taskId: String(args.exportPortableBundle),
+            artifactMode: args.artifactMode as
+              | 'portable'
+              | 'rebuild'
+              | 'pure'
+              | undefined,
+          },
+        } as Parameters<typeof exportPortableBundle.handler>[0],
+        {
+          appendResponseLine(value: string) {
+            lines.push(value);
+          },
+          setIncludePages: () => undefined,
+          setIncludeNetworkRequests: () => undefined,
+          setIncludeConsoleData: () => undefined,
+          attachImage: () => undefined,
+          attachNetworkRequest: () => undefined,
+          attachConsoleMessage: () => undefined,
+          setIncludeWebSocketConnections: () => undefined,
+          attachWebSocket: () => undefined,
+        } as Parameters<typeof exportPortableBundle.handler>[1],
+        {} as Parameters<typeof exportPortableBundle.handler>[2],
+      );
       const start = lines.indexOf('```json');
       const end = lines.indexOf('```', start + 1);
       writeLine(lines.slice(start + 1, end).join('\n'));
@@ -494,29 +566,44 @@ export async function executeKnowledgeCliCommand(
     runtime.reverseTaskStore = store;
     try {
       const lines: string[] = [];
-      await runReverseAgentTool.handler({
-        params: {
-          taskId: String(args.runReverseAgent),
-          maxRounds: typeof args.maxRounds === 'number' ? args.maxRounds : undefined,
-          strategy: args.strategy as 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
-          goalMode: args.goalMode as 'signature-only' | 'pure-draft' | 'port-ready' | undefined,
-          autoExportPortable: args.autoExportPortable,
-          outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
-          includeSummary: args.includeSummary,
-        },
-      } as Parameters<typeof runReverseAgentTool.handler>[0], {
-        appendResponseLine(value: string) {
-          lines.push(value);
-        },
-        setIncludePages: () => undefined,
-        setIncludeNetworkRequests: () => undefined,
-        setIncludeConsoleData: () => undefined,
-        attachImage: () => undefined,
-        attachNetworkRequest: () => undefined,
-        attachConsoleMessage: () => undefined,
-        setIncludeWebSocketConnections: () => undefined,
-        attachWebSocket: () => undefined,
-      } as Parameters<typeof runReverseAgentTool.handler>[1], {} as Parameters<typeof runReverseAgentTool.handler>[2]);
+      await runReverseAgentTool.handler(
+        {
+          params: {
+            taskId: String(args.runReverseAgent),
+            maxRounds:
+              typeof args.maxRounds === 'number' ? args.maxRounds : undefined,
+            strategy: args.strategy as
+              | 'observe-first'
+              | 'rebuild-first'
+              | 'env-fix'
+              | 'artifact-sync'
+              | 'evidence-only'
+              | undefined,
+            goalMode: args.goalMode as
+              | 'signature-only'
+              | 'pure-draft'
+              | 'port-ready'
+              | undefined,
+            autoExportPortable: args.autoExportPortable,
+            outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
+            includeSummary: args.includeSummary,
+          },
+        } as Parameters<typeof runReverseAgentTool.handler>[0],
+        {
+          appendResponseLine(value: string) {
+            lines.push(value);
+          },
+          setIncludePages: () => undefined,
+          setIncludeNetworkRequests: () => undefined,
+          setIncludeConsoleData: () => undefined,
+          attachImage: () => undefined,
+          attachNetworkRequest: () => undefined,
+          attachConsoleMessage: () => undefined,
+          setIncludeWebSocketConnections: () => undefined,
+          attachWebSocket: () => undefined,
+        } as Parameters<typeof runReverseAgentTool.handler>[1],
+        {} as Parameters<typeof runReverseAgentTool.handler>[2],
+      );
       const start = lines.indexOf('```json');
       const end = lines.indexOf('```', start + 1);
       writeLine(lines.slice(start + 1, end).join('\n'));
@@ -528,94 +615,176 @@ export async function executeKnowledgeCliCommand(
 
   if (args.orchestrateReverseTask) {
     const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
-    const {buildOrchestrationAgentHints} = await import('./reverse/ReverseTaskAgentProtocol.js');
-    const {orchestrateReverseTask} = await import('./reverse/ReverseTaskOrchestrator.js');
+    const {buildOrchestrationAgentHints} = await import(
+      './reverse/ReverseTaskAgentProtocol.js'
+    );
+    const {orchestrateReverseTask} = await import(
+      './reverse/ReverseTaskOrchestrator.js'
+    );
     const store = new ReverseTaskStore();
-    const result = await orchestrateReverseTask(store, String(args.orchestrateReverseTask), {
-      execute: Boolean(args.execute),
-      resume: Boolean(args.resume),
-      stopOnError: args.stopOnError,
-      strategy: args.strategy as 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
-      outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
-      skipSteps: Array.isArray(args.skipStep) ? args.skipStep.map(String) : undefined,
-      fromStep: typeof args.fromStep === 'string' ? args.fromStep : undefined,
-      onlySteps: Array.isArray(args.onlyStep) ? args.onlyStep.map(String) : undefined,
-      includeSummary: args.includeSummary,
-      persistState: args.persistState,
-      executionOverrides: args.executionOverrides as Record<string, {status: 'ok' | 'error'; result?: string; error?: string}> | undefined,
-    });
+    const result = await orchestrateReverseTask(
+      store,
+      String(args.orchestrateReverseTask),
+      {
+        execute: Boolean(args.execute),
+        resume: Boolean(args.resume),
+        stopOnError: args.stopOnError,
+        strategy: args.strategy as
+          | 'observe-first'
+          | 'rebuild-first'
+          | 'env-fix'
+          | 'artifact-sync'
+          | 'evidence-only'
+          | undefined,
+        outputMode: args.outputMode as 'compact' | 'verbose' | undefined,
+        skipSteps: Array.isArray(args.skipStep)
+          ? args.skipStep.map(String)
+          : undefined,
+        fromStep: typeof args.fromStep === 'string' ? args.fromStep : undefined,
+        onlySteps: Array.isArray(args.onlyStep)
+          ? args.onlyStep.map(String)
+          : undefined,
+        includeSummary: args.includeSummary,
+        persistState: args.persistState,
+        executionOverrides: args.executionOverrides as
+          | Record<
+              string,
+              {status: 'ok' | 'error'; result?: string; error?: string}
+            >
+          | undefined,
+      },
+    );
     const agentGuidance = buildOrchestrationAgentHints({
       taskId: result.taskId,
       primaryStep: result.orchestration.primaryStep,
       execution: result.execution,
       confidence: result.advice.confidence,
     });
-    writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload({
-      responseSummary: args.outputMode === 'compact'
-        ? `已生成任务 ${result.taskId} 的 compact orchestration plan。`
-        : `已生成任务 ${result.taskId} 的 orchestration plan。`,
-      diagnostics: {
-        responseStatus: 'ok',
-        outputMode: result.outputMode,
-        taskId: result.taskId,
-        hasFallbackPlan: Boolean(result.fallbackPlan),
-        executed: Boolean(result.execution?.executed),
-      },
-      ...buildOrchestrationContinuation({
-        fallbackPlan: result.fallbackPlan,
-        failedStep: result.execution?.failedStep,
-        shouldResume: Boolean(result.execution?.recovery?.shouldResume),
-        agentGuidance,
-      }),
-      ...result,
-      agentGuidance,
-    }, result.outputMode)), null, 2));
+    writeLine(
+      JSON.stringify(
+        withSchemaVersion(
+          compactAgentPayload(
+            {
+              responseSummary:
+                args.outputMode === 'compact'
+                  ? `已生成任务 ${result.taskId} 的 compact orchestration plan。`
+                  : `已生成任务 ${result.taskId} 的 orchestration plan。`,
+              diagnostics: {
+                responseStatus: 'ok',
+                outputMode: result.outputMode,
+                taskId: result.taskId,
+                hasFallbackPlan: Boolean(result.fallbackPlan),
+                executed: Boolean(result.execution?.executed),
+              },
+              ...buildOrchestrationContinuation({
+                fallbackPlan: result.fallbackPlan,
+                failedStep: result.execution?.failedStep,
+                shouldResume: Boolean(result.execution?.recovery?.shouldResume),
+                agentGuidance,
+              }),
+              ...result,
+              agentGuidance,
+            },
+            result.outputMode,
+          ),
+        ),
+        null,
+        2,
+      ),
+    );
     return true;
   }
 
   if (args.manageReverseTask) {
-    const {buildManageTaskAgentHints} = await import('./reverse/ReverseTaskAgentProtocol.js');
-    const {validateReverseTaskActionInput} = await import('./reverse/ReverseTaskActionValidation.js');
+    const {buildManageTaskAgentHints} = await import(
+      './reverse/ReverseTaskAgentProtocol.js'
+    );
+    const {validateReverseTaskActionInput} = await import(
+      './reverse/ReverseTaskActionValidation.js'
+    );
     const {ReverseTaskStore} = await import('./reverse/ReverseTaskStore.js');
     const {listReverseTasks} = await import('./reverse/ReverseTaskList.js');
     const {getReverseTaskState} = await import('./reverse/ReverseTaskQuery.js');
-    const {summarizeReverseTask} = await import('./reverse/ReverseTaskSummary.js');
-    const {autoProgressReverseTask} = await import('./reverse/ReverseTaskAutoProgress.js');
-    const {appendReverseTimeline} = await import('./reverse/ReverseTaskTimeline.js');
-    const {updateReverseTaskState} = await import('./reverse/ReverseTaskState.js');
+    const {summarizeReverseTask} = await import(
+      './reverse/ReverseTaskSummary.js'
+    );
+    const {autoProgressReverseTask} = await import(
+      './reverse/ReverseTaskAutoProgress.js'
+    );
+    const {appendReverseTimeline} = await import(
+      './reverse/ReverseTaskTimeline.js'
+    );
+    const {updateReverseTaskState} = await import(
+      './reverse/ReverseTaskState.js'
+    );
 
     const store = new ReverseTaskStore();
     const timelineLimit = Number(args.reverseTimelineLimit ?? 10);
     const evidenceLimit = Number(args.reverseEvidenceLimit ?? 10);
     const action = String(args.manageReverseTask);
-    const outputMode = (args.outputMode === 'compact' ? 'compact' : 'verbose') as OutputMode;
+    const outputMode = (
+      args.outputMode === 'compact' ? 'compact' : 'verbose'
+    ) as OutputMode;
     validateReverseTaskActionInput({
       action,
       taskId: typeof args.taskId === 'string' ? args.taskId : undefined,
-      otherTaskId: typeof args.otherTaskId === 'string' ? args.otherTaskId : undefined,
+      otherTaskId:
+        typeof args.otherTaskId === 'string' ? args.otherTaskId : undefined,
       query: typeof args.query === 'string' ? args.query : undefined,
       tag: typeof args.tag === 'string' ? args.tag : undefined,
       tags: Array.isArray(args.tags) ? args.tags.map(String) : undefined,
-      stage: typeof args.timelineStage === 'string' ? args.timelineStage : undefined,
-      timelineAction: typeof args.timelineAction === 'string' ? args.timelineAction : undefined,
-      timelineStatus: typeof args.timelineStatus === 'string' ? args.timelineStatus : undefined,
+      stage:
+        typeof args.timelineStage === 'string' ? args.timelineStage : undefined,
+      timelineAction:
+        typeof args.timelineAction === 'string'
+          ? args.timelineAction
+          : undefined,
+      timelineStatus:
+        typeof args.timelineStatus === 'string'
+          ? args.timelineStatus
+          : undefined,
       taskSlug: typeof args.taskSlug === 'string' ? args.taskSlug : undefined,
-      targetUrl: typeof args.taskTargetUrl === 'string' ? args.taskTargetUrl : undefined,
+      targetUrl:
+        typeof args.taskTargetUrl === 'string' ? args.taskTargetUrl : undefined,
       goal: typeof args.taskGoal === 'string' ? args.taskGoal : undefined,
-      currentStage: typeof args.taskStage === 'string' ? args.taskStage : undefined,
+      currentStage:
+        typeof args.taskStage === 'string' ? args.taskStage : undefined,
       status: typeof args.taskStatus === 'string' ? args.taskStatus : undefined,
-      currentSummary: typeof args.taskSummary === 'string' ? args.taskSummary : undefined,
-      nextStepHint: typeof args.taskNextStep === 'string' ? args.taskNextStep : undefined,
+      currentSummary:
+        typeof args.taskSummary === 'string' ? args.taskSummary : undefined,
+      nextStepHint:
+        typeof args.taskNextStep === 'string' ? args.taskNextStep : undefined,
     });
 
     if (action === 'list') {
       const items = await listReverseTasks(store, {
-        limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
+        limit:
+          typeof args.reverseTaskLimit === 'number'
+            ? args.reverseTaskLimit
+            : undefined,
         includeArchived: Boolean(args.includeArchived),
       });
-      const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        itemCount: items.length,
+      });
       const summaryText = buildManageSummaryText(action, {items});
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['artifacts/tasks/<taskId>/'], agentGuidance}), null, 2));
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(action, outputMode),
+            ...buildManageContinuation(action, {agentGuidance}, summaryText),
+            action,
+            outputMode,
+            items,
+            artifacts: ['artifacts/tasks/<taskId>/'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -627,19 +796,53 @@ export async function executeKnowledgeCliCommand(
       const agentGuidance = buildManageTaskAgentHints({
         action,
         taskId: result.taskId,
-        nextStepHint: String((result.state?.nextStepHint ?? 'manage_reverse_task:progress')),
+        nextStepHint: String(
+          result.state?.nextStepHint ?? 'manage_reverse_task:progress',
+        ),
       });
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload(compactManagePayload(action, {
-        responseSummary: summaryText,
-        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
+      const summaryText = buildManageSummaryText(
         action,
-        outputMode,
-        ...result,
-        artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
-        agentGuidance,
-      }, outputMode), outputMode)), null, 2));
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion(
+            compactAgentPayload(
+              compactManagePayload(
+                action,
+                {
+                  responseSummary: summaryText,
+                  diagnostics: buildTaskDiagnostics(
+                    action,
+                    outputMode,
+                    result.taskId,
+                  ),
+                  ...buildManageContinuation(
+                    action,
+                    {agentGuidance, ...result} as Record<string, unknown>,
+                    summaryText,
+                  ),
+                  action,
+                  outputMode,
+                  ...result,
+                  artifacts: [
+                    'task.json',
+                    'state.json',
+                    'report.md',
+                    'timeline.jsonl',
+                    'runtime-evidence.jsonl',
+                  ],
+                  agentGuidance,
+                },
+                outputMode,
+              ),
+              outputMode,
+            ),
+          ),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -655,17 +858,49 @@ export async function executeKnowledgeCliCommand(
         currentStage: result.currentStage,
         status: result.status,
       });
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion(compactAgentPayload(compactManagePayload(action, {
-        responseSummary: summaryText,
-        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
+      const summaryText = buildManageSummaryText(
         action,
-        outputMode,
-        ...result,
-        artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
-        agentGuidance,
-      }, outputMode), outputMode)), null, 2));
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion(
+            compactAgentPayload(
+              compactManagePayload(
+                action,
+                {
+                  responseSummary: summaryText,
+                  diagnostics: buildTaskDiagnostics(
+                    action,
+                    outputMode,
+                    result.taskId,
+                  ),
+                  ...buildManageContinuation(
+                    action,
+                    {agentGuidance, ...result} as Record<string, unknown>,
+                    summaryText,
+                  ),
+                  action,
+                  outputMode,
+                  ...result,
+                  artifacts: [
+                    'task.json',
+                    'state.json',
+                    'report.md',
+                    'timeline.jsonl',
+                    'runtime-evidence.jsonl',
+                  ],
+                  agentGuidance,
+                },
+                outputMode,
+              ),
+              outputMode,
+            ),
+          ),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -678,49 +913,151 @@ export async function executeKnowledgeCliCommand(
         currentStage: result.currentStage,
         status: result.status,
       });
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({
-        responseSummary: summaryText,
-        diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
+      const summaryText = buildManageSummaryText(
         action,
-        outputMode,
-        ...result,
-        artifacts: ['state.json', 'report.md'],
-        agentGuidance,
-      }), null, 2));
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['state.json', 'report.md'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
     if (action === 'archive') {
-      const {archiveReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
+      const {archiveReverseTask} = await import(
+        './reverse/ReverseTaskAdmin.js'
+      );
       const result = await archiveReverseTask(store, String(args.taskId));
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        taskId: result.taskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['task.json'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
     if (action === 'restore') {
-      const {restoreReverseTask} = await import('./reverse/ReverseTaskAdmin.js');
+      const {restoreReverseTask} = await import(
+        './reverse/ReverseTaskAdmin.js'
+      );
       const result = await restoreReverseTask(store, String(args.taskId));
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        taskId: result.taskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['task.json'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
     if (action === 'search') {
-      const {searchReverseTasks} = await import('./reverse/ReverseTaskAdmin.js');
+      const {searchReverseTasks} = await import(
+        './reverse/ReverseTaskAdmin.js'
+      );
       const items = await searchReverseTasks(store, {
         query: typeof args.query === 'string' ? args.query : undefined,
         tag: typeof args.tag === 'string' ? args.tag : undefined,
         includeArchived: Boolean(args.includeArchived),
-        limit: typeof args.reverseTaskLimit === 'number' ? args.reverseTaskLimit : undefined,
+        limit:
+          typeof args.reverseTaskLimit === 'number'
+            ? args.reverseTaskLimit
+            : undefined,
       });
-      const agentGuidance = buildManageTaskAgentHints({action, itemCount: items.length});
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        itemCount: items.length,
+      });
       const summaryText = buildManageSummaryText(action, {items});
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance}, summaryText), action, outputMode, items, artifacts: ['task.json'], agentGuidance}), null, 2));
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(action, outputMode),
+            ...buildManageContinuation(action, {agentGuidance}, summaryText),
+            action,
+            outputMode,
+            items,
+            artifacts: ['task.json'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -732,38 +1069,125 @@ export async function executeKnowledgeCliCommand(
         Array.isArray(args.tags) ? args.tags.map(String) : [],
         {replace: Boolean(args.replaceTags)},
       );
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['task.json'], agentGuidance}), null, 2));
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        taskId: result.taskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['task.json'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
     if (action === 'prune') {
       const {pruneReverseTasks} = await import('./reverse/ReverseTaskAdmin.js');
       const result = await pruneReverseTasks(store, {
-        olderThanDays: typeof args.pruneOlderThanDays === 'number' ? args.pruneOlderThanDays : undefined,
+        olderThanDays:
+          typeof args.pruneOlderThanDays === 'number'
+            ? args.pruneOlderThanDays
+            : undefined,
       });
       const agentGuidance = buildManageTaskAgentHints({action});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['artifacts/tasks/<archived-task-id>/'], agentGuidance}), null, 2));
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(action, outputMode),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['artifacts/tasks/<archived-task-id>/'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
     if (action === 'compare') {
-      const {compareReverseTasks} = await import('./reverse/ReverseTaskCompare.js');
-      const result = await compareReverseTasks(store, String(args.taskId), String(args.otherTaskId));
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.leftTaskId, otherTaskId: result.rightTaskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({
-        responseSummary: summaryText,
-        diagnostics: buildTaskDiagnostics(action, outputMode, result.leftTaskId),
-        ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText),
+      const {compareReverseTasks} = await import(
+        './reverse/ReverseTaskCompare.js'
+      );
+      const result = await compareReverseTasks(
+        store,
+        String(args.taskId),
+        String(args.otherTaskId),
+      );
+      const agentGuidance = buildManageTaskAgentHints({
         action,
-        outputMode,
-        ...result,
-        artifacts: ['task.json', 'state.json', 'report.md', 'timeline.jsonl', 'runtime-evidence.jsonl'],
-        agentGuidance,
-      }), null, 2));
+        taskId: result.leftTaskId,
+        otherTaskId: result.rightTaskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.leftTaskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: [
+              'task.json',
+              'state.json',
+              'report.md',
+              'timeline.jsonl',
+              'runtime-evidence.jsonl',
+            ],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -774,13 +1198,47 @@ export async function executeKnowledgeCliCommand(
         targetUrl: args.taskTargetUrl,
         goal: args.taskGoal,
         currentStage: args.taskStage,
-        status: args.taskStatus as 'active' | 'blocked' | 'partial' | 'pass' | undefined,
+        status: args.taskStatus as
+          | 'active'
+          | 'blocked'
+          | 'partial'
+          | 'pass'
+          | undefined,
         currentSummary: args.taskSummary,
         nextStepHint: args.taskNextStep,
       });
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['state.json', 'report.md'], agentGuidance}), null, 2));
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        taskId: result.taskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['state.json', 'report.md'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -796,9 +1254,38 @@ export async function executeKnowledgeCliCommand(
         result: args.timelineResult,
         next: args.timelineNext,
       });
-      const agentGuidance = buildManageTaskAgentHints({action, taskId: result.taskId});
-      const summaryText = buildManageSummaryText(action, result as unknown as Record<string, unknown>);
-      writeLine(JSON.stringify(withSchemaVersion({responseSummary: summaryText, diagnostics: buildTaskDiagnostics(action, outputMode, result.taskId), ...buildManageContinuation(action, {agentGuidance, ...result} as Record<string, unknown>, summaryText), action, outputMode, ...result, artifacts: ['timeline.jsonl', 'report.md'], agentGuidance}), null, 2));
+      const agentGuidance = buildManageTaskAgentHints({
+        action,
+        taskId: result.taskId,
+      });
+      const summaryText = buildManageSummaryText(
+        action,
+        result as unknown as Record<string, unknown>,
+      );
+      writeLine(
+        JSON.stringify(
+          withSchemaVersion({
+            responseSummary: summaryText,
+            diagnostics: buildTaskDiagnostics(
+              action,
+              outputMode,
+              result.taskId,
+            ),
+            ...buildManageContinuation(
+              action,
+              {agentGuidance, ...result} as Record<string, unknown>,
+              summaryText,
+            ),
+            action,
+            outputMode,
+            ...result,
+            artifacts: ['timeline.jsonl', 'report.md'],
+            agentGuidance,
+          }),
+          null,
+          2,
+        ),
+      );
       return true;
     }
 
@@ -806,12 +1293,16 @@ export async function executeKnowledgeCliCommand(
   }
 
   if (args.doctor) {
-    const {runEnvironmentDiagnostics} = await import('./diagnostics/environment.js');
+    const {runEnvironmentDiagnostics} = await import(
+      './diagnostics/environment.js'
+    );
     writeLine(JSON.stringify(runEnvironmentDiagnostics(), null, 2));
     return true;
   }
 
-  const workflowModule = await import('./modules/workflows/ParameterWorkflowLibrary.js');
+  const workflowModule = await import(
+    './modules/workflows/ParameterWorkflowLibrary.js'
+  );
 
   if (args.listParameterWorkflows) {
     const items = await workflowModule.listParameterWorkflows();
@@ -820,19 +1311,27 @@ export async function executeKnowledgeCliCommand(
   }
 
   if (args.showParameterWorkflow) {
-    const workflow = await workflowModule.showParameterWorkflow(String(args.showParameterWorkflow));
+    const workflow = await workflowModule.showParameterWorkflow(
+      String(args.showParameterWorkflow),
+    );
     writeLine(JSON.stringify(workflow, null, 2));
     return true;
   }
 
   if (args.exportParameterWorkflowTemplate) {
-    await workflowModule.exportParameterWorkflowTemplate(String(args.exportParameterWorkflowTemplate));
-    writeLine(`Exported parameter workflow template to ${args.exportParameterWorkflowTemplate}`);
+    await workflowModule.exportParameterWorkflowTemplate(
+      String(args.exportParameterWorkflowTemplate),
+    );
+    writeLine(
+      `Exported parameter workflow template to ${args.exportParameterWorkflowTemplate}`,
+    );
     return true;
   }
 
   if (args.validateParameterWorkflow) {
-    const result = await workflowModule.validateParameterWorkflow(String(args.validateParameterWorkflow));
+    const result = await workflowModule.validateParameterWorkflow(
+      String(args.validateParameterWorkflow),
+    );
     writeLine(JSON.stringify(result, null, 2));
     return true;
   }

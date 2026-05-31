@@ -16,7 +16,9 @@ import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 
 describe('ReverseTaskState', () => {
   it('updates state.json and task.json stage/summary fields', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-state-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-state-'),
+    );
     try {
       const store = new ReverseTaskStore({rootDir});
       await startReverseTask(store, {
@@ -34,8 +36,12 @@ describe('ReverseTaskState', () => {
         successCriteria: {localRebuild: 'partial'},
       });
 
-      const taskJson = JSON.parse(await readFile(result.taskFile, 'utf8')) as Record<string, unknown>;
-      const stateJson = JSON.parse(await readFile(result.stateFile, 'utf8')) as Record<string, unknown>;
+      const taskJson = JSON.parse(
+        await readFile(result.taskFile, 'utf8'),
+      ) as Record<string, unknown>;
+      const stateJson = JSON.parse(
+        await readFile(result.stateFile, 'utf8'),
+      ) as Record<string, unknown>;
       assert.strictEqual(taskJson.currentStage, 'Patch');
       assert.strictEqual(stateJson.currentStage, 'Patch');
       assert.strictEqual(stateJson.status, 'partial');

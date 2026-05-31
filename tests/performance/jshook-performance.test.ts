@@ -1,5 +1,11 @@
-import {describe, it} from 'node:test';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
+import {describe, it} from 'node:test';
+
 import {CodeCompressor} from '../../src/modules/collector/CodeCompressor.js';
 import {ToolExecutionScheduler} from '../../src/utils/ToolExecutionScheduler.js';
 
@@ -19,7 +25,9 @@ describe('Performance Tests', {skip: !runPerf}, () => {
   it('concurrency scheduler scales read-only calls', async () => {
     const scheduler = new ToolExecutionScheduler();
     const start = Date.now();
-    await Promise.all(Array.from({length: 8}, () => scheduler.execute(true, async () => 1)));
+    await Promise.all(
+      Array.from({length: 8}, () => scheduler.execute(true, async () => 1)),
+    );
     const elapsed = Date.now() - start;
     assert.ok(elapsed < 500);
   });

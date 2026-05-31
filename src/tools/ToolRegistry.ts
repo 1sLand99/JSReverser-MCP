@@ -1,5 +1,10 @@
-import type {ToolDefinition} from './ToolDefinition.js';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import type {ToolCategory} from './categories.js';
+import type {ToolDefinition} from './ToolDefinition.js';
 
 export interface JSHookToolDefinition extends ToolDefinition {
   requiresAI?: boolean;
@@ -57,7 +62,10 @@ export class ToolRegistry {
   }
 
   aliasEntries(): Array<{alias: string; canonical: string}> {
-    return Array.from(this.aliases.entries()).map(([alias, canonical]) => ({alias, canonical}));
+    return Array.from(this.aliases.entries()).map(([alias, canonical]) => ({
+      alias,
+      canonical,
+    }));
   }
 
   validateName(name: string): boolean {

@@ -34,14 +34,18 @@ describe('environment diagnostics', () => {
     assert.ok(['ok', 'warn', 'fail'].includes(report.status));
     assert.ok(report.summary.length > 0);
     assert.ok(report.checks.length >= 5);
-    assert.ok(report.checks.every((item) => item.name && item.reason && item.fix));
+    assert.ok(
+      report.checks.every(item => item.name && item.reason && item.fix),
+    );
   });
 
   it('warns when selected provider is missing credentials', () => {
     process.env.DEFAULT_LLM_PROVIDER = 'openai';
 
     const report = runEnvironmentDiagnostics();
-    const aiCheck = report.checks.find((item) => item.name === 'ai_provider_selection');
+    const aiCheck = report.checks.find(
+      item => item.name === 'ai_provider_selection',
+    );
 
     assert.ok(aiCheck);
     assert.strictEqual(aiCheck.status, 'warn');

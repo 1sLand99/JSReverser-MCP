@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -15,6 +14,7 @@ import {Deobfuscator} from '../modules/deobfuscator/Deobfuscator.js';
 import {HookManager} from '../modules/hook/HookManager.js';
 import {ReverseTaskStore} from '../reverse/ReverseTaskStore.js';
 import {LLMService} from '../services/LLMService.js';
+import type {Page} from '../third_party/index.js';
 import type {PuppeteerConfig} from '../types/index.js';
 import {
   CodeCacheAdapter,
@@ -24,7 +24,6 @@ import {
 import {getBrowserConfig} from '../utils/config.js';
 import {DetailedDataManager} from '../utils/detailedDataManager.js';
 import {UnifiedCacheManager} from '../utils/UnifiedCacheManager.js';
-import type {Page} from '../third_party/index.js';
 
 let runtime: JSHookRuntime | undefined;
 
@@ -78,9 +77,13 @@ export function getJSHookRuntime(): JSHookRuntime {
   const unifiedCacheManager = UnifiedCacheManager.getInstance();
   const reverseTaskStore = new ReverseTaskStore();
 
-  unifiedCacheManager.registerCache(new DetailedDataManagerAdapter(detailedDataManager));
+  unifiedCacheManager.registerCache(
+    new DetailedDataManagerAdapter(detailedDataManager),
+  );
   unifiedCacheManager.registerCache(new CodeCacheAdapter(collector.getCache()));
-  unifiedCacheManager.registerCache(new CodeCompressorAdapter(collector.getCompressor()));
+  unifiedCacheManager.registerCache(
+    new CodeCompressorAdapter(collector.getCompressor()),
+  );
 
   runtime = {
     browserManager,
@@ -94,10 +97,10 @@ export function getJSHookRuntime(): JSHookRuntime {
     deobfuscator: new Deobfuscator(llmService),
     cryptoDetector: new CryptoDetector(llmService),
     reverseTaskStore,
-    bindPageContext: (resolver) => {
+    bindPageContext: resolver => {
       collector.setPageResolver(() => resolver());
     },
-    syncPageContext: (page) => {
+    syncPageContext: page => {
       collector.setPageResolver(() => page);
       browserManager.setCurrentPage(page);
     },

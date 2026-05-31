@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 安全的 JSON 操作工具
  *
  * 功能：
@@ -16,7 +21,11 @@
  * @param maxDepth 最大深度（默认10，防止深层嵌套）
  * @returns JSON 字符串，失败时返回错误描述
  */
-export function safeStringify(data: any, space?: number, maxDepth = 10): string {
+export function safeStringify(
+  data: any,
+  space?: number,
+  maxDepth = 10,
+): string {
   const seen = new WeakSet();
   let depth = 0;
 
@@ -107,7 +116,7 @@ export function safeStringify(data: any, space?: number, maxDepth = 10): string 
 export function safeParse(text: string): any {
   try {
     return JSON.parse(text);
-  } catch (error) {
+  } catch {
     return null;
   }
 }

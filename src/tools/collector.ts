@@ -1,16 +1,27 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {zod} from '../third_party/index.js';
-import {defineTool} from './ToolDefinition.js';
+
 import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
+import {defineTool} from './ToolDefinition.js';
 
 export const collectCode = defineTool({
   name: 'collect_code',
-  description: 'Collect JavaScript code from a page with smart modes (summary/priority/incremental/full).',
+  description:
+    'Collect JavaScript code from a page with smart modes (summary/priority/incremental/full).',
   annotations: {category: ToolCategory.REVERSE_ENGINEERING, readOnlyHint: true},
   schema: {
     url: zod.string().url(),
-    smartMode: zod.enum(['summary', 'priority', 'incremental', 'full']).optional(),
-    returnMode: zod.enum(['full', 'summary', 'pattern', 'top-priority']).optional(),
+    smartMode: zod
+      .enum(['summary', 'priority', 'incremental', 'full'])
+      .optional(),
+    returnMode: zod
+      .enum(['full', 'summary', 'pattern', 'top-priority'])
+      .optional(),
     includeInline: zod.boolean().optional(),
     includeExternal: zod.boolean().optional(),
     includeDynamic: zod.boolean().optional(),
@@ -24,7 +35,8 @@ export const collectCode = defineTool({
     const runtime = getJSHookRuntime();
     const returnMode = request.params.returnMode ?? 'full';
     const shouldCollect =
-      returnMode !== 'summary' || runtime.collector.getCollectedFilesSummary().length === 0;
+      returnMode !== 'summary' ||
+      runtime.collector.getCollectedFilesSummary().length === 0;
 
     if (shouldCollect) {
       await runtime.collector.collect(request.params);
@@ -71,8 +83,8 @@ function diffSummaries(
   }>;
   unchanged?: Array<{url: string; size: number; type: string}>;
 } {
-  const prevMap = new Map(previous.map((item) => [item.url, item]));
-  const currentMap = new Map(current.map((item) => [item.url, item]));
+  const prevMap = new Map(previous.map(item => [item.url, item]));
+  const currentMap = new Map(current.map(item => [item.url, item]));
 
   const added: Array<{url: string; size: number; type: string}> = [];
   const removed: Array<{url: string; size: number; type: string}> = [];
@@ -112,7 +124,9 @@ function diffSummaries(
     }
   }
 
-  return includeUnchanged ? {added, removed, changed, unchanged} : {added, removed, changed};
+  return includeUnchanged
+    ? {added, removed, changed, unchanged}
+    : {added, removed, changed};
 }
 
 export const collectionDiff = defineTool({
@@ -140,8 +154,13 @@ export const collectionDiff = defineTool({
   },
   handler: async (request, response) => {
     const runtime = getJSHookRuntime();
-    const current = request.params.current ?? runtime.collector.getCollectedFilesSummary();
-    const diff = diffSummaries(request.params.previous, current, request.params.includeUnchanged);
+    const current =
+      request.params.current ?? runtime.collector.getCollectedFilesSummary();
+    const diff = diffSummaries(
+      request.params.previous,
+      current,
+      request.params.includeUnchanged,
+    );
     const result = {
       previousCount: request.params.previous.length,
       currentCount: current.length,

@@ -1,6 +1,11 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 高级反混淆模块 - 支持2024-2025最新混淆技术
- * 
+ *
  * 支持的混淆类型:
  * 1. Invisible Unicode Obfuscation (2025新技术)
  * 2. VM Protection (虚拟机保护)
@@ -11,14 +16,20 @@
  * 7. Custom Obfuscators (魔改混淆器)
  */
 
-import { logger } from '../../utils/logger.js';
-import { LLMService } from '../../services/LLMService.js';
+import generateImport from '@babel/generator';
 import * as parser from '@babel/parser';
 import traverseImport from '@babel/traverse';
-const traverse = (traverseImport as unknown as {default?: typeof traverseImport}).default ?? traverseImport;
-import generateImport from '@babel/generator';
-const generate = (generateImport as unknown as {default?: typeof generateImport}).default ?? generateImport;
 import * as t from '@babel/types';
+
+import type {LLMService} from '../../services/LLMService.js';
+import {logger} from '../../utils/logger.js';
+
+const generate =
+  (generateImport as unknown as {default?: typeof generateImport}).default ??
+  generateImport;
+const traverse =
+  (traverseImport as unknown as {default?: typeof traverseImport}).default ??
+  traverseImport;
 
 export interface AdvancedDeobfuscateOptions {
   code: string;
@@ -51,7 +62,9 @@ export class AdvancedDeobfuscator {
   /**
    * 高级反混淆入口
    */
-  async deobfuscate(options: AdvancedDeobfuscateOptions): Promise<AdvancedDeobfuscateResult> {
+  async deobfuscate(
+    options: AdvancedDeobfuscateOptions,
+  ): Promise<AdvancedDeobfuscateResult> {
     logger.info('Starting advanced deobfuscation...');
     const startTime = Date.now();
 
@@ -150,7 +163,11 @@ export class AdvancedDeobfuscator {
       }
 
       const duration = Date.now() - startTime;
-      const confidence = this.calculateConfidence(detectedTechniques, warnings, code);
+      const confidence = this.calculateConfidence(
+        detectedTechniques,
+        warnings,
+        code,
+      );
 
       logger.success(`Advanced deobfuscation completed in ${duration}ms`);
 
@@ -203,7 +220,7 @@ export class AdvancedDeobfuscator {
     let decoded = code;
 
     // 查找所有不可见字符序列
-    const invisiblePattern = /[\u200B\u200C\u200D\u2060\uFEFF]+/g;
+    const invisiblePattern = /(?:\u200B|\u200C|\u200D|\u2060|\uFEFF)+/g;
     const matches = code.match(invisiblePattern);
 
     if (matches) {
@@ -260,7 +277,7 @@ export class AdvancedDeobfuscator {
       };
     }
 
-    return { detected: false, type: 'none', instructionCount: 0 };
+    return {detected: false, type: 'none', instructionCount: 0};
   }
 
   /**
@@ -289,8 +306,8 @@ export class AdvancedDeobfuscator {
    */
   private async deobfuscateVM(
     code: string,
-    vmInfo: { type: string; instructionCount: number }
-  ): Promise<{ success: boolean; code: string }> {
+    vmInfo: {type: string; instructionCount: number},
+  ): Promise<{success: boolean; code: string}> {
     logger.warn('VM deobfuscation is experimental and may fail');
 
     try {
@@ -298,7 +315,9 @@ export class AdvancedDeobfuscator {
       const vmStructure = this.analyzeVMStructure(code);
 
       if (vmStructure.hasInterpreter) {
-        logger.info(`Detected VM interpreter with ${vmStructure.instructionTypes.length} instruction types`);
+        logger.info(
+          `Detected VM interpreter with ${vmStructure.instructionTypes.length} instruction types`,
+        );
       }
 
       // 第二步: 提取关键VM组件
@@ -306,12 +325,18 @@ export class AdvancedDeobfuscator {
 
       // 第三步: 使用LLM辅助理解VM逻辑 (优化后的提示词)
       if (this.llm) {
-        const prompt = this.buildVMDeobfuscationPrompt(code, vmInfo, vmStructure, vmComponents);
+        const prompt = this.buildVMDeobfuscationPrompt(
+          code,
+          vmInfo,
+          vmStructure,
+          vmComponents,
+        );
 
-        const response = await this.llm.chat([
-          {
-            role: 'system',
-            content: `# Role
+        const response = await this.llm.chat(
+          [
+            {
+              role: 'system',
+              content: `# Role
 You are a world-class expert in JavaScript VM deobfuscation and reverse engineering with expertise in:
 - Virtual machine architecture and instruction set design
 - Bytecode interpretation and JIT compilation
@@ -338,16 +363,20 @@ Analyze VM-protected JavaScript code and reconstruct the original, readable Java
 - If uncertain, preserve original code structure
 
 # Output Format
-Return clean JavaScript code without any wrapper or formatting.`
+Return clean JavaScript code without any wrapper or formatting.`,
+            },
+            {role: 'user', content: prompt},
+          ],
+          {
+            temperature: 0.05, // 极低温度以获得最确定性的输出
+            maxTokens: 4000,
           },
-          { role: 'user', content: prompt },
-        ], {
-          temperature: 0.05, // 极低温度以获得最确定性的输出
-          maxTokens: 4000,
-        });
+        );
 
         // 验证LLM输出是否是有效的JavaScript
-        const deobfuscatedCode = this.extractCodeFromLLMResponse(response.content);
+        const deobfuscatedCode = this.extractCodeFromLLMResponse(
+          response.content,
+        );
 
         if (this.isValidJavaScript(deobfuscatedCode)) {
           logger.success('VM deobfuscation succeeded via LLM');
@@ -356,7 +385,9 @@ Return clean JavaScript code without any wrapper or formatting.`
             code: deobfuscatedCode,
           };
         } else {
-          logger.warn('LLM output is not valid JavaScript, falling back to original');
+          logger.warn(
+            'LLM output is not valid JavaScript, falling back to original',
+          );
         }
       }
 
@@ -365,11 +396,11 @@ Return clean JavaScript code without any wrapper or formatting.`
 
       return {
         success: simplifiedCode !== code,
-        code: simplifiedCode
+        code: simplifiedCode,
       };
     } catch (error) {
       logger.error('VM deobfuscation failed', error);
-      return { success: false, code };
+      return {success: false, code};
     }
   }
 
@@ -398,7 +429,9 @@ Return clean JavaScript code without any wrapper or formatting.`
     const switchMatches = code.match(/case\s+0x[0-9a-f]+:/gi);
     if (switchMatches && switchMatches.length > 10) {
       structure.hasInterpreter = true;
-      structure.instructionTypes = switchMatches.map(m => m.replace(/case\s+/i, '').replace(/:/, ''));
+      structure.instructionTypes = switchMatches.map(m =>
+        m.replace(/case\s+/i, '').replace(/:/, ''),
+      );
     }
 
     // 检测栈操作
@@ -437,7 +470,9 @@ Return clean JavaScript code without any wrapper or formatting.`
             const arrayLength = path.node.init.elements.length;
 
             if (arrayLength > 50) {
-              const arrayName = t.isIdentifier(path.node.id) ? path.node.id.name : 'unknown';
+              const arrayName = t.isIdentifier(path.node.id)
+                ? path.node.id.name
+                : 'unknown';
 
               // 检查数组内容类型
               const firstElement = path.node.init.elements[0];
@@ -454,13 +489,18 @@ Return clean JavaScript code without any wrapper or formatting.`
         FunctionDeclaration(path: any) {
           let hasBigSwitch = false;
 
-          traverse(path.node, {
-            SwitchStatement(switchPath: any) {
-              if (switchPath.node.cases.length > 10) {
-                hasBigSwitch = true;
-              }
+          traverse(
+            path.node,
+            {
+              SwitchStatement(switchPath: any) {
+                if (switchPath.node.cases.length > 10) {
+                  hasBigSwitch = true;
+                }
+              },
             },
-          }, path.scope, path);
+            path.scope,
+            path,
+          );
 
           if (hasBigSwitch && t.isIdentifier(path.node.id)) {
             components.interpreterFunction = path.node.id.name;
@@ -479,11 +519,14 @@ Return clean JavaScript code without any wrapper or formatting.`
    */
   private buildVMDeobfuscationPrompt(
     code: string,
-    vmInfo: { type: string; instructionCount: number },
+    vmInfo: {type: string; instructionCount: number},
     vmStructure: any,
-    vmComponents: any
+    vmComponents: any,
   ): string {
-    const codeSnippet = code.length > 6000 ? code.substring(0, 6000) + '\n\n// ... (code truncated)' : code;
+    const codeSnippet =
+      code.length > 6000
+        ? code.substring(0, 6000) + '\n\n// ... (code truncated)'
+        : code;
 
     return `# VM Deobfuscation Analysis
 
@@ -608,14 +651,23 @@ Return clean JavaScript code starting immediately (no preamble).`;
 
       // 移除VM解释器函数 (如果能识别)
       if (vmComponents.interpreterFunction) {
-        const regex = new RegExp(`function\\s+${vmComponents.interpreterFunction}\\s*\\([^)]*\\)\\s*\\{[^}]*\\}`, 'g');
+        const regex = new RegExp(
+          `function\\s+${vmComponents.interpreterFunction}\\s*\\([^)]*\\)\\s*\\{[^}]*\\}`,
+          'g',
+        );
         simplified = simplified.replace(regex, '// VM interpreter removed');
       }
 
       // 移除大型指令数组
       if (vmComponents.instructionArray) {
-        const regex = new RegExp(`var\\s+${vmComponents.instructionArray}\\s*=\\s*\\[[^\\]]*\\];`, 'g');
-        simplified = simplified.replace(regex, '// VM instruction array removed');
+        const regex = new RegExp(
+          `var\\s+${vmComponents.instructionArray}\\s*=\\s*\\[[^\\]]*\\];`,
+          'g',
+        );
+        simplified = simplified.replace(
+          regex,
+          '// VM instruction array removed',
+        );
       }
 
       return simplified;
@@ -646,12 +698,16 @@ Return clean JavaScript code starting immediately (no preamble).`;
     // 使用LLM辅助 (优化后的提示词)
     if (this.llm) {
       try {
-        const codeSnippet = code.length > 3000 ? code.substring(0, 3000) + '\n\n// ... (truncated)' : code;
+        const codeSnippet =
+          code.length > 3000
+            ? code.substring(0, 3000) + '\n\n// ... (truncated)'
+            : code;
 
-        const response = await this.llm.chat([
-          {
-            role: 'system',
-            content: `# Role
+        const response = await this.llm.chat(
+          [
+            {
+              role: 'system',
+              content: `# Role
 You are an expert in JavaScript control flow deobfuscation specializing in:
 - Control flow flattening detection and removal
 - Switch-case state machine analysis
@@ -685,11 +741,11 @@ return;
 - Preserve exact program logic
 - Remove dispatcher loops and state variables
 - Restore natural if/while/for structures
-- Use meaningful variable names`
-          },
-          {
-            role: 'user',
-            content: `# Control Flow Flattened Code
+- Use meaningful variable names`,
+            },
+            {
+              role: 'user',
+              content: `# Control Flow Flattened Code
 \`\`\`javascript
 ${codeSnippet}
 \`\`\`
@@ -701,12 +757,14 @@ ${codeSnippet}
 4. Remove state variables and dispatcher overhead
 5. Return ONLY the deobfuscated code (no explanations)
 
-Output the deobfuscated JavaScript code:`
+Output the deobfuscated JavaScript code:`,
+            },
+          ],
+          {
+            temperature: 0.1,
+            maxTokens: 3000,
           },
-        ], {
-          temperature: 0.1,
-          maxTokens: 3000,
-        });
+        );
 
         return this.extractCodeFromLLMResponse(response.content);
       } catch (error) {
@@ -753,8 +811,10 @@ Output the deobfuscated JavaScript code:`
         // 查找字符串数组旋转IIFE
         CallExpression(path) {
           // 检查是否是IIFE调用
-          if (!t.isFunctionExpression(path.node.callee) &&
-              !t.isArrowFunctionExpression(path.node.callee)) {
+          if (
+            !t.isFunctionExpression(path.node.callee) &&
+            !t.isArrowFunctionExpression(path.node.callee)
+          ) {
             return;
           }
 
@@ -764,9 +824,12 @@ Output the deobfuscated JavaScript code:`
           }
 
           // 检查函数体是否包含while循环和字符串数组操作
-          const hasWhileLoop = func.body.body.some(stmt => t.isWhileStatement(stmt));
-          const hasArrayRotation = JSON.stringify(func.body).includes('push') &&
-                                   JSON.stringify(func.body).includes('shift');
+          const hasWhileLoop = func.body.body.some(stmt =>
+            t.isWhileStatement(stmt),
+          );
+          const hasArrayRotation =
+            JSON.stringify(func.body).includes('push') &&
+            JSON.stringify(func.body).includes('shift');
 
           if (hasWhileLoop && hasArrayRotation) {
             logger.debug('Found string array rotation IIFE');
@@ -781,7 +844,7 @@ Output the deobfuscated JavaScript code:`
 
       if (derotated > 0) {
         logger.info(`Removed ${derotated} string array rotation functions`);
-        return generate(ast, { comments: true, compact: false }).code;
+        return generate(ast, {comments: true, compact: false}).code;
       }
 
       return code;
@@ -842,9 +905,13 @@ Output the deobfuscated JavaScript code:`
           }
 
           // 检查 if (!![] ) - 永远为true
-          if (t.isUnaryExpression(test) && test.operator === '!' &&
-              t.isUnaryExpression(test.argument) && test.argument.operator === '!' &&
-              t.isArrayExpression(test.argument.argument)) {
+          if (
+            t.isUnaryExpression(test) &&
+            test.operator === '!' &&
+            t.isUnaryExpression(test.argument) &&
+            test.argument.operator === '!' &&
+            t.isArrayExpression(test.argument.argument)
+          ) {
             path.replaceWith(path.node.consequent);
             removed++;
             return;
@@ -879,7 +946,7 @@ Output the deobfuscated JavaScript code:`
 
       if (removed > 0) {
         logger.info(`Removed ${removed} dead code blocks`);
-        return generate(ast, { comments: true, compact: false }).code;
+        return generate(ast, {comments: true, compact: false}).code;
       }
 
       return code;
@@ -970,15 +1037,24 @@ Output the deobfuscated JavaScript code:`
           }
 
           // 检查 x * 0 === 0 类型的谓词
-          if (t.isBinaryExpression(test) && (test.operator === '===' || test.operator === '==')) {
+          if (
+            t.isBinaryExpression(test) &&
+            (test.operator === '===' || test.operator === '==')
+          ) {
             const left = test.left;
             const right = test.right;
 
             // x * 0 === 0
-            if (t.isBinaryExpression(left) && left.operator === '*' &&
-                t.isNumericLiteral(right) && right.value === 0) {
-              if ((t.isNumericLiteral(left.left) && left.left.value === 0) ||
-                  (t.isNumericLiteral(left.right) && left.right.value === 0)) {
+            if (
+              t.isBinaryExpression(left) &&
+              left.operator === '*' &&
+              t.isNumericLiteral(right) &&
+              right.value === 0
+            ) {
+              if (
+                (t.isNumericLiteral(left.left) && left.left.value === 0) ||
+                (t.isNumericLiteral(left.right) && left.right.value === 0)
+              ) {
                 // 永远为true
                 path.replaceWith(path.node.consequent);
                 removed++;
@@ -991,7 +1067,7 @@ Output the deobfuscated JavaScript code:`
 
       if (removed > 0) {
         logger.info(`Removed ${removed} opaque predicates`);
-        return generate(ast, { comments: true, compact: false }).code;
+        return generate(ast, {comments: true, compact: false}).code;
       }
 
       return code;
@@ -1010,11 +1086,17 @@ Output the deobfuscated JavaScript code:`
    * 3. 添加有意义的注释
    * 4. 重构冗余代码
    */
-  private async llmCleanup(code: string, techniques: string[]): Promise<string | null> {
+  private async llmCleanup(
+    code: string,
+    techniques: string[],
+  ): Promise<string | null> {
     if (!this.llm) return null;
 
     try {
-      const codeSnippet = code.length > 3000 ? code.substring(0, 3000) + '\n\n// ... (code truncated)' : code;
+      const codeSnippet =
+        code.length > 3000
+          ? code.substring(0, 3000) + '\n\n// ... (code truncated)'
+          : code;
 
       const prompt = `# Code Cleanup Task
 
@@ -1057,10 +1139,11 @@ Clean up and improve this deobfuscated JavaScript code:
 ## Output Format
 Return only the cleaned JavaScript code without markdown formatting.`;
 
-      const response = await this.llm.chat([
-        {
-          role: 'system',
-          content: `# Role
+      const response = await this.llm.chat(
+        [
+          {
+            role: 'system',
+            content: `# Role
 You are an expert JavaScript code reviewer and refactoring specialist with expertise in:
 - Code readability and maintainability improvement
 - Semantic variable naming based on usage context
@@ -1099,13 +1182,15 @@ Clean up and improve deobfuscated JavaScript code while preserving 100% of its f
 - Preserve all side effects and edge cases
 
 # Output Format
-Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
+Return ONLY the cleaned JavaScript code (no markdown, no explanations).`,
+          },
+          {role: 'user', content: prompt},
+        ],
+        {
+          temperature: 0.15, // 低温度以保持一致性和确定性
+          maxTokens: 3000,
         },
-        { role: 'user', content: prompt },
-      ], {
-        temperature: 0.15, // 低温度以保持一致性和确定性
-        maxTokens: 3000,
-      });
+      );
 
       const cleanedCode = this.extractCodeFromLLMResponse(response.content);
 
@@ -1168,14 +1253,18 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
         CallExpression(path: any) {
           if (
             t.isMemberExpression(path.node.callee) &&
-            t.isIdentifier(path.node.callee.object, { name: 'String' }) &&
-            t.isIdentifier(path.node.callee.property, { name: 'fromCharCode' })
+            t.isIdentifier(path.node.callee.object, {name: 'String'}) &&
+            t.isIdentifier(path.node.callee.property, {name: 'fromCharCode'})
           ) {
             // 检查所有参数是否都是数字
-            const allNumbers = path.node.arguments.every((arg: any) => t.isNumericLiteral(arg));
+            const allNumbers = path.node.arguments.every((arg: any) =>
+              t.isNumericLiteral(arg),
+            );
 
             if (allNumbers) {
-              const charCodes = path.node.arguments.map((arg: any) => arg.value);
+              const charCodes = path.node.arguments.map(
+                (arg: any) => arg.value,
+              );
               const decodedString = String.fromCharCode(...charCodes);
               path.replaceWith(t.stringLiteral(decodedString));
               decoded++;
@@ -1186,7 +1275,7 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
 
       if (decoded > 0) {
         logger.info(`Decoded ${decoded} string expressions`);
-        return generate(ast, { comments: false, compact: false }).code;
+        return generate(ast, {comments: false, compact: false}).code;
       }
 
       return code;
@@ -1213,18 +1302,30 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
       traverse(ast, {
         // 常量折叠：计算常量表达式
         BinaryExpression(path: any) {
-          const { left, right, operator } = path.node;
+          const {left, right, operator} = path.node;
 
           if (t.isNumericLiteral(left) && t.isNumericLiteral(right)) {
             let result: number | undefined;
 
             switch (operator) {
-              case '+': result = left.value + right.value; break;
-              case '-': result = left.value - right.value; break;
-              case '*': result = left.value * right.value; break;
-              case '/': result = left.value / right.value; break;
-              case '%': result = left.value % right.value; break;
-              case '**': result = Math.pow(left.value, right.value); break;
+              case '+':
+                result = left.value + right.value;
+                break;
+              case '-':
+                result = left.value - right.value;
+                break;
+              case '*':
+                result = left.value * right.value;
+                break;
+              case '/':
+                result = left.value / right.value;
+                break;
+              case '%':
+                result = left.value % right.value;
+                break;
+              case '**':
+                result = Math.pow(left.value, right.value);
+                break;
             }
 
             if (result !== undefined) {
@@ -1236,16 +1337,24 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
 
         // 简化逻辑表达式
         LogicalExpression(path: any) {
-          const { left, right, operator } = path.node;
+          const {left, right, operator} = path.node;
 
           // true && x => x
-          if (operator === '&&' && t.isBooleanLiteral(left) && left.value === true) {
+          if (
+            operator === '&&' &&
+            t.isBooleanLiteral(left) &&
+            left.value === true
+          ) {
             path.replaceWith(right);
             optimized++;
           }
 
           // false || x => x
-          if (operator === '||' && t.isBooleanLiteral(left) && left.value === false) {
+          if (
+            operator === '||' &&
+            t.isBooleanLiteral(left) &&
+            left.value === false
+          ) {
             path.replaceWith(right);
             optimized++;
           }
@@ -1259,7 +1368,7 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
 
         // 简化三元表达式
         ConditionalExpression(path: any) {
-          const { test, consequent, alternate } = path.node;
+          const {test, consequent, alternate} = path.node;
 
           // true ? a : b => a
           if (t.isBooleanLiteral(test) && test.value === true) {
@@ -1277,7 +1386,7 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
 
       if (optimized > 0) {
         logger.info(`Applied ${optimized} AST optimizations`);
-        return generate(ast, { comments: true, compact: false }).code;
+        return generate(ast, {comments: true, compact: false}).code;
       }
 
       return code;
@@ -1296,7 +1405,11 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
    * 3. 代码复杂度变化
    * 4. AST节点数量变化
    */
-  private calculateConfidence(techniques: string[], warnings: string[], code: string): number {
+  private calculateConfidence(
+    techniques: string[],
+    warnings: string[],
+    code: string,
+  ): number {
     let confidence = 0.3; // 基础置信度
 
     // 每成功处理一种混淆技术,增加置信度
@@ -1318,7 +1431,7 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
     ];
 
     const highConfidenceCount = techniques.filter(t =>
-      highConfidenceTechniques.some(ht => t.includes(ht))
+      highConfidenceTechniques.some(ht => t.includes(ht)),
     ).length;
 
     confidence += highConfidenceCount * 0.05;
@@ -1359,22 +1472,42 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
 
       traverse(ast, {
         // 每个函数增加复杂度
-        FunctionDeclaration() { complexity += 2; },
-        FunctionExpression() { complexity += 2; },
-        ArrowFunctionExpression() { complexity += 2; },
+        FunctionDeclaration() {
+          complexity += 2;
+        },
+        FunctionExpression() {
+          complexity += 2;
+        },
+        ArrowFunctionExpression() {
+          complexity += 2;
+        },
 
         // 每个条件语句增加复杂度
-        IfStatement() { complexity += 1; },
-        SwitchStatement() { complexity += 2; },
-        ConditionalExpression() { complexity += 1; },
+        IfStatement() {
+          complexity += 1;
+        },
+        SwitchStatement() {
+          complexity += 2;
+        },
+        ConditionalExpression() {
+          complexity += 1;
+        },
 
         // 每个循环增加复杂度
-        WhileStatement() { complexity += 2; },
-        ForStatement() { complexity += 2; },
-        DoWhileStatement() { complexity += 2; },
+        WhileStatement() {
+          complexity += 2;
+        },
+        ForStatement() {
+          complexity += 2;
+        },
+        DoWhileStatement() {
+          complexity += 2;
+        },
 
         // 每个try-catch增加复杂度
-        TryStatement() { complexity += 3; },
+        TryStatement() {
+          complexity += 3;
+        },
       });
 
       return complexity;
@@ -1384,4 +1517,3 @@ Return ONLY the cleaned JavaScript code (no markdown, no explanations).`
     }
   }
 }
-

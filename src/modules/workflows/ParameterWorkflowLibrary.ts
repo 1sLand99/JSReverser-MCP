@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {access, mkdir, readFile, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -129,18 +134,24 @@ export class ParameterWorkflowLibrary {
   constructor(private readonly rootDir = KNOWLEDGE_ROOT) {}
 
   async readIndex(): Promise<ParameterWorkflowIndex> {
-    return readJsonFile<ParameterWorkflowIndex>(path.join(this.rootDir, 'index.json'));
+    return readJsonFile<ParameterWorkflowIndex>(
+      path.join(this.rootDir, 'index.json'),
+    );
   }
 
   async listWorkflows(): Promise<ParameterWorkflowMetadata[]> {
     const index = await this.readIndex();
-    const docs = await Promise.all(index.workflows.map((item) => this.getWorkflow(item.id)));
-    return docs.map((item) => item.metadata);
+    const docs = await Promise.all(
+      index.workflows.map(item => this.getWorkflow(item.id)),
+    );
+    return docs.map(item => item.metadata);
   }
 
   async getWorkflow(id: string): Promise<ParameterWorkflowDocument> {
     const index = await this.readIndex();
-    const entry = index.workflows.find((item) => item.id === id || item.aliases.includes(id));
+    const entry = index.workflows.find(
+      item => item.id === id || item.aliases.includes(id),
+    );
     if (!entry) {
       throw new Error(`Unknown parameter workflow: ${id}`);
     }
@@ -151,19 +162,24 @@ export class ParameterWorkflowLibrary {
     const index = await this.readIndex();
     const normalizedQuery = normalize(query);
 
-    const exact = index.workflows.find((item) => {
+    const exact = index.workflows.find(item => {
       if (normalize(item.id) === normalizedQuery) {
         return true;
       }
-      return item.aliases.some((alias) => normalize(alias) === normalizedQuery);
+      return item.aliases.some(alias => normalize(alias) === normalizedQuery);
     });
     if (exact) {
       return this.readWorkflowEntry(exact);
     }
 
-    const containsMatch = index.workflows.find((item) => {
-      const tokens = [item.id, ...item.aliases, ...(item.keywords ?? [])].map(normalize);
-      return tokens.some((token) => normalizedQuery.includes(token) || token.includes(normalizedQuery));
+    const containsMatch = index.workflows.find(item => {
+      const tokens = [item.id, ...item.aliases, ...(item.keywords ?? [])].map(
+        normalize,
+      );
+      return tokens.some(
+        token =>
+          normalizedQuery.includes(token) || token.includes(normalizedQuery),
+      );
     });
     if (containsMatch) {
       return this.readWorkflowEntry(containsMatch);
@@ -186,7 +202,11 @@ export class ParameterWorkflowLibrary {
       `${JSON.stringify(workflow.metadata, null, 2)}\n`,
       'utf8',
     );
-    await writeFile(path.join(targetDir, 'workflow.md'), workflow.workflow, 'utf8');
+    await writeFile(
+      path.join(targetDir, 'workflow.md'),
+      workflow.workflow,
+      'utf8',
+    );
     if (workflow.parts) {
       await writeFile(
         path.join(targetDir, 'parts.json'),
@@ -203,7 +223,9 @@ export class ParameterWorkflowLibrary {
     }
   }
 
-  async validateWorkflowDirectory(targetDir: string): Promise<{valid: boolean; errors: string[]}> {
+  async validateWorkflowDirectory(
+    targetDir: string,
+  ): Promise<{valid: boolean; errors: string[]}> {
     const errors: string[] = [];
     const metadataPath = path.join(targetDir, 'metadata.json');
     const workflowPath = path.join(targetDir, 'workflow.md');
@@ -226,10 +248,20 @@ export class ParameterWorkflowLibrary {
       return {valid: false, errors};
     }
 
-    const metadata = await readJsonFile<Partial<ParameterWorkflowMetadata>>(metadataPath);
+    const metadata =
+      await readJsonFile<Partial<ParameterWorkflowMetadata>>(metadataPath);
     const workflow = await readFile(workflowPath, 'utf8');
 
-    for (const field of ['id', 'title', 'aliases', 'category', 'status', 'version', 'lastUpdated', 'summary'] as const) {
+    for (const field of [
+      'id',
+      'title',
+      'aliases',
+      'category',
+      'status',
+      'version',
+      'lastUpdated',
+      'summary',
+    ] as const) {
       if (!metadata[field]) {
         errors.push(`metadata.json 缺少字段: ${field}`);
       }
@@ -243,7 +275,9 @@ export class ParameterWorkflowLibrary {
 
     try {
       await access(partsPath);
-      const parts = await readJsonFile<{parameter?: string; parts?: unknown[]}>(partsPath);
+      const parts = await readJsonFile<{parameter?: string; parts?: unknown[]}>(
+        partsPath,
+      );
       if (!parts.parameter || !Array.isArray(parts.parts)) {
         errors.push('parts.json 缺少 parameter 或 parts 数组');
       }
@@ -253,7 +287,10 @@ export class ParameterWorkflowLibrary {
 
     try {
       await access(mutationsPath);
-      const mutations = await readJsonFile<{parameter?: string; mutations?: unknown[]}>(mutationsPath);
+      const mutations = await readJsonFile<{
+        parameter?: string;
+        mutations?: unknown[];
+      }>(mutationsPath);
       if (!mutations.parameter || !Array.isArray(mutations.mutations)) {
         errors.push('mutations.json 缺少 parameter 或 mutations 数组');
       }
@@ -264,18 +301,30 @@ export class ParameterWorkflowLibrary {
     return {valid: errors.length === 0, errors};
   }
 
-  private async readWorkflowEntry(entry: ParameterWorkflowIndexEntry): Promise<ParameterWorkflowDocument> {
+  private async readWorkflowEntry(
+    entry: ParameterWorkflowIndexEntry,
+  ): Promise<ParameterWorkflowDocument> {
     const baseDir = path.join(this.rootDir, entry.path);
-    const metadata = await readJsonFile<ParameterWorkflowMetadata>(path.join(baseDir, 'metadata.json'));
+    const metadata = await readJsonFile<ParameterWorkflowMetadata>(
+      path.join(baseDir, 'metadata.json'),
+    );
     const workflow = await readFile(path.join(baseDir, 'workflow.md'), 'utf8');
     let parts: ParameterWorkflowDocument['parts'];
     let mutations: ParameterWorkflowDocument['mutations'];
     try {
-      parts = await readJsonFile<NonNullable<ParameterWorkflowDocument['parts']>>(path.join(baseDir, 'parts.json'));
-    } catch {}
+      parts = await readJsonFile<
+        NonNullable<ParameterWorkflowDocument['parts']>
+      >(path.join(baseDir, 'parts.json'));
+    } catch {
+      parts = undefined;
+    }
     try {
-      mutations = await readJsonFile<NonNullable<ParameterWorkflowDocument['mutations']>>(path.join(baseDir, 'mutations.json'));
-    } catch {}
+      mutations = await readJsonFile<
+        NonNullable<ParameterWorkflowDocument['mutations']>
+      >(path.join(baseDir, 'mutations.json'));
+    } catch {
+      mutations = undefined;
+    }
     return {
       metadata,
       workflow,
@@ -297,14 +346,20 @@ export function resetParameterWorkflowLibraryForTest(): void {
   cachedLibrary = undefined;
 }
 
-export async function exportParameterWorkflowTemplate(targetDir: string): Promise<void> {
+export async function exportParameterWorkflowTemplate(
+  targetDir: string,
+): Promise<void> {
   await mkdir(targetDir, {recursive: true});
   await writeFile(
     path.join(targetDir, 'metadata.json'),
     `${JSON.stringify(TEMPLATE_METADATA, null, 2)}\n`,
     'utf8',
   );
-  await writeFile(path.join(targetDir, 'workflow.md'), TEMPLATE_WORKFLOW, 'utf8');
+  await writeFile(
+    path.join(targetDir, 'workflow.md'),
+    TEMPLATE_WORKFLOW,
+    'utf8',
+  );
   await writeFile(
     path.join(targetDir, 'parts.json'),
     `${JSON.stringify(TEMPLATE_PARTS, null, 2)}\n`,

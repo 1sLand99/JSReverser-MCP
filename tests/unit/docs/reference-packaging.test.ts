@@ -22,34 +22,28 @@ async function assertExists(relativePath: string): Promise<void> {
 
 describe('reference docs packaging', () => {
   it('publishes core and extra reference docs into build output with a manifest', async () => {
-    const manifest = await readJson('build/docs-manifest.json') as {
+    const manifest = (await readJson('build/docs-manifest.json')) as {
       core: Record<string, string>;
       extra: Record<string, string>;
     };
 
-    assert.deepStrictEqual(
-      Object.keys(manifest.core).sort(),
-      [
-        'case-safety-policy',
-        'env-patching',
-        'pure-extraction',
-        'reverse-bootstrap',
-        'reverse-task-index',
-        'reverse-workflow',
-        'tool-io-contract',
-      ],
-    );
+    assert.deepStrictEqual(Object.keys(manifest.core).sort(), [
+      'case-safety-policy',
+      'env-patching',
+      'pure-extraction',
+      'reverse-bootstrap',
+      'reverse-task-index',
+      'reverse-workflow',
+      'tool-io-contract',
+    ]);
 
-    assert.deepStrictEqual(
-      Object.keys(manifest.extra).sort(),
-      [
-        'algorithm-upgrade-template',
-        'reverse-artifacts',
-        'reverse-report-template',
-        'reverse-update-prompt-template',
-        'tool-reference',
-      ],
-    );
+    assert.deepStrictEqual(Object.keys(manifest.extra).sort(), [
+      'algorithm-upgrade-template',
+      'reverse-artifacts',
+      'reverse-report-template',
+      'reverse-update-prompt-template',
+      'tool-reference',
+    ]);
 
     for (const relativePath of [
       ...Object.values(manifest.core),
@@ -64,7 +58,7 @@ describe('reference docs packaging', () => {
   });
 
   it('declares packaged build docs in package.json publish files', async () => {
-    const packageJson = await readJson('package.json') as {files?: string[]};
+    const packageJson = (await readJson('package.json')) as {files?: string[]};
     assert.ok(packageJson.files?.includes('build/docs'));
     assert.ok(packageJson.files?.includes('build/docs-manifest.json'));
   });

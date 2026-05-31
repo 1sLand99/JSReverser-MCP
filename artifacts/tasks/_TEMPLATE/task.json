@@ -12,9 +12,7 @@
       "notes": "<为什么这是目标请求>"
     },
     "triggerAction": "<页面上如何触发>",
-    "candidateScripts": [
-      "<script url or bundle hint>"
-    ]
+    "candidateScripts": ["<script url or bundle hint>"]
   },
   "successCriteria": {
     "localRebuild": "<pass|partial|unknown>",

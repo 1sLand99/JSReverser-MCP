@@ -38,7 +38,10 @@ describe('diagnostics tools', () => {
 
     assert.strictEqual(diagnoseEnvironment.name, 'diagnose_environment');
     assert.strictEqual(response.lines[0], '```json');
-    const parsed = JSON.parse(response.lines[1] ?? '{}') as {status: string; checks: unknown[]};
+    const parsed = JSON.parse(response.lines[1] ?? '{}') as {
+      status: string;
+      checks: unknown[];
+    };
     assert.ok(['ok', 'warn', 'fail'].includes(parsed.status));
     assert.ok(Array.isArray(parsed.checks));
   });

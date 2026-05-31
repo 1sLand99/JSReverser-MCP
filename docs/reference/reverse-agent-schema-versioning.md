@@ -69,7 +69,9 @@
 
 ```ts
 if (response.schemaVersion !== '1.0') {
-  throw new Error(`Unsupported reverse-agent schema version: ${response.schemaVersion}`);
+  throw new Error(
+    `Unsupported reverse-agent schema version: ${response.schemaVersion}`,
+  );
 }
 ```
 
@@ -78,7 +80,9 @@ if (response.schemaVersion !== '1.0') {
 ```ts
 const major = String(response.schemaVersion ?? '').split('.')[0];
 if (major !== '1') {
-  throw new Error(`Unsupported reverse-agent schema major version: ${response.schemaVersion}`);
+  throw new Error(
+    `Unsupported reverse-agent schema major version: ${response.schemaVersion}`,
+  );
 }
 ```
 

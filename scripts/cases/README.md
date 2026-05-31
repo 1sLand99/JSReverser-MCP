@@ -14,7 +14,7 @@
 ## 已公开链路
 
 > 通用模板与参数级旧 case 已迁移到 `docs/knowledge/parameter-blueprints/`。
-> 
+>
 > **参数级旧 case 已全部退役**，本目录现在只保留迁移说明，避免旧入口继续分散维护。
 
 ## 字段规范

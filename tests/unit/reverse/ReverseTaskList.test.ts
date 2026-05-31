@@ -43,7 +43,9 @@ describe('ReverseTaskList', () => {
   });
 
   it('excludes archived tasks by default and includes them on request', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-list-archive-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-list-archive-'),
+    );
     try {
       const store = new ReverseTaskStore({rootDir});
       const first = await startReverseTask(store, {
@@ -65,9 +67,17 @@ describe('ReverseTaskList', () => {
       assert.strictEqual(activeOnly.length, 1);
       assert.strictEqual(activeOnly[0]?.taskId, 'task-list-archive-002');
 
-      const withArchived = await listReverseTasks(store, {includeArchived: true});
+      const withArchived = await listReverseTasks(store, {
+        includeArchived: true,
+      });
       assert.strictEqual(withArchived.length, 2);
-      assert.ok(withArchived.some((item) => item.taskId === 'task-list-archive-001' && typeof item.archivedAt === 'number'));
+      assert.ok(
+        withArchived.some(
+          item =>
+            item.taskId === 'task-list-archive-001' &&
+            typeof item.archivedAt === 'number',
+        ),
+      );
     } finally {
       await rm(rootDir, {recursive: true, force: true});
     }

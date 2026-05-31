@@ -11,12 +11,14 @@ import path from 'node:path';
 import {describe, it} from 'node:test';
 
 import {startReverseTask} from '../../../src/reverse/ReverseTaskBootstrap.js';
-import {appendReverseTimeline} from '../../../src/reverse/ReverseTaskTimeline.js';
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
+import {appendReverseTimeline} from '../../../src/reverse/ReverseTaskTimeline.js';
 
 describe('ReverseTaskTimeline', () => {
   it('appends explicit timeline entries to an existing task', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-task-timeline-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-task-timeline-'),
+    );
     try {
       const store = new ReverseTaskStore({rootDir});
       await startReverseTask(store, {
@@ -35,7 +37,10 @@ describe('ReverseTaskTimeline', () => {
         next: 'inject hook',
       });
 
-      const timeline = (await readFile(result.timelineFile, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+      const timeline = (await readFile(result.timelineFile, 'utf8'))
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line));
       assert.ok(timeline.length >= 2);
       const last = timeline.at(-1) as Record<string, unknown>;
       assert.strictEqual(last.action, 'inspect network');

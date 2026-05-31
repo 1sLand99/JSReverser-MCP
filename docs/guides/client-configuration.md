@@ -14,6 +14,30 @@
 - 接入 MCP 后，第一条工具调用优先用 `diagnose_environment`
 - 真正开始页面取证前，再用 `check_browser_health`
 
+## 工具暴露模式
+
+默认配置不写 `--toolProfile`，等价于 `--toolProfile compact`。
+`compact` 只暴露 38 个高频工具，目的是减少 MCP tool list 进入模型上下文时的 token 占用。
+这不是缺工具；低频手工调试工具只是默认隐藏。
+
+需要全量工具时，在 `args` 里加入：
+
+```json
+"--toolProfile",
+"full"
+```
+
+`full` 会暴露全部 85 个工具。
+适合需要暂停、单步、断点、WebSocket 细节、DOM 细调等深度人工调试场景。
+
+成功响应默认使用 `--traceOutput errors`，只在错误响应中携带 `traceId`。
+如果你需要每次成功响应也带 `traceId`，在 `args` 里加入：
+
+```json
+"--traceOutput",
+"all"
+```
+
 ## 最常用完整模板
 
 如果你只是想先快速跑起来，推荐直接使用“接管已打开浏览器 + Gemini API”这一份：
@@ -60,9 +84,7 @@
   "mcpServers": {
     "jsreverser-mcp": {
       "command": "node",
-      "args": [
-        "/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"
-      ]
+      "args": ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
     }
   }
 }

@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 const originLog = console.log.bind(console);
 const nativeMark = Symbol('native_code_mark');
 
@@ -27,26 +32,32 @@ function installSafeFunction() {
     configurable: true,
   });
 
-  setNative(Function.prototype.toString, nativeMark, 'function toString() { [native code] }');
+  setNative(
+    Function.prototype.toString,
+    nativeMark,
+    'function toString() { [native code] }',
+  );
 }
 
-globalThis.safeFunction = (fn) => {
+globalThis.safeFunction = fn => {
   setNative(fn, nativeMark, `function ${fn.name || ''}() { [native code] }`);
   return fn;
 };
 
 function shouldIgnoreProp(prop) {
   const text = typeof prop === 'symbol' ? String(prop) : String(prop);
-  return [
-    'Math',
-    'Symbol',
-    'Proxy',
-    'Promise',
-    'Array',
-    'isNaN',
-    'encodeURI',
-    'Uint8Array',
-  ].includes(text) || text.includes('Symbol(');
+  return (
+    [
+      'Math',
+      'Symbol',
+      'Proxy',
+      'Promise',
+      'Array',
+      'isNaN',
+      'encodeURI',
+      'Uint8Array',
+    ].includes(text) || text.includes('Symbol(')
+  );
 }
 
 globalThis.watch = function watch(obj, name) {
@@ -54,13 +65,21 @@ globalThis.watch = function watch(obj, name) {
     get(target, prop, receiver) {
       const val = Reflect.get(target, prop, receiver);
       if (!shouldIgnoreProp(prop)) {
-        globalThis.console_log('[env:get]', `${name}.${String(prop)}`, typeof val === 'function' ? 'function' : val);
+        globalThis.console_log(
+          '[env:get]',
+          `${name}.${String(prop)}`,
+          typeof val === 'function' ? 'function' : val,
+        );
       }
       return val;
     },
     set(target, prop, value, receiver) {
       const ok = Reflect.set(target, prop, value, receiver);
-      globalThis.console_log('[env:set]', `${name}.${String(prop)}`, typeof value === 'function' ? 'function' : value);
+      globalThis.console_log(
+        '[env:set]',
+        `${name}.${String(prop)}`,
+        typeof value === 'function' ? 'function' : value,
+      );
       return ok;
     },
     has(target, key) {

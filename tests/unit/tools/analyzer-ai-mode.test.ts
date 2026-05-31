@@ -50,8 +50,15 @@ describe('analyzer ai runtime metadata', () => {
       deobfuscator: {deobfuscate(input: unknown): Promise<unknown>};
       analyzer: {understand(input: unknown): Promise<unknown>};
       cryptoDetector: {detect(input: unknown): Promise<unknown>};
-      collector: {getTopPriorityFiles(limit: number): {files: Array<{url: string; content: string}>}};
-      hookManager: {getRecords(id: string): unknown[]; getAllKnownHookIds(): string[]};
+      collector: {
+        getTopPriorityFiles(limit: number): {
+          files: Array<{url: string; content: string}>;
+        };
+      };
+      hookManager: {
+        getRecords(id: string): unknown[];
+        getAllKnownHookIds(): string[];
+      };
     };
     const originals = {
       deobfuscate: runtime.deobfuscator.deobfuscate,
@@ -62,10 +69,20 @@ describe('analyzer ai runtime metadata', () => {
       getAllKnownHookIds: runtime.hookManager.getAllKnownHookIds,
     };
 
-    runtime.deobfuscator.deobfuscate = async () => ({cleanedCode: 'const a = 1;'});
-    runtime.analyzer.understand = async () => ({securityRisks: [], summary: 'ok'});
-    runtime.cryptoDetector.detect = async () => ({algorithms: [], securityIssues: []});
-    runtime.collector.getTopPriorityFiles = () => ({files: [{url: 'a.js', content: 'const a=1;'}]});
+    runtime.deobfuscator.deobfuscate = async () => ({
+      cleanedCode: 'const a = 1;',
+    });
+    runtime.analyzer.understand = async () => ({
+      securityRisks: [],
+      summary: 'ok',
+    });
+    runtime.cryptoDetector.detect = async () => ({
+      algorithms: [],
+      securityIssues: [],
+    });
+    runtime.collector.getTopPriorityFiles = () => ({
+      files: [{url: 'a.js', content: 'const a=1;'}],
+    });
     runtime.hookManager.getRecords = () => [];
     runtime.hookManager.getAllKnownHookIds = () => [];
 
@@ -82,7 +99,9 @@ describe('analyzer ai runtime metadata', () => {
           response as unknown as Parameters<typeof tool.handler>[1],
           {} as Parameters<typeof tool.handler>[2],
         );
-        const parsed = JSON.parse(response.lines[1] ?? '{}') as {aiRuntime?: {mode?: string}};
+        const parsed = JSON.parse(response.lines[1] ?? '{}') as {
+          aiRuntime?: {mode?: string};
+        };
         assert.strictEqual(parsed.aiRuntime?.mode, 'local-fallback');
       }
     } finally {

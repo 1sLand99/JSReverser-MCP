@@ -246,9 +246,10 @@ export class McpContext implements Context {
     includePreservedMessages?: boolean,
     pageOrPageIdx?: Page | number,
   ): Array<ConsoleMessage | Error | AggregatedIssue> {
-    const page = typeof pageOrPageIdx === 'number'
-      ? this.getPageByIdx(pageOrPageIdx)
-      : (pageOrPageIdx ?? this.getSelectedPage());
+    const page =
+      typeof pageOrPageIdx === 'number'
+        ? this.getPageByIdx(pageOrPageIdx)
+        : (pageOrPageIdx ?? this.getSelectedPage());
     return this.#consoleCollector.getData(page, includePreservedMessages);
   }
 
@@ -262,9 +263,10 @@ export class McpContext implements Context {
     id: number,
     pageOrPageIdx?: Page | number,
   ): ConsoleMessage | Error | AggregatedIssue {
-    const page = typeof pageOrPageIdx === 'number'
-      ? this.getPageByIdx(pageOrPageIdx)
-      : (pageOrPageIdx ?? this.getSelectedPage());
+    const page =
+      typeof pageOrPageIdx === 'number'
+        ? this.getPageByIdx(pageOrPageIdx)
+        : (pageOrPageIdx ?? this.getSelectedPage());
     return this.#consoleCollector.getById(page, id);
   }
 
@@ -520,9 +522,7 @@ export class McpContext implements Context {
     mimeType: 'image/png' | 'image/jpeg' | 'image/webp',
   ): Promise<{filename: string}> {
     try {
-      const dir = await fs.mkdtemp(
-        path.join(os.tmpdir(), 'jsreverser-mcp-'),
-      );
+      const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'jsreverser-mcp-'));
 
       const filename = path.join(
         dir,

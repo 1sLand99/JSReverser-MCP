@@ -52,10 +52,7 @@ export const consoleMessage = defineTool({
   },
   schema: {
     action: zod.enum(['list', 'get']),
-    msgid: zod
-      .number()
-      .optional()
-      .describe('Message id for action=get.'),
+    msgid: zod.number().optional().describe('Message id for action=get.'),
     targetPageIdx: zod
       .number()
       .int()

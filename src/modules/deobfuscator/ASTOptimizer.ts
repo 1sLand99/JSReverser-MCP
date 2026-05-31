@@ -1,6 +1,11 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * AST优化器 - 基于Babel的高级反混淆转换
- * 
+ *
  * 实现的转换:
  * 1. 常量折叠 (Constant Folding)
  * 2. 常量传播 (Constant Propagation)
@@ -12,13 +17,19 @@
  * 8. 序列表达式展开 (Sequence Expression Expansion)
  */
 
+import generateImport from '@babel/generator';
 import * as parser from '@babel/parser';
 import traverseImport from '@babel/traverse';
-const traverse = (traverseImport as unknown as {default?: typeof traverseImport}).default ?? traverseImport;
-import generateImport from '@babel/generator';
-const generate = (generateImport as unknown as {default?: typeof generateImport}).default ?? generateImport;
 import * as t from '@babel/types';
-import { logger } from '../../utils/logger.js';
+
+const generate =
+  (generateImport as unknown as {default?: typeof generateImport}).default ??
+  generateImport;
+const traverse =
+  (traverseImport as unknown as {default?: typeof traverseImport}).default ??
+  traverseImport;
+
+import {logger} from '../../utils/logger.js';
 
 export class ASTOptimizer {
   /**
@@ -34,7 +45,7 @@ export class ASTOptimizer {
       // 执行多轮优化
       for (let i = 0; i < 3; i++) {
         logger.debug(`AST optimization pass ${i + 1}`);
-        
+
         this.constantFolding(ast);
         this.constantPropagation(ast);
         this.deadCodeElimination(ast);
@@ -64,7 +75,7 @@ export class ASTOptimizer {
   private constantFolding(ast: t.File): void {
     traverse(ast, {
       BinaryExpression(path) {
-        const { left, right, operator } = path.node;
+        const {left, right, operator} = path.node;
 
         if (t.isNumericLiteral(left) && t.isNumericLiteral(right)) {
           let result: number;
@@ -96,13 +107,17 @@ export class ASTOptimizer {
         }
 
         // 字符串拼接
-        if (t.isStringLiteral(left) && t.isStringLiteral(right) && operator === '+') {
+        if (
+          t.isStringLiteral(left) &&
+          t.isStringLiteral(right) &&
+          operator === '+'
+        ) {
           path.replaceWith(t.stringLiteral(left.value + right.value));
         }
       },
 
       UnaryExpression(path) {
-        const { argument, operator } = path.node;
+        const {argument, operator} = path.node;
 
         if (t.isNumericLiteral(argument)) {
           if (operator === '-') {
@@ -130,7 +145,7 @@ export class ASTOptimizer {
 
     traverse(ast, {
       VariableDeclarator(path) {
-        const { id, init } = path.node;
+        const {id, init} = path.node;
 
         if (t.isIdentifier(id) && init && t.isLiteral(init)) {
           constants.set(id.name, init);
@@ -155,7 +170,7 @@ export class ASTOptimizer {
   private deadCodeElimination(ast: t.File): void {
     traverse(ast, {
       IfStatement(path) {
-        const { test, consequent, alternate } = path.node;
+        const {test, consequent, alternate} = path.node;
 
         if (t.isBooleanLiteral(test)) {
           if (test.value) {
@@ -173,7 +188,7 @@ export class ASTOptimizer {
       },
 
       ConditionalExpression(path) {
-        const { test, consequent, alternate } = path.node;
+        const {test, consequent, alternate} = path.node;
 
         if (t.isBooleanLiteral(test)) {
           path.replaceWith(test.value ? consequent : alternate);
@@ -181,7 +196,7 @@ export class ASTOptimizer {
       },
 
       LogicalExpression(path) {
-        const { left, right, operator } = path.node;
+        const {left, right, operator} = path.node;
 
         if (t.isBooleanLiteral(left)) {
           if (operator === '&&') {
@@ -200,26 +215,38 @@ export class ASTOptimizer {
   private expressionSimplification(ast: t.File): void {
     traverse(ast, {
       BinaryExpression(path) {
-        const { left, right, operator } = path.node;
+        const {left, right, operator} = path.node;
 
         // x + 0 -> x
-        if (operator === '+' && t.isNumericLiteral(right) && right.value === 0) {
+        if (
+          operator === '+' &&
+          t.isNumericLiteral(right) &&
+          right.value === 0
+        ) {
           path.replaceWith(left);
         }
 
         // x * 1 -> x
-        if (operator === '*' && t.isNumericLiteral(right) && right.value === 1) {
+        if (
+          operator === '*' &&
+          t.isNumericLiteral(right) &&
+          right.value === 1
+        ) {
           path.replaceWith(left);
         }
 
         // x * 0 -> 0
-        if (operator === '*' && t.isNumericLiteral(right) && right.value === 0) {
+        if (
+          operator === '*' &&
+          t.isNumericLiteral(right) &&
+          right.value === 0
+        ) {
           path.replaceWith(t.numericLiteral(0));
         }
       },
 
       UnaryExpression(path) {
-        const { argument, operator } = path.node;
+        const {argument, operator} = path.node;
 
         // !!x -> Boolean(x)
         if (
@@ -228,7 +255,7 @@ export class ASTOptimizer {
           argument.operator === '!'
         ) {
           path.replaceWith(
-            t.callExpression(t.identifier('Boolean'), [argument.argument])
+            t.callExpression(t.identifier('Boolean'), [argument.argument]),
           );
         }
       },
@@ -240,15 +267,18 @@ export class ASTOptimizer {
    * 例如: const a = 5; console.log(a); -> console.log(5);
    */
   private variableInlining(ast: t.File): void {
-    const inlineCandidates = new Map<string, { value: t.Expression; usageCount: number }>();
+    const inlineCandidates = new Map<
+      string,
+      {value: t.Expression; usageCount: number}
+    >();
 
     // 第一遍：收集候选变量
     traverse(ast, {
       VariableDeclarator(path) {
-        const { id, init } = path.node;
+        const {id, init} = path.node;
 
         if (t.isIdentifier(id) && init && t.isLiteral(init)) {
-          inlineCandidates.set(id.name, { value: init, usageCount: 0 });
+          inlineCandidates.set(id.name, {value: init, usageCount: 0});
         }
       },
 
@@ -268,7 +298,11 @@ export class ASTOptimizer {
         const name = path.node.name;
         const candidate = inlineCandidates.get(name);
 
-        if (candidate && candidate.usageCount <= 3 && !path.isBindingIdentifier()) {
+        if (
+          candidate &&
+          candidate.usageCount <= 3 &&
+          !path.isBindingIdentifier()
+        ) {
           path.replaceWith(t.cloneNode(candidate.value));
         }
       },
@@ -282,13 +316,13 @@ export class ASTOptimizer {
   private objectPropertyUnfolding(ast: t.File): void {
     traverse(ast, {
       MemberExpression(path) {
-        const { object, property, computed } = path.node;
+        const {object, property, computed} = path.node;
 
         if (computed && t.isStringLiteral(property)) {
           // 检查属性名是否是有效的标识符
           if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(property.value)) {
             path.replaceWith(
-              t.memberExpression(object, t.identifier(property.value), false)
+              t.memberExpression(object, t.identifier(property.value), false),
             );
           }
         }
@@ -302,7 +336,7 @@ export class ASTOptimizer {
   private computedPropertyResolution(ast: t.File): void {
     traverse(ast, {
       ObjectProperty(path) {
-        const { key, computed } = path.node;
+        const {key, computed} = path.node;
 
         if (computed && t.isStringLiteral(key)) {
           if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key.value)) {
@@ -321,7 +355,7 @@ export class ASTOptimizer {
   private sequenceExpressionExpansion(ast: t.File): void {
     traverse(ast, {
       SequenceExpression(path: any) {
-        const { expressions } = path.node;
+        const {expressions} = path.node;
 
         // 如果序列表达式只有一个元素，直接替换
         if (expressions.length === 1 && expressions[0]) {
@@ -330,11 +364,12 @@ export class ASTOptimizer {
 
         // 如果在表达式语句中，展开为多个语句
         if (path.parentPath.isExpressionStatement()) {
-          const statements = expressions.map((expr: t.Expression) => t.expressionStatement(expr));
+          const statements = expressions.map((expr: t.Expression) =>
+            t.expressionStatement(expr),
+          );
           path.parentPath.replaceWithMultiple(statements);
         }
       },
     });
   }
 }
-

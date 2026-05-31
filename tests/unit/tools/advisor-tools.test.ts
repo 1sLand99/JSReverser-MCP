@@ -10,8 +10,11 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {describe, it} from 'node:test';
 
-import {explainReverseStage, recommendNextStepTool} from '../../../src/tools/advisor.js';
 import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
+import {
+  explainReverseStage,
+  recommendNextStepTool,
+} from '../../../src/tools/advisor.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 
 function makeResponse() {
@@ -35,8 +38,17 @@ describe('advisor tools', () => {
   it('returns next step advice as json', async () => {
     const response = makeResponse();
     await recommendNextStepTool.handler(
-      {params: {browserHealthy: true, pageReady: true, hasTargetRequest: true, hookRecordCount: 0}},
-      response as unknown as Parameters<typeof recommendNextStepTool.handler>[1],
+      {
+        params: {
+          browserHealthy: true,
+          pageReady: true,
+          hasTargetRequest: true,
+          hookRecordCount: 0,
+        },
+      },
+      response as unknown as Parameters<
+        typeof recommendNextStepTool.handler
+      >[1],
       {} as Parameters<typeof recommendNextStepTool.handler>[2],
     );
     const parsed = JSON.parse(response.lines[1] ?? '{}') as {nextStep?: string};
@@ -50,13 +62,18 @@ describe('advisor tools', () => {
       response as unknown as Parameters<typeof explainReverseStage.handler>[1],
       {} as Parameters<typeof explainReverseStage.handler>[2],
     );
-    const parsed = JSON.parse(response.lines[1] ?? '{}') as {stage?: string; recommendedTools?: string[]};
+    const parsed = JSON.parse(response.lines[1] ?? '{}') as {
+      stage?: string;
+      recommendedTools?: string[];
+    };
     assert.strictEqual(parsed.stage, 'Observe');
     assert.ok(Array.isArray(parsed.recommendedTools));
   });
 
   it('can infer advice from taskId context', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-advisor-task-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-advisor-task-'),
+    );
     const runtime = getJSHookRuntime();
     const originalStore = runtime.reverseTaskStore;
     runtime.reverseTaskStore = new ReverseTaskStore({rootDir});
@@ -83,10 +100,15 @@ describe('advisor tools', () => {
       const response = makeResponse();
       await recommendNextStepTool.handler(
         {params: {taskId: 'advisor-task-001', hasRebuildBundle: false}},
-        response as unknown as Parameters<typeof recommendNextStepTool.handler>[1],
+        response as unknown as Parameters<
+          typeof recommendNextStepTool.handler
+        >[1],
         {} as Parameters<typeof recommendNextStepTool.handler>[2],
       );
-      const parsed = JSON.parse(response.lines[1] ?? '{}') as {taskContext?: {taskId?: string}; nextStep?: string};
+      const parsed = JSON.parse(response.lines[1] ?? '{}') as {
+        taskContext?: {taskId?: string};
+        nextStep?: string;
+      };
       assert.strictEqual(parsed.taskContext?.taskId, 'advisor-task-001');
       assert.strictEqual(parsed.nextStep, 'export_rebuild_bundle');
     } finally {

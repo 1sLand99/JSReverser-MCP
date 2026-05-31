@@ -4,12 +4,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {appendReverseTimeline} from './ReverseTaskTimeline.js';
-import {updateReverseTaskState} from './ReverseTaskState.js';
+import {buildLocalCliCommand} from '../utils/projectPaths.js';
+
 import {executeRegisteredStep} from './ExecutionAdapters.js';
+import type {
+  ReverseTaskExecutionCheckpoint,
+  ReverseTaskExecutionStepResult,
+  ReverseTaskFailureType,
+} from './ReverseTaskCheckpoint.js';
+import {
+  readReverseTaskCheckpoint,
+  writeReverseTaskCheckpoint,
+} from './ReverseTaskCheckpoint.js';
+import {updateReverseTaskState} from './ReverseTaskState.js';
 import type {ReverseTaskStore} from './ReverseTaskStore.js';
-import type {ReverseTaskExecutionCheckpoint, ReverseTaskExecutionStepResult, ReverseTaskFailureType} from './ReverseTaskCheckpoint.js';
-import {readReverseTaskCheckpoint, writeReverseTaskCheckpoint} from './ReverseTaskCheckpoint.js';
+import {appendReverseTimeline} from './ReverseTaskTimeline.js';
 
 export interface ReverseTaskExecutableStep {
   key: string;
@@ -30,7 +39,14 @@ export interface ReverseTaskExecutionResult {
   completedStepCount: number;
   failedStepCount: number;
   skippedStepCount: number;
-  failedStep?: {key: string; tool: string; status: string; error?: string; failureType?: ReverseTaskFailureType; retryable?: boolean};
+  failedStep?: {
+    key: string;
+    tool: string;
+    status: string;
+    error?: string;
+    failureType?: ReverseTaskFailureType;
+    retryable?: boolean;
+  };
   recovery?: {
     recommendedNextAction: string;
     recommendedCommand?: string;
@@ -45,9 +61,16 @@ function toStepError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function classifyFailure(errorMessage: string): {failureType: ReverseTaskFailureType; retryable: boolean} {
+function classifyFailure(errorMessage: string): {
+  failureType: ReverseTaskFailureType;
+  retryable: boolean;
+} {
   const normalized = errorMessage.toLowerCase();
-  if (normalized.includes('timed out') || normalized.includes('fetch failed') || normalized.includes('browser failed')) {
+  if (
+    normalized.includes('timed out') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('browser failed')
+  ) {
     return {failureType: 'external_error', retryable: true};
   }
   if (normalized.includes('not implemented')) {
@@ -56,7 +79,11 @@ function classifyFailure(errorMessage: string): {failureType: ReverseTaskFailure
   if (normalized.includes('invalid') || normalized.includes('required')) {
     return {failureType: 'validation_error', retryable: false};
   }
-  if (normalized.includes('window is not defined') || normalized.includes('localstorage is not defined') || normalized.includes('subtle')) {
+  if (
+    normalized.includes('window is not defined') ||
+    normalized.includes('localstorage is not defined') ||
+    normalized.includes('subtle')
+  ) {
     return {failureType: 'env_error', retryable: true};
   }
   return {failureType: 'unknown', retryable: false};
@@ -69,8 +96,18 @@ function buildRecoverySuggestion(args: {
   failedStepTool: string;
 }): ReverseTaskExecutionResult['recovery'] {
   const {taskId, failureType, retryable, failedStepTool} = args;
-  const resumeCommand = `jsreverser-mcp --orchestrateReverseTask ${taskId} --execute --resume`;
-  const summarizeCommand = `jsreverser-mcp --manageReverseTask summarize --taskId ${taskId}`;
+  const resumeCommand = buildLocalCliCommand(import.meta.url, [
+    '--orchestrateReverseTask',
+    taskId,
+    '--execute',
+    '--resume',
+  ]);
+  const summarizeCommand = buildLocalCliCommand(import.meta.url, [
+    '--manageReverseTask',
+    'summarize',
+    '--taskId',
+    taskId,
+  ]);
 
   if (failureType === 'tool_error') {
     return {
@@ -92,7 +129,8 @@ function buildRecoverySuggestion(args: {
 
   if (failureType === 'validation_error') {
     return {
-      recommendedNextAction: '先修正当前步骤的输入参数或任务上下文，再重新执行 orchestration。',
+      recommendedNextAction:
+        '先修正当前步骤的输入参数或任务上下文，再重新执行 orchestration。',
       shouldResume: false,
       shouldInspectSummary: false,
     };
@@ -100,7 +138,8 @@ function buildRecoverySuggestion(args: {
 
   if (failureType === 'external_error') {
     return {
-      recommendedNextAction: '先恢复浏览器、网络或外部依赖链路，再从 checkpoint 重试。',
+      recommendedNextAction:
+        '先恢复浏览器、网络或外部依赖链路，再从 checkpoint 重试。',
       recommendedCommand: retryable ? resumeCommand : undefined,
       shouldResume: retryable,
       shouldInspectSummary: false,
@@ -108,7 +147,8 @@ function buildRecoverySuggestion(args: {
   }
 
   return {
-    recommendedNextAction: '先查看任务摘要和 checkpoint，确认失败上下文后再决定是否继续。',
+    recommendedNextAction:
+      '先查看任务摘要和 checkpoint，确认失败上下文后再决定是否继续。',
     recommendedCommand: summarizeCommand,
     shouldResume: false,
     shouldInspectSummary: true,
@@ -154,10 +194,17 @@ export async function executeReverseTaskPlan(
     executionOverrides?: Record<string, ReverseTaskExecutionOverride>;
   },
 ): Promise<ReverseTaskExecutionResult> {
-  const checkpoint = options.resume ? await readReverseTaskCheckpoint(store, taskId) : undefined;
-  const activeSteps = options.resume && checkpoint?.plannedSteps?.length ? checkpoint.plannedSteps : steps;
+  const checkpoint = options.resume
+    ? await readReverseTaskCheckpoint(store, taskId)
+    : undefined;
+  const activeSteps =
+    options.resume && checkpoint?.plannedSteps?.length
+      ? checkpoint.plannedSteps
+      : steps;
   const completedSteps = new Set(checkpoint?.completedSteps ?? []);
-  const stepResults: ReverseTaskExecutionStepResult[] = [...(checkpoint?.stepResults ?? [])];
+  const stepResults: ReverseTaskExecutionStepResult[] = [
+    ...(checkpoint?.stepResults ?? []),
+  ];
   const stopOnError = options.stopOnError ?? true;
   let currentStage = options.currentStage;
   let failedStep: ReverseTaskExecutionResult['failedStep'];
@@ -169,7 +216,9 @@ export async function executeReverseTaskPlan(
     'running',
     undefined,
     [...completedSteps],
-    activeSteps.filter((step) => !completedSteps.has(step.key)).map((step) => step.key),
+    activeSteps
+      .filter(step => !completedSteps.has(step.key))
+      .map(step => step.key),
     stepResults,
     activeSteps,
   );
@@ -186,7 +235,12 @@ export async function executeReverseTaskPlan(
       'running',
       step.key,
       [...completedSteps],
-      activeSteps.filter((candidate) => !completedSteps.has(candidate.key) && candidate.key !== step.key).map((candidate) => candidate.key),
+      activeSteps
+        .filter(
+          candidate =>
+            !completedSteps.has(candidate.key) && candidate.key !== step.key,
+        )
+        .map(candidate => candidate.key),
       stepResults,
       activeSteps,
     );
@@ -213,7 +267,9 @@ export async function executeReverseTaskPlan(
     } catch (error) {
       const errorMessage = toStepError(error);
       const failureMeta = classifyFailure(errorMessage);
-      const previousFailures = stepResults.filter((entry) => entry.key === step.key && entry.status === 'failed').length;
+      const previousFailures = stepResults.filter(
+        entry => entry.key === step.key && entry.status === 'failed',
+      ).length;
       stepResults.push({
         key: step.key,
         tool: step.tool,
@@ -240,7 +296,14 @@ export async function executeReverseTaskPlan(
         currentSummary: `自动编排执行 ${step.tool} 失败：${errorMessage}`,
         nextStepHint: step.tool,
       });
-      failedStep = {key: step.key, tool: step.tool, status: 'failed', error: errorMessage, failureType: failureMeta.failureType, retryable: failureMeta.retryable};
+      failedStep = {
+        key: step.key,
+        tool: step.tool,
+        status: 'failed',
+        error: errorMessage,
+        failureType: failureMeta.failureType,
+        retryable: failureMeta.retryable,
+      };
       if (stopOnError) {
         const failedCheckpoint = await saveCheckpoint(
           store,
@@ -248,7 +311,9 @@ export async function executeReverseTaskPlan(
           'failed',
           step.key,
           [...completedSteps],
-          activeSteps.filter((candidate) => !completedSteps.has(candidate.key)).map((candidate) => candidate.key),
+          activeSteps
+            .filter(candidate => !completedSteps.has(candidate.key))
+            .map(candidate => candidate.key),
           stepResults,
           activeSteps,
           step.key,
@@ -282,7 +347,9 @@ export async function executeReverseTaskPlan(
     finalStatus,
     undefined,
     [...completedSteps],
-    activeSteps.filter((candidate) => !completedSteps.has(candidate.key)).map((candidate) => candidate.key),
+    activeSteps
+      .filter(candidate => !completedSteps.has(candidate.key))
+      .map(candidate => candidate.key),
     stepResults,
     activeSteps,
     failedStep?.key,
@@ -297,14 +364,16 @@ export async function executeReverseTaskPlan(
     failedStepCount: failedStep ? 1 : 0,
     skippedStepCount,
     ...(failedStep ? {failedStep} : {}),
-    ...(failedStep ? {
-      recovery: buildRecoverySuggestion({
-        taskId,
-        failureType: failedStep.failureType ?? 'unknown',
-        retryable: failedStep.retryable ?? false,
-        failedStepTool: failedStep.tool,
-      }),
-    } : {}),
+    ...(failedStep
+      ? {
+          recovery: buildRecoverySuggestion({
+            taskId,
+            failureType: failedStep.failureType ?? 'unknown',
+            retryable: failedStep.retryable ?? false,
+            failedStepTool: failedStep.tool,
+          }),
+        }
+      : {}),
     checkpoint: finalCheckpoint,
     stepResults,
   };

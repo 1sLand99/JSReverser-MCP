@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 globalThis.window = globalThis;
 globalThis.self = globalThis;
 globalThis.global = globalThis;
@@ -9,8 +14,10 @@ globalThis.canvas ??= {};
 globalThis.document ??= {cookie: '', location: globalThis.location};
 globalThis.navigator ??= {userAgent: 'JSReverser-MCP'};
 
-globalThis.atob ??= (value) => Buffer.from(String(value), 'base64').toString('utf8');
-globalThis.btoa ??= (value) => Buffer.from(String(value), 'utf8').toString('base64');
+globalThis.atob ??= value =>
+  Buffer.from(String(value), 'base64').toString('utf8');
+globalThis.btoa ??= value =>
+  Buffer.from(String(value), 'utf8').toString('base64');
 globalThis.crypto ??= {subtle: {}};
 
 globalThis.localStorage ??= {

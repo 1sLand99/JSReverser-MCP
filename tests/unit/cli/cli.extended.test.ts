@@ -4,20 +4,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { cliOptions, parseArguments } from '../../../src/cli.js';
+import {cliOptions, parseArguments} from '../../../src/cli.js';
 
 interface CliOptionsLike {
-  browserUrl: { coerce(value: string | undefined): string | undefined };
-  wsEndpoint: { coerce(value: string | undefined): string | undefined };
+  browserUrl: {coerce(value: string | undefined): string | undefined};
+  wsEndpoint: {coerce(value: string | undefined): string | undefined};
   wsHeaders: {
     coerce(value: string | undefined): Record<string, string> | undefined;
   };
   viewport: {
     coerce(
       value: string | undefined,
-    ): { width: number; height: number } | undefined;
+    ): {width: number; height: number} | undefined;
   };
 }
 
@@ -39,9 +39,14 @@ interface ParsedArgsLike {
   onlyStep?: string[];
   strategy?: string;
   outputMode?: string;
+  toolProfile?: string;
+  traceOutput?: string;
   includeSummary?: boolean;
   persistState?: boolean;
-  executionOverrides?: Record<string, {status: string; result?: string; error?: string}>;
+  executionOverrides?: Record<
+    string,
+    {status: string; result?: string; error?: string}
+  >;
   reverseTaskLimit?: number;
   reverseTimelineLimit?: number;
   reverseEvidenceLimit?: number;
@@ -59,7 +64,7 @@ interface ParsedArgsLike {
   headless?: boolean;
   isolated?: boolean;
   categoryNetwork?: boolean;
-  viewport?: { width: number; height: number };
+  viewport?: {width: number; height: number};
   chromeArg?: string[];
   experimentalDevtools?: boolean;
   experimentalIncludeAllPages?: boolean;
@@ -70,7 +75,10 @@ describe('cli extended coverage', () => {
     const options = cliOptions as unknown as CliOptionsLike;
     const browserUrl = options.browserUrl.coerce;
     assert.strictEqual(browserUrl(undefined), undefined);
-    assert.strictEqual(browserUrl('http://127.0.0.1:9222'), 'http://127.0.0.1:9222');
+    assert.strictEqual(
+      browserUrl('http://127.0.0.1:9222'),
+      'http://127.0.0.1:9222',
+    );
     assert.throws(() => browserUrl('not-a-url'), /not valid URL/);
 
     const wsEndpoint = options.wsEndpoint.coerce;
@@ -98,7 +106,7 @@ describe('cli extended coverage', () => {
     const options = cliOptions as unknown as CliOptionsLike;
     const viewport = options.viewport.coerce;
     assert.strictEqual(viewport(undefined), undefined);
-    assert.deepStrictEqual(viewport('1280x720'), { width: 1280, height: 720 });
+    assert.deepStrictEqual(viewport('1280x720'), {width: 1280, height: 720});
     assert.throws(() => viewport('bad-size'), /Invalid viewport/);
     assert.throws(() => viewport('0x720'), /Invalid viewport/);
   });
@@ -155,8 +163,6 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.timelineStatus, 'ok');
   });
 
-
-
   it('parseArguments supports orchestrateReverseTask execution flags', () => {
     const parsed = parseArguments('1.2.3', [
       'node',
@@ -188,7 +194,10 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.execute, true);
     assert.strictEqual(parsed.resume, true);
     assert.strictEqual(parsed.stopOnError, false);
-    assert.deepStrictEqual(parsed.skipStep, ['manage_reverse_task:progress', 'understand_code']);
+    assert.deepStrictEqual(parsed.skipStep, [
+      'manage_reverse_task:progress',
+      'understand_code',
+    ]);
     assert.strictEqual(parsed.fromStep, 'understand_code');
     assert.deepStrictEqual(parsed.onlyStep, ['understand_code']);
     assert.strictEqual(parsed.strategy, 'env-fix');
@@ -230,6 +239,32 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.includeSummary, false);
   });
 
+  it('parseArguments defaults to compact tool profile and supports full profile', () => {
+    const defaultArgs = parseArguments('1.0.0', ['node', 'mcp']);
+    assert.strictEqual(defaultArgs.toolProfile, 'compact');
+
+    const fullArgs = parseArguments('1.0.0', [
+      'node',
+      'mcp',
+      '--toolProfile',
+      'full',
+    ]);
+    assert.strictEqual(fullArgs.toolProfile, 'full');
+  });
+
+  it('parseArguments defaults to error-only trace output and supports all traces', () => {
+    const defaultArgs = parseArguments('1.0.0', ['node', 'mcp']);
+    assert.strictEqual(defaultArgs.traceOutput, 'errors');
+
+    const allTraceArgs = parseArguments('1.0.0', [
+      'node',
+      'mcp',
+      '--traceOutput',
+      'all',
+    ]);
+    assert.strictEqual(allTraceArgs.traceOutput, 'all');
+  });
+
   it('parseArguments supports exportPortableBundle flags', () => {
     const parsed = parseArguments('1.2.3', [
       'node',
@@ -262,8 +297,11 @@ describe('cli extended coverage', () => {
       '--wsHeaders',
       '{"Authorization":"Bearer token"}',
     ]) as ParsedArgsLike;
-    assert.strictEqual(byWs.wsEndpoint, 'ws://127.0.0.1:9222/devtools/browser/abc');
-    assert.deepStrictEqual(byWs.wsHeaders, { Authorization: 'Bearer token' });
+    assert.strictEqual(
+      byWs.wsEndpoint,
+      'ws://127.0.0.1:9222/devtools/browser/abc',
+    );
+    assert.deepStrictEqual(byWs.wsHeaders, {Authorization: 'Bearer token'});
     assert.strictEqual(byWs.channel, undefined);
   });
 
@@ -298,7 +336,7 @@ describe('cli extended coverage', () => {
     assert.strictEqual(parsed.channel, 'beta');
     assert.strictEqual(parsed.headless, true);
     assert.strictEqual(parsed.isolated, true);
-    assert.deepStrictEqual(parsed.viewport, { width: 1440, height: 900 });
+    assert.deepStrictEqual(parsed.viewport, {width: 1440, height: 900});
     assert.deepStrictEqual(parsed.chromeArg, ['--no-sandbox', '--disable-gpu']);
     assert.strictEqual(parsed.categoryNetwork, false);
     assert.strictEqual(parsed.experimentalDevtools, true);

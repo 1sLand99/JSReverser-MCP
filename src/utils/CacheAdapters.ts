@@ -1,16 +1,22 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 缓存适配器 - 将现有缓存适配到 UnifiedCacheManager
- * 
+ *
  * 适配器模式：
  * - 不修改现有缓存实现
  * - 提供统一的接口
  * - 支持异步和同步方法
  */
 
-import type { CacheInstance, CacheStats } from './UnifiedCacheManager.js';
-import type { DetailedDataManager } from './detailedDataManager.js';
-import type { CodeCache } from '../modules/collector/CodeCache.js';
-import type { CodeCompressor } from '../modules/collector/CodeCompressor.js';
+import type {CodeCache} from '../modules/collector/CodeCache.js';
+import type {CodeCompressor} from '../modules/collector/CodeCompressor.js';
+
+import type {DetailedDataManager} from './detailedDataManager.js';
+import type {CacheInstance, CacheStats} from './UnifiedCacheManager.js';
 
 /**
  * DetailedDataManager 适配器
@@ -124,7 +130,7 @@ export class CodeCompressorAdapter implements CacheInstance {
 export function createCacheAdapters(
   detailedDataManager: DetailedDataManager,
   codeCache: CodeCache,
-  codeCompressor: CodeCompressor
+  codeCompressor: CodeCompressor,
 ): CacheInstance[] {
   return [
     new DetailedDataManagerAdapter(detailedDataManager),
@@ -132,4 +138,3 @@ export function createCacheAdapters(
     new CodeCompressorAdapter(codeCompressor),
   ];
 }
-

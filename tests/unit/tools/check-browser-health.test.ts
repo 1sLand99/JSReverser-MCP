@@ -79,6 +79,6 @@ describe('check_browser_health', () => {
     assert.strictEqual(parsed.status, 'fail');
     assert.strictEqual(parsed.healthy, false);
     assert.ok(parsed.recommendations.length > 0);
-    assert.ok(parsed.issues.some((item) => item.code === 'BROWSER_DISCONNECTED'));
+    assert.ok(parsed.issues.some(item => item.code === 'BROWSER_DISCONNECTED'));
   });
 });

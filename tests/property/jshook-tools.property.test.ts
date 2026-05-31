@@ -1,13 +1,20 @@
-import {describe, it} from 'node:test';
-import fc from 'fast-check';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
+import {describe, it} from 'node:test';
+
+import fc from 'fast-check';
+
 import {zod} from '../../src/third_party/index.js';
-import {collectCode} from '../../src/tools/collector.js';
 import {summarizeCode} from '../../src/tools/analyzer.js';
-import {createHook} from '../../src/tools/hook.js';
-import {injectStealth} from '../../src/tools/stealth.js';
+import {collectCode} from '../../src/tools/collector.js';
 import {queryDom} from '../../src/tools/dom.js';
+import {createHook} from '../../src/tools/hook.js';
 import {clickElement} from '../../src/tools/page.js';
+import {injectStealth} from '../../src/tools/stealth.js';
 
 const collectSchema = zod.object(collectCode.schema);
 const summarizeSchema = zod.object(summarizeCode.schema);
@@ -19,15 +26,25 @@ const pageSchema = zod.object(clickElement.schema);
 describe('JSHook tool properties', () => {
   it('Property 4: collection mode support', () => {
     fc.assert(
-      fc.property(fc.constantFrom('summary', 'priority', 'incremental', 'full'), mode => {
-        const parsed = collectSchema.parse({url: 'https://example.com', smartMode: mode});
-        assert.strictEqual(parsed.smartMode, mode);
-      }),
+      fc.property(
+        fc.constantFrom('summary', 'priority', 'incremental', 'full'),
+        mode => {
+          const parsed = collectSchema.parse({
+            url: 'https://example.com',
+            smartMode: mode,
+          });
+          assert.strictEqual(parsed.smartMode, mode);
+        },
+      ),
     );
   });
 
   it('Property 7: collection result input structure guards', () => {
-    const parsed = collectSchema.parse({url: 'https://example.com', maxTotalSize: 1000, maxFileSize: 100});
+    const parsed = collectSchema.parse({
+      url: 'https://example.com',
+      maxTotalSize: 1000,
+      maxFileSize: 100,
+    });
     assert.ok(parsed.url.startsWith('https://'));
   });
 
@@ -43,7 +60,16 @@ describe('JSHook tool properties', () => {
   it('Property 12: hook type support', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom('function', 'fetch', 'xhr', 'property', 'cookie', 'websocket', 'eval', 'timer'),
+        fc.constantFrom(
+          'function',
+          'fetch',
+          'xhr',
+          'property',
+          'cookie',
+          'websocket',
+          'eval',
+          'timer',
+        ),
         type => {
           const parsed = hookSchema.parse({type});
           assert.strictEqual(parsed.type, type);
@@ -55,7 +81,13 @@ describe('JSHook tool properties', () => {
   it('Property 15: stealth preset support', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom('windows-chrome', 'mac-chrome', 'mac-safari', 'linux-chrome', 'windows-edge'),
+        fc.constantFrom(
+          'windows-chrome',
+          'mac-chrome',
+          'mac-safari',
+          'linux-chrome',
+          'windows-edge',
+        ),
         preset => {
           const parsed = stealthSchema.parse({preset});
           assert.strictEqual(parsed.preset, preset);

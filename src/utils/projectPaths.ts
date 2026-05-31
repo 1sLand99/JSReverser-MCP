@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * Runtime path helpers that stay stable even when the host launches the
  * server with an unexpected working directory (for example Windows system32).
  */
@@ -37,7 +42,9 @@ function resolveUserStateHome(): string {
   return path.join(os.homedir(), '.local', 'state');
 }
 
-export function resolveArtifactsTasksDirForPackageRoot(packageRoot: string): string {
+export function resolveArtifactsTasksDirForPackageRoot(
+  packageRoot: string,
+): string {
   const explicitDir = process.env.JSREVERSER_ARTIFACTS_DIR;
   if (explicitDir && explicitDir.trim().length > 0) {
     return path.resolve(explicitDir);
@@ -69,4 +76,24 @@ export function resolveDefaultCodeCacheDir(moduleUrl: string): string {
 
 export function resolveDefaultEnvPath(moduleUrl: string): string {
   return path.join(resolvePackageRoot(moduleUrl), '.env');
+}
+
+function quoteShellArg(value: string): string {
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(value)) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+export function buildLocalCliCommand(
+  moduleUrl: string,
+  args: string[],
+): string {
+  const cliEntry = path.join(
+    resolvePackageRoot(moduleUrl),
+    'build',
+    'src',
+    'index.js',
+  );
+  return ['node', cliEntry, ...args].map(quoteShellArg).join(' ');
 }

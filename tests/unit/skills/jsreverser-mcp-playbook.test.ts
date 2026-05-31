@@ -18,13 +18,27 @@ async function readRepoFile(relativePath: string): Promise<string> {
 describe('jsreverser-mcp-playbook docs contract', () => {
   it('defines the staged workflow, principles, task artifacts, local rebuild references, and task-driven routing', async () => {
     const skill = await readRepoFile('skills/jsreverser-mcp-playbook/SKILL.md');
-    const automationEntry = await readRepoFile('skills/jsreverser-mcp-playbook/references/automation-entry.md');
-    const taskTemplate = await readRepoFile('skills/jsreverser-mcp-playbook/references/mcp-task-template.md');
-    const outputContract = await readRepoFile('skills/jsreverser-mcp-playbook/references/output-contract.md');
-    const fallbacks = await readRepoFile('skills/jsreverser-mcp-playbook/references/fallbacks.md');
-    const taskArtifacts = await readRepoFile('skills/jsreverser-mcp-playbook/references/task-artifacts.md');
-    const localRebuild = await readRepoFile('skills/jsreverser-mcp-playbook/references/local-rebuild.md');
-    const openaiAgent = await readRepoFile('skills/jsreverser-mcp-playbook/agents/openai.yaml');
+    const automationEntry = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/automation-entry.md',
+    );
+    const taskTemplate = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/mcp-task-template.md',
+    );
+    const outputContract = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/output-contract.md',
+    );
+    const fallbacks = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/fallbacks.md',
+    );
+    const taskArtifacts = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/task-artifacts.md',
+    );
+    const localRebuild = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/references/local-rebuild.md',
+    );
+    const openaiAgent = await readRepoFile(
+      'skills/jsreverser-mcp-playbook/agents/openai.yaml',
+    );
 
     for (const phrase of [
       'Observe',

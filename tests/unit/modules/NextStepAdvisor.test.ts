@@ -17,7 +17,12 @@ describe('NextStepAdvisor', () => {
   });
 
   it('recommends runtime capture before breakpoints', () => {
-    const advice = recommendNextStep({browserHealthy: true, pageReady: true, hasTargetRequest: true, hookRecordCount: 0});
+    const advice = recommendNextStep({
+      browserHealthy: true,
+      pageReady: true,
+      hasTargetRequest: true,
+      hookRecordCount: 0,
+    });
     assert.strictEqual(advice.stage, 'Capture');
     assert.strictEqual(advice.nextStep, 'inject_hook');
     assert.ok(advice.avoid.includes('breakpoint'));

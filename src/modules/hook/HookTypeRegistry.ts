@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * HookTypeRegistry — 插件化 Hook 类型注册系统
  *
  * 设计理念：
@@ -8,7 +13,7 @@
  * - HookManager 通过 registry 查找类型，无需 switch-case 硬编码
  */
 
-import { HookCodeBuilder, type BuilderConfig } from './HookCodeBuilder.js';
+import type {HookCodeBuilder} from './HookCodeBuilder.js';
 
 // ==================== 插件接口 ====================
 
@@ -23,18 +28,24 @@ export interface HookTypePlugin {
    * @param params  - 用户传入的类型特定参数
    * @returns 配置好的 builder
    */
-  apply(builder: HookCodeBuilder, params: Record<string, unknown>): HookCodeBuilder;
+  apply(
+    builder: HookCodeBuilder,
+    params: Record<string, unknown>,
+  ): HookCodeBuilder;
   /**
    * 可选：生成完整的独立脚本（某些类型如 property getter/setter 不适合通用模板）
    * 如果返回 string，则跳过 builder.build()，直接使用此脚本
    */
-  customBuild?(builder: HookCodeBuilder, params: Record<string, unknown>): string | null;
+  customBuild?(
+    builder: HookCodeBuilder,
+    params: Record<string, unknown>,
+  ): string | null;
 }
 
 // ==================== 注册表 ====================
 
 export class HookTypeRegistry {
-  private plugins: Map<string, HookTypePlugin> = new Map();
+  private plugins = new Map<string, HookTypePlugin>();
 
   constructor() {
     this.registerBuiltins();
@@ -43,7 +54,9 @@ export class HookTypeRegistry {
   /** 注册一个 hook 类型插件 */
   register(plugin: HookTypePlugin): void {
     if (this.plugins.has(plugin.name)) {
-      console.warn(`[HookTypeRegistry] Overwriting existing plugin: ${plugin.name}`);
+      console.warn(
+        `[HookTypeRegistry] Overwriting existing plugin: ${plugin.name}`,
+      );
     }
     this.plugins.set(plugin.name, plugin);
   }
@@ -119,7 +132,9 @@ function createFetchPlugin(): HookTypePlugin {
 
       const urlPattern = params.urlPattern as string | undefined;
       if (urlPattern) {
-        builder.when(`(typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '').match(new RegExp(${JSON.stringify(urlPattern)}))`);
+        builder.when(
+          `(typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '').match(new RegExp(${JSON.stringify(urlPattern)}))`,
+        );
       }
 
       return builder;
@@ -149,13 +164,17 @@ function createFetchPlugin(): HookTypePlugin {
       ];
 
       if (urlPattern) {
-        lines.push(`    if (!url.match(new RegExp(${JSON.stringify(urlPattern)}))) {`);
+        lines.push(
+          `    if (!url.match(new RegExp(${JSON.stringify(urlPattern)}))) {`,
+        );
         lines.push(`      return __originalFetch.apply(this, args);`);
         lines.push(`    }`);
       }
 
       lines.push(`    const hookData = {`);
-      lines.push(`      hookId: '${hookId}', target: '${label}', timestamp: Date.now(),`);
+      lines.push(
+        `      hookId: '${hookId}', target: '${label}', timestamp: Date.now(),`,
+      );
       lines.push(`      callCount: __callCount, url, method,`);
 
       if (config.capture.args) {
@@ -163,8 +182,11 @@ function createFetchPlugin(): HookTypePlugin {
         lines.push(`      headers: args[1] && args[1].headers,`);
       }
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`    };`);
@@ -185,9 +207,13 @@ function createFetchPlugin(): HookTypePlugin {
         if (config.capture.timing) {
           lines.push(`      const __start = performance.now();`);
         }
-        lines.push(`      const response = await __originalFetch.apply(this, args);`);
+        lines.push(
+          `      const response = await __originalFetch.apply(this, args);`,
+        );
         if (config.capture.timing) {
-          lines.push(`      hookData.duration = +(performance.now() - __start).toFixed(2);`);
+          lines.push(
+            `      hookData.duration = +(performance.now() - __start).toFixed(2);`,
+          );
         }
         lines.push(`      hookData.status = response.status;`);
         lines.push(`      hookData.statusText = response.statusText;`);
@@ -196,8 +222,12 @@ function createFetchPlugin(): HookTypePlugin {
           lines.push(`      try {`);
           lines.push(`        const cloned = response.clone();`);
           lines.push(`        hookData.responseBody = await cloned.text();`);
-          lines.push(`        try { hookData.responseJson = JSON.parse(hookData.responseBody); } catch(e) {}`);
-          lines.push(`      } catch(e) { hookData.responseReadError = e.message; }`);
+          lines.push(
+            `        try { hookData.responseJson = JSON.parse(hookData.responseBody); } catch(e) {}`,
+          );
+          lines.push(
+            `      } catch(e) { hookData.responseReadError = e.message; }`,
+          );
         }
 
         // after lifecycle
@@ -211,7 +241,9 @@ function createFetchPlugin(): HookTypePlugin {
         lines.push(`      __records.push(hookData);`);
 
         if (config.store.console) {
-          lines.push(`      console.log('[${hookId}] fetch', method, url, hookData);`);
+          lines.push(
+            `      console.log('[${hookId}] fetch', method, url, hookData);`,
+          );
         }
 
         lines.push(`      return response;`);
@@ -245,7 +277,7 @@ function createXHRPlugin(): HookTypePlugin {
   return {
     name: 'xhr',
     description: 'Hook XMLHttpRequest with URL filtering',
-    apply(builder, params) {
+    apply(builder, _params) {
       return builder.intercept('XMLHttpRequest.prototype.open', 'XHR.open');
     },
     customBuild(builder, params) {
@@ -277,21 +309,30 @@ function createXHRPlugin(): HookTypePlugin {
       ];
 
       if (urlPattern) {
-        lines.push(`    if (!meta.url.match(new RegExp(${JSON.stringify(urlPattern)}))) {`);
+        lines.push(
+          `    if (!meta.url.match(new RegExp(${JSON.stringify(urlPattern)}))) {`,
+        );
         lines.push(`      return __origSend.call(this, body);`);
         lines.push(`    }`);
       }
 
       lines.push(`    const hookData = {`);
-      lines.push(`      hookId: '${hookId}', target: 'xhr', timestamp: Date.now(),`);
-      lines.push(`      callCount: __callCount, method: meta.method, url: meta.url,`);
+      lines.push(
+        `      hookId: '${hookId}', target: 'xhr', timestamp: Date.now(),`,
+      );
+      lines.push(
+        `      callCount: __callCount, method: meta.method, url: meta.url,`,
+      );
 
       if (config.capture.args) {
         lines.push(`      requestBody: body,`);
       }
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`    };`);
@@ -310,7 +351,9 @@ function createXHRPlugin(): HookTypePlugin {
         lines.push(`    __xhr.addEventListener('load', function() {`);
         lines.push(`      hookData.status = __xhr.status;`);
         if (config.capture.returnValue) {
-          lines.push(`      try { hookData.response = __xhr.responseText; } catch(e) {}`);
+          lines.push(
+            `      try { hookData.response = __xhr.responseText; } catch(e) {}`,
+          );
         }
         if (config.lifecycle.after) {
           lines.push(`      ${config.lifecycle.after}`);
@@ -319,7 +362,9 @@ function createXHRPlugin(): HookTypePlugin {
         lines.push(`      if (__records.length >= ${max}) __records.shift();`);
         lines.push(`      __records.push(hookData);`);
         if (config.store.console) {
-          lines.push(`      console.log('[${hookId}] xhr', meta.method, meta.url, hookData);`);
+          lines.push(
+            `      console.log('[${hookId}] xhr', meta.method, meta.url, hookData);`,
+          );
         }
         lines.push(`    });`);
         lines.push(`    __xhr.addEventListener('error', function(e) {`);
@@ -375,14 +420,18 @@ function createWebSocketPlugin(): HookTypePlugin {
       ];
 
       if (urlPattern) {
-        lines.push(`    if (!wsUrl.match(new RegExp(${JSON.stringify(urlPattern)}))) {`);
+        lines.push(
+          `    if (!wsUrl.match(new RegExp(${JSON.stringify(urlPattern)}))) {`,
+        );
         lines.push(`      return new __OrigWS(url, protocols);`);
         lines.push(`    }`);
       }
 
       if (config.lifecycle.before) {
         lines.push(`    const args = [url, protocols];`);
-        lines.push(`    const hookData = { hookId: '${hookId}', target: 'websocket', url: wsUrl, timestamp: Date.now() };`);
+        lines.push(
+          `    const hookData = { hookId: '${hookId}', target: 'websocket', url: wsUrl, timestamp: Date.now() };`,
+        );
         lines.push(`    ${config.lifecycle.before}`);
       }
 
@@ -396,21 +445,29 @@ function createWebSocketPlugin(): HookTypePlugin {
       }
       lines.push(`    };`);
 
-      lines.push(`    __store({ hookId: '${hookId}', target: 'websocket', event: 'connect', url: wsUrl, timestamp: Date.now() });`);
+      lines.push(
+        `    __store({ hookId: '${hookId}', target: 'websocket', event: 'connect', url: wsUrl, timestamp: Date.now() });`,
+      );
 
       // Hook send
       lines.push(`    const __origSend = ws.send.bind(ws);`);
       lines.push(`    ws.send = function(data) {`);
-      lines.push(`      __store({ hookId: '${hookId}', target: 'websocket', event: 'send', url: wsUrl, data, timestamp: Date.now() });`);
+      lines.push(
+        `      __store({ hookId: '${hookId}', target: 'websocket', event: 'send', url: wsUrl, data, timestamp: Date.now() });`,
+      );
       lines.push(`      return __origSend(data);`);
       lines.push(`    };`);
 
       // Hook onmessage
       lines.push(`    ws.addEventListener('message', function(e) {`);
-      lines.push(`      __store({ hookId: '${hookId}', target: 'websocket', event: 'message', url: wsUrl, data: e.data, timestamp: Date.now() });`);
+      lines.push(
+        `      __store({ hookId: '${hookId}', target: 'websocket', event: 'message', url: wsUrl, data: e.data, timestamp: Date.now() });`,
+      );
       lines.push(`    });`);
       lines.push(`    ws.addEventListener('close', function(e) {`);
-      lines.push(`      __store({ hookId: '${hookId}', target: 'websocket', event: 'close', url: wsUrl, code: e.code, reason: e.reason, timestamp: Date.now() });`);
+      lines.push(
+        `      __store({ hookId: '${hookId}', target: 'websocket', event: 'close', url: wsUrl, code: e.code, reason: e.reason, timestamp: Date.now() });`,
+      );
       lines.push(`    });`);
 
       lines.push(`    return ws;`);
@@ -439,7 +496,10 @@ function createPropertyPlugin(): HookTypePlugin {
     apply(builder, params) {
       const obj = params.object as string;
       const prop = params.property as string;
-      if (!obj || !prop) throw new Error('[property] params.object and params.property are required');
+      if (!obj || !prop)
+        throw new Error(
+          '[property] params.object and params.property are required',
+        );
       return builder.intercept(`${obj}.${prop}`, `${obj}.${prop}`);
     },
     customBuild(builder, params) {
@@ -450,7 +510,10 @@ function createPropertyPlugin(): HookTypePlugin {
       const obj = params.object as string;
       const prop = params.property as string;
 
-      if (!obj || !prop) throw new Error('[property] params.object and params.property are required');
+      if (!obj || !prop)
+        throw new Error(
+          '[property] params.object and params.property are required',
+        );
 
       const lines: string[] = [
         `// Hook: property ${obj}.${prop}`,
@@ -481,14 +544,23 @@ function createPropertyPlugin(): HookTypePlugin {
       lines.push(`    enumerable: __desc.enumerable !== false,`);
       lines.push(`    get() {`);
       lines.push(`      __callCount++;`);
-      lines.push(`      const val = __desc.get ? __desc.get.call(this) : __value;`);
+      lines.push(
+        `      const val = __desc.get ? __desc.get.call(this) : __value;`,
+      );
       lines.push(`      const hookData = {`);
-      lines.push(`        hookId: '${hookId}', target: '${obj}.${prop}', operation: 'get',`);
-      lines.push(`        value: val, timestamp: Date.now(), callCount: __callCount,`);
+      lines.push(
+        `        hookId: '${hookId}', target: '${obj}.${prop}', operation: 'get',`,
+      );
+      lines.push(
+        `        value: val, timestamp: Date.now(), callCount: __callCount,`,
+      );
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`      };`);
@@ -503,13 +575,22 @@ function createPropertyPlugin(): HookTypePlugin {
       lines.push(`    set(newVal) {`);
       lines.push(`      __callCount++;`);
       lines.push(`      const hookData = {`);
-      lines.push(`        hookId: '${hookId}', target: '${obj}.${prop}', operation: 'set',`);
-      lines.push(`        oldValue: __desc.get ? __desc.get.call(this) : __value,`);
-      lines.push(`        newValue: newVal, timestamp: Date.now(), callCount: __callCount,`);
+      lines.push(
+        `        hookId: '${hookId}', target: '${obj}.${prop}', operation: 'set',`,
+      );
+      lines.push(
+        `        oldValue: __desc.get ? __desc.get.call(this) : __value,`,
+      );
+      lines.push(
+        `        newValue: newVal, timestamp: Date.now(), callCount: __callCount,`,
+      );
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`      };`);
@@ -524,12 +605,16 @@ function createPropertyPlugin(): HookTypePlugin {
         lines.push(`      return;`);
       } else {
         lines.push(`      __store(hookData);`);
-        lines.push(`      if (__desc.set) { __desc.set.call(this, newVal); } else { __value = newVal; }`);
+        lines.push(
+          `      if (__desc.set) { __desc.set.call(this, newVal); } else { __value = newVal; }`,
+        );
       }
 
       lines.push(`    },`);
       lines.push(`  });`);
-      lines.push(`  console.log('[${hookId}] ✅ Hooked: ${obj}.${prop} (property)');`);
+      lines.push(
+        `  console.log('[${hookId}] ✅ Hooked: ${obj}.${prop} (property)');`,
+      );
       lines.push(`})();`);
 
       return lines.join('\n');
@@ -546,7 +631,10 @@ function createEventPlugin(): HookTypePlugin {
     name: 'event',
     description: 'Hook addEventListener to monitor event bindings',
     apply(builder) {
-      return builder.intercept('EventTarget.prototype.addEventListener', 'addEventListener');
+      return builder.intercept(
+        'EventTarget.prototype.addEventListener',
+        'addEventListener',
+      );
     },
     customBuild(builder, params) {
       const config = builder.getConfig();
@@ -571,18 +659,25 @@ function createEventPlugin(): HookTypePlugin {
 
       if (eventName) {
         lines.push(`    if (type !== ${JSON.stringify(eventName)}) {`);
-        lines.push(`      return __origAdd.call(this, type, listener, options);`);
+        lines.push(
+          `      return __origAdd.call(this, type, listener, options);`,
+        );
         lines.push(`    }`);
       }
 
       lines.push(`    const hookData = {`);
       lines.push(`      hookId: '${hookId}', target: 'addEventListener',`);
-      lines.push(`      eventType: type, element: this.tagName || this.constructor.name,`);
+      lines.push(
+        `      eventType: type, element: this.tagName || this.constructor.name,`,
+      );
       lines.push(`      timestamp: Date.now(), callCount: __callCount,`);
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`    };`);
@@ -607,18 +702,24 @@ function createEventPlugin(): HookTypePlugin {
         // 包装 listener 以监控事件触发
         lines.push(`    const __wrappedListener = function(e) {`);
         lines.push(`      const fireData = {`);
-        lines.push(`        hookId: '${hookId}', target: 'eventFired', eventType: type,`);
+        lines.push(
+          `        hookId: '${hookId}', target: 'eventFired', eventType: type,`,
+        );
         lines.push(`        timestamp: Date.now(),`);
         lines.push(`      };`);
         lines.push(`      if (__records.length >= ${max}) __records.shift();`);
         lines.push(`      __records.push(fireData);`);
         lines.push(`      return listener.call(this, e);`);
         lines.push(`    };`);
-        lines.push(`    return __origAdd.call(this, type, __wrappedListener, options);`);
+        lines.push(
+          `    return __origAdd.call(this, type, __wrappedListener, options);`,
+        );
       }
 
       lines.push(`  };`);
-      lines.push(`  console.log('[${hookId}] ✅ Hooked: addEventListener${eventName ? ' (' + eventName + ')' : ''}');`);
+      lines.push(
+        `  console.log('[${hookId}] ✅ Hooked: addEventListener${eventName ? ' (' + eventName + ')' : ''}');`,
+      );
       lines.push(`})();`);
 
       return lines.join('\n');
@@ -664,8 +765,11 @@ function createTimerPlugin(): HookTypePlugin {
       ];
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`      };`);
@@ -674,7 +778,9 @@ function createTimerPlugin(): HookTypePlugin {
       lines.push(`      __records.push(hookData);`);
 
       if (config.store.console) {
-        lines.push(`      console.log('[${hookId}]', name, delay + 'ms', hookData);`);
+        lines.push(
+          `      console.log('[${hookId}]', name, delay + 'ms', hookData);`,
+        );
       }
 
       if (config.action === 'block') {
@@ -694,7 +800,9 @@ function createTimerPlugin(): HookTypePlugin {
         lines.push(`  __hookTimer('setInterval');`);
       }
 
-      lines.push(`  console.log('[${hookId}] ✅ Hooked: timers (${timerType})');`);
+      lines.push(
+        `  console.log('[${hookId}] ✅ Hooked: timers (${timerType})');`,
+      );
       lines.push(`})();`);
 
       return lines.join('\n');
@@ -739,18 +847,29 @@ function createLocalStoragePlugin(): HookTypePlugin {
       ];
 
       if (keyPattern) {
-        lines.push(`      if (!String(key).match(new RegExp(${JSON.stringify(keyPattern)}))) {`);
-        lines.push(`        return __originals[method].call(this, key, ...rest);`);
+        lines.push(
+          `      if (!String(key).match(new RegExp(${JSON.stringify(keyPattern)}))) {`,
+        );
+        lines.push(
+          `        return __originals[method].call(this, key, ...rest);`,
+        );
         lines.push(`      }`);
       }
 
       lines.push(`      const hookData = {`);
-      lines.push(`        hookId: '${hookId}', target: 'localStorage.' + method,`);
-      lines.push(`        key, value: rest[0], timestamp: Date.now(), callCount: __callCount,`);
+      lines.push(
+        `        hookId: '${hookId}', target: 'localStorage.' + method,`,
+      );
+      lines.push(
+        `        key, value: rest[0], timestamp: Date.now(), callCount: __callCount,`,
+      );
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `        stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`      };`);
@@ -765,14 +884,18 @@ function createLocalStoragePlugin(): HookTypePlugin {
       lines.push(`      __records.push(hookData);`);
 
       if (config.store.console) {
-        lines.push(`      console.log('[${hookId}] localStorage.' + method, key, hookData);`);
+        lines.push(
+          `      console.log('[${hookId}] localStorage.' + method, key, hookData);`,
+        );
       }
 
       if (config.action === 'block') {
         lines.push(`      hookData.blocked = true;`);
         lines.push(`      return method === 'getItem' ? null : undefined;`);
       } else {
-        lines.push(`      const result = __originals[method].call(this, key, ...rest);`);
+        lines.push(
+          `      const result = __originals[method].call(this, key, ...rest);`,
+        );
         lines.push(`      if (method === 'getItem') hookData.result = result;`);
         lines.push(`      return result;`);
       }
@@ -829,7 +952,9 @@ function createCookiePlugin(): HookTypePlugin {
         `      const __records = window.${storeKey}['${hookId}'];`,
         `      if (__records.length >= ${max}) __records.shift();`,
         `      __records.push(hookData);`,
-        config.store.console ? `      console.log('[${hookId}] cookie get', hookData);` : '',
+        config.store.console
+          ? `      console.log('[${hookId}] cookie get', hookData);`
+          : '',
         `      return val;`,
         `    },`,
         `    set(val) {`,
@@ -841,19 +966,25 @@ function createCookiePlugin(): HookTypePlugin {
           ? `        stack: new Error().stack.split('\\n').slice(2, ${typeof config.capture.stack === 'number' ? 2 + config.capture.stack : 12}).join('\\n'),`
           : '',
         `      };`,
-        config.lifecycle.before ? `      const args = [val]; ${config.lifecycle.before}` : '',
+        config.lifecycle.before
+          ? `      const args = [val]; ${config.lifecycle.before}`
+          : '',
         config.action === 'block'
           ? `      hookData.blocked = true;`
           : `      __desc.set.call(this, val);`,
         `      const __records = window.${storeKey}['${hookId}'];`,
         `      if (__records.length >= ${max}) __records.shift();`,
         `      __records.push(hookData);`,
-        config.store.console ? `      console.log('[${hookId}] cookie set', hookData);` : '',
+        config.store.console
+          ? `      console.log('[${hookId}] cookie set', hookData);`
+          : '',
         `    },`,
         `  });`,
         `  console.log('[${hookId}] ✅ Hooked: document.cookie');`,
         `})();`,
-      ].filter(Boolean).join('\n');
+      ]
+        .filter(Boolean)
+        .join('\n');
     },
   };
 }
@@ -895,8 +1026,11 @@ function createEvalPlugin(): HookTypePlugin {
       ];
 
       if (config.capture.stack) {
-        const maxFrames = typeof config.capture.stack === 'number' ? config.capture.stack : 10;
-        lines.push(`      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`);
+        const maxFrames =
+          typeof config.capture.stack === 'number' ? config.capture.stack : 10;
+        lines.push(
+          `      stack: new Error().stack.split('\\n').slice(2, ${2 + maxFrames}).join('\\n'),`,
+        );
       }
 
       lines.push(`    };`);
@@ -921,9 +1055,13 @@ function createEvalPlugin(): HookTypePlugin {
       lines.push(`  window.Function = function(...funcArgs) {`);
       lines.push(`    __callCount++;`);
       lines.push(`    const hookData = {`);
-      lines.push(`      hookId: '${hookId}', target: 'Function', timestamp: Date.now(),`);
+      lines.push(
+        `      hookId: '${hookId}', target: 'Function', timestamp: Date.now(),`,
+      );
       lines.push(`      callCount: __callCount,`);
-      lines.push(`      codePreview: funcArgs.map(a => String(a).slice(0, 200)).join(', '),`);
+      lines.push(
+        `      codePreview: funcArgs.map(a => String(a).slice(0, 200)).join(', '),`,
+      );
       lines.push(`    };`);
 
       if (config.store.console) {
@@ -956,7 +1094,10 @@ function createObjectMethodPlugin(): HookTypePlugin {
     apply(builder, params) {
       const obj = params.object as string;
       const method = params.method as string;
-      if (!obj || !method) throw new Error('[object-method] params.object and params.method are required');
+      if (!obj || !method)
+        throw new Error(
+          '[object-method] params.object and params.method are required',
+        );
       return builder.intercept(`${obj}.${method}`, `${obj}.${method}`);
     },
   };

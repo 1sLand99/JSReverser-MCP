@@ -5,10 +5,15 @@
  */
 
 import {recommendNextStep} from '../modules/workflows/NextStepAdvisor.js';
-import type {ReverseTaskStore} from './ReverseTaskStore.js';
+
 import {autoProgressReverseTask} from './ReverseTaskAutoProgress.js';
+import {
+  executeReverseTaskPlan,
+  type ReverseTaskExecutableStep,
+  type ReverseTaskExecutionOverride,
+} from './ReverseTaskExecutor.js';
 import {getReverseTaskState} from './ReverseTaskQuery.js';
-import {executeReverseTaskPlan, type ReverseTaskExecutableStep, type ReverseTaskExecutionOverride} from './ReverseTaskExecutor.js';
+import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
 type OrchestrationStep = ReverseTaskExecutableStep;
 type OutputMode = 'compact' | 'verbose';
@@ -22,14 +27,33 @@ function buildStepKey(tool: string, params: Record<string, unknown>): string {
 
 function inferTargetParam(...inputs: Array<string | undefined>): string {
   const merged = inputs.filter(Boolean).join(' ').toLowerCase();
-  const knownTargets = ['h5st', 'a_bogus', '_signature', 'signature', 'token', 'sign', 'nonce'];
-  return knownTargets.find((item) => merged.includes(item)) ?? 'sign';
+  const knownTargets = [
+    'h5st',
+    'a_bogus',
+    '_signature',
+    'signature',
+    'token',
+    'sign',
+    'nonce',
+  ];
+  return knownTargets.find(item => merged.includes(item)) ?? 'sign';
 }
 
 function inferRelatedParams(...inputs: Array<string | undefined>): string[] {
   const merged = inputs.filter(Boolean).join(' ').toLowerCase();
-  const knownParams = ['appid', 'body', 'functionid', 'client', 'timestamp', 't', 'nonce', 'token'];
-  return knownParams.filter((item) => new RegExp(`\\b${item}\\b`, 'i').test(merged));
+  const knownParams = [
+    'appid',
+    'body',
+    'functionid',
+    'client',
+    'timestamp',
+    't',
+    'nonce',
+    'token',
+  ];
+  return knownParams.filter(item =>
+    new RegExp(`\\b${item}\\b`, 'i').test(merged),
+  );
 }
 
 function buildPrimaryStep(
@@ -55,7 +79,10 @@ function buildPrimaryStep(
     };
   }
 
-  if (nextStepHint === 'locate_signature_function') {
+  if (
+    nextStepHint === 'locate_signature_function' ||
+    nextStepHint === 'inject_hook'
+  ) {
     if (options.functionSliceCode && options.locatedFunctionName) {
       return {
         key: buildStepKey('understand_code', {
@@ -92,7 +119,9 @@ function buildPrimaryStep(
           query: options.locatedFunctionName,
           isRegex: false,
           caseSensitive: true,
-          ...(options.locatedScriptUrl ? {urlFilter: options.locatedScriptUrl} : {}),
+          ...(options.locatedScriptUrl
+            ? {urlFilter: options.locatedScriptUrl}
+            : {}),
         }),
         tool: 'search_in_sources',
         reason: `已存在候选签名函数 ${options.locatedFunctionName}，先复用定位结果缩小到具体源码位置。`,
@@ -101,7 +130,9 @@ function buildPrimaryStep(
           isRegex: false,
           caseSensitive: true,
           maxResults: 10,
-          ...(options.locatedScriptUrl ? {urlFilter: options.locatedScriptUrl} : {}),
+          ...(options.locatedScriptUrl
+            ? {urlFilter: options.locatedScriptUrl}
+            : {}),
         },
       };
     }
@@ -127,26 +158,37 @@ function buildPrimaryStep(
   };
 }
 
-function buildManageTaskStep(taskId: string, action: 'get' | 'summarize' | 'progress' | 'timeline', currentStage: string): OrchestrationStep {
+function buildManageTaskStep(
+  taskId: string,
+  action: 'get' | 'summarize' | 'progress' | 'timeline',
+  currentStage: string,
+): OrchestrationStep {
   return {
     key: buildStepKey('manage_reverse_task', {action, taskId}),
     tool: 'manage_reverse_task',
     reason: `策略要求优先执行 manage_reverse_task:${action}。`,
-    params: action === 'timeline'
-      ? {
-        action,
-        taskId,
-        stage: currentStage.toLowerCase(),
-        timelineAction: 'artifact-sync',
-        timelineStatus: 'ok',
-      }
-      : {action, taskId},
+    params:
+      action === 'timeline'
+        ? {
+            action,
+            taskId,
+            stage: currentStage.toLowerCase(),
+            timelineAction: 'artifact-sync',
+            timelineStatus: 'ok',
+          }
+        : {action, taskId},
   };
 }
 
 function buildStrategyPrimaryStep(
   taskId: string,
-  strategy: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only' | undefined,
+  strategy:
+    | 'observe-first'
+    | 'rebuild-first'
+    | 'env-fix'
+    | 'artifact-sync'
+    | 'evidence-only'
+    | undefined,
   nextStepHint: string,
   currentStage: string,
   options: {
@@ -192,7 +234,18 @@ function buildStrategyPrimaryStep(
 function buildFallbackPlan(
   taskId: string,
   execution: Awaited<ReturnType<typeof executeReverseTaskPlan>> | undefined,
-): {reason: string; recommendedStrategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only'; steps: OrchestrationStep[]} | undefined {
+):
+  | {
+      reason: string;
+      recommendedStrategy?:
+        | 'observe-first'
+        | 'rebuild-first'
+        | 'env-fix'
+        | 'artifact-sync'
+        | 'evidence-only';
+      steps: OrchestrationStep[];
+    }
+  | undefined {
   if (!execution?.failedStep?.failureType) {
     return undefined;
   }
@@ -244,7 +297,12 @@ export async function orchestrateReverseTask(
     resume?: boolean;
     stopOnError?: boolean;
     executionOverrides?: Record<string, ReverseTaskExecutionOverride>;
-    strategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only';
+    strategy?:
+      | 'observe-first'
+      | 'rebuild-first'
+      | 'env-fix'
+      | 'artifact-sync'
+      | 'evidence-only';
     outputMode?: OutputMode;
     skipSteps?: string[];
     fromStep?: string;
@@ -269,50 +327,105 @@ export async function orchestrateReverseTask(
     suggestedSteps: OrchestrationStep[];
   };
   outputMode: OutputMode;
-  fallbackPlan?: {reason: string; recommendedStrategy?: 'observe-first' | 'rebuild-first' | 'env-fix' | 'artifact-sync' | 'evidence-only'; steps: OrchestrationStep[]};
+  fallbackPlan?: {
+    reason: string;
+    recommendedStrategy?:
+      | 'observe-first'
+      | 'rebuild-first'
+      | 'env-fix'
+      | 'artifact-sync'
+      | 'evidence-only';
+    steps: OrchestrationStep[];
+  };
   execution?: Awaited<ReturnType<typeof executeReverseTaskPlan>>;
   summary?: Awaited<ReturnType<typeof getReverseTaskState>>;
 }> {
   const outputMode = options.outputMode ?? 'verbose';
   const persistState = options.persistState ?? true;
-  const progressed = persistState ? await autoProgressReverseTask(store, taskId) : undefined;
-  const snapshot = await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20});
-  const functionSlice = await store.readSnapshot<Record<string, unknown>>(taskId, 'function-slice.json');
-  const successCriteria = (snapshot.state?.successCriteria ?? snapshot.task?.successCriteria ?? {}) as Record<string, unknown>;
+  const progressed = persistState
+    ? await autoProgressReverseTask(store, taskId)
+    : undefined;
+  const snapshot = await getReverseTaskState(store, taskId, {
+    timelineLimit: 20,
+    evidenceLimit: 20,
+  });
+  const functionSlice = await store.readSnapshot<Record<string, unknown>>(
+    taskId,
+    'function-slice.json',
+  );
+  const successCriteria = (snapshot.state?.successCriteria ??
+    snapshot.task?.successCriteria ??
+    {}) as Record<string, unknown>;
   const advice = recommendNextStep({
     taskId,
-    currentStage: progressed?.currentStage ?? String(snapshot.state?.currentStage ?? snapshot.task?.currentStage ?? 'Observe'),
-    taskStatus: progressed?.status ?? String(snapshot.state?.status ?? 'active'),
+    currentStage:
+      progressed?.currentStage ??
+      String(
+        snapshot.state?.currentStage ??
+          snapshot.task?.currentStage ??
+          'Observe',
+      ),
+    taskStatus:
+      progressed?.status ?? String(snapshot.state?.status ?? 'active'),
     taskGoal: String(snapshot.task?.goal ?? ''),
     hasTargetRequest: Boolean(
       snapshot.targetContext?.targetRequest ||
-      snapshot.recentEvidence.some((entry) => Boolean(entry.request)),
+        snapshot.recentEvidence.some(entry => Boolean(entry.request)),
     ),
-    hookRecordCount: snapshot.recentEvidence.filter((entry) => entry.kind === 'hook-hit' || entry.source === 'hook').length,
+    hookRecordCount: snapshot.recentEvidence.filter(
+      entry => entry.kind === 'hook-hit' || entry.source === 'hook',
+    ).length,
     hasRebuildBundle:
       ['Rebuild', 'Patch', 'PureExtraction', 'Port'].includes(
-        String(progressed?.currentStage ?? snapshot.state?.currentStage ?? snapshot.task?.currentStage ?? ''),
+        String(
+          progressed?.currentStage ??
+            snapshot.state?.currentStage ??
+            snapshot.task?.currentStage ??
+            '',
+        ),
       ) ||
       ['partial', 'pass'].includes(String(successCriteria.localRebuild ?? '')),
     hasPassingRebuild: String(successCriteria.localRebuild ?? '') === 'pass',
     firstDivergenceKnown:
-      snapshot.recentEvidence.some((entry) => entry.kind === 'env-gap') ||
-      snapshot.recentTimeline.some((entry) => String(entry.result ?? '').toLowerCase().includes('divergence')),
+      snapshot.recentEvidence.some(entry => entry.kind === 'env-gap') ||
+      snapshot.recentTimeline.some(entry =>
+        String(entry.result ?? '')
+          .toLowerCase()
+          .includes('divergence'),
+      ),
   });
 
-  const currentStage = progressed?.currentStage ?? String(snapshot.state?.currentStage ?? snapshot.task?.currentStage ?? advice.stage);
-  const status = progressed?.status ?? String(snapshot.state?.status ?? 'active');
+  const currentStage =
+    progressed?.currentStage ??
+    String(
+      snapshot.state?.currentStage ??
+        snapshot.task?.currentStage ??
+        advice.stage,
+    );
+  const status =
+    progressed?.status ?? String(snapshot.state?.status ?? 'active');
   const nextStepHint = progressed?.nextStepHint ?? advice.nextStep;
-  const currentSummary = progressed?.currentSummary ??
-    String(snapshot.state?.currentSummary ?? snapshot.task?.currentSummary ?? '任务已初始化，等待补充更多证据。');
-  const targetRequest = (snapshot.targetContext as {targetRequest?: {url?: string}} | undefined)?.targetRequest;
-  const targetUrl = String(targetRequest?.url ?? snapshot.task?.targetUrl ?? '');
+  const currentSummary =
+    progressed?.currentSummary ??
+    String(
+      snapshot.state?.currentSummary ??
+        snapshot.task?.currentSummary ??
+        '任务已初始化，等待补充更多证据。',
+    );
+  const targetRequest = (
+    snapshot.targetContext as {targetRequest?: {url?: string}} | undefined
+  )?.targetRequest;
+  const targetUrl = String(
+    targetRequest?.url ?? snapshot.task?.targetUrl ?? '',
+  );
   const targetParam = inferTargetParam(
     String(snapshot.task?.goal ?? ''),
     currentSummary,
     targetUrl,
   );
-  const topFunctionsText = snapshot.evidenceAggregates.topFunctions.map((entry) => entry.value).join(' ');
+  const topFunctionsText = snapshot.evidenceAggregates.topFunctions
+    .map(entry => entry.value)
+    .join(' ');
   const relatedParams = inferRelatedParams(
     String(snapshot.task?.goal ?? ''),
     currentSummary,
@@ -320,33 +433,56 @@ export async function orchestrateReverseTask(
     topFunctionsText,
     JSON.stringify(snapshot.targetContext ?? {}),
   );
-  const targetContext = snapshot.targetContext as {
-    candidateScripts?: string[];
-    targetRequest?: {url?: string};
-    locatedSignature?: {functionName?: string; scriptUrl?: string};
-    locatedSource?: {scriptId?: string; url?: string; query?: string; lineNumber?: number};
-  } | undefined;
+  const targetContext = snapshot.targetContext as
+    | {
+        candidateScripts?: string[];
+        targetRequest?: {url?: string};
+        locatedSignature?: {functionName?: string; scriptUrl?: string};
+        locatedSource?: {
+          scriptId?: string;
+          url?: string;
+          query?: string;
+          lineNumber?: number;
+        };
+      }
+    | undefined;
   const candidateScripts = Array.isArray(targetContext?.candidateScripts)
-    ? targetContext.candidateScripts.filter((item): item is string => typeof item === 'string' && item.length > 0)
+    ? targetContext.candidateScripts.filter(
+        (item): item is string => typeof item === 'string' && item.length > 0,
+      )
     : [];
   const observedFunctions = snapshot.evidenceAggregates.topFunctions
-    .map((entry) => entry.value)
-    .filter((item) => item.length > 0);
+    .map(entry => entry.value)
+    .filter(item => item.length > 0);
   const preferredUrlPatterns = [
-    ...snapshot.evidenceAggregates.topUrls.map((entry) => entry.value),
+    ...snapshot.evidenceAggregates.topUrls.map(entry => entry.value),
     ...candidateScripts,
-  ].filter((item, index, arr) => item.length > 0 && arr.indexOf(item) === index);
-  const primaryStep = buildStrategyPrimaryStep(taskId, options.strategy, nextStepHint, currentStage, {
-    targetUrl,
-    targetParam,
-    locatedFunctionName: targetContext?.locatedSignature?.functionName,
-    locatedScriptUrl: targetContext?.locatedSource?.url ?? targetContext?.locatedSignature?.scriptUrl,
-    locatedScriptId: targetContext?.locatedSource?.scriptId,
-    functionSliceCode: typeof functionSlice?.code === 'string'
-      ? String(functionSlice.code).slice(0, 12000)
-      : undefined,
-  });
-  if (primaryStep.tool === 'locate_signature_function' && relatedParams.length > 0) {
+  ].filter(
+    (item, index, arr) => item.length > 0 && arr.indexOf(item) === index,
+  );
+  const primaryStep = buildStrategyPrimaryStep(
+    taskId,
+    options.strategy,
+    nextStepHint,
+    currentStage,
+    {
+      targetUrl,
+      targetParam,
+      locatedFunctionName: targetContext?.locatedSignature?.functionName,
+      locatedScriptUrl:
+        targetContext?.locatedSource?.url ??
+        targetContext?.locatedSignature?.scriptUrl,
+      locatedScriptId: targetContext?.locatedSource?.scriptId,
+      functionSliceCode:
+        typeof functionSlice?.code === 'string'
+          ? String(functionSlice.code).slice(0, 12000)
+          : undefined,
+    },
+  );
+  if (
+    primaryStep.tool === 'locate_signature_function' &&
+    relatedParams.length > 0
+  ) {
     primaryStep.params = {
       ...primaryStep.params,
       relatedParams,
@@ -362,9 +498,14 @@ export async function orchestrateReverseTask(
   }
   const suggestedSteps: OrchestrationStep[] = [
     {
-      key: buildStepKey('manage_reverse_task', {action: persistState ? 'progress' : 'get', taskId}),
+      key: buildStepKey('manage_reverse_task', {
+        action: persistState ? 'progress' : 'get',
+        taskId,
+      }),
       tool: 'manage_reverse_task',
-      reason: persistState ? '先同步任务状态，避免基于旧状态继续执行。' : '先读取最新任务快照，避免误判当前阶段。',
+      reason: persistState
+        ? '先同步任务状态，避免基于旧状态继续执行。'
+        : '先读取最新任务快照，避免误判当前阶段。',
       params: {action: persistState ? 'progress' : 'get', taskId},
     },
     primaryStep,
@@ -393,18 +534,26 @@ export async function orchestrateReverseTask(
 
   const execution = options.execute
     ? await executeReverseTaskPlan(store, taskId, filteredSteps, {
-      resume: options.resume,
-      stopOnError: options.stopOnError,
-      currentStage,
-      executionOverrides: options.executionOverrides,
-    })
+        resume: options.resume,
+        stopOnError: options.stopOnError,
+        currentStage,
+        executionOverrides: options.executionOverrides,
+      })
     : undefined;
-  const postExecution = options.execute ? await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20}) : snapshot;
-  const summary = options.includeSummary === false || outputMode === 'compact' ? undefined : postExecution;
+  const postExecution = options.execute
+    ? await getReverseTaskState(store, taskId, {
+        timelineLimit: 20,
+        evidenceLimit: 20,
+      })
+    : snapshot;
+  const summary =
+    options.includeSummary === false || outputMode === 'compact'
+      ? undefined
+      : postExecution;
   const filtersApplied = Boolean(
     (options.skipSteps && options.skipSteps.length > 0) ||
-    options.fromStep ||
-    (options.onlySteps && options.onlySteps.length > 0),
+      options.fromStep ||
+      (options.onlySteps && options.onlySteps.length > 0),
   );
 
   return {
@@ -416,23 +565,40 @@ export async function orchestrateReverseTask(
     advice,
     outputMode,
     orchestration: {
-      primaryStep: outputMode === 'compact'
-        ? compactStep(filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep)
-        : (filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep),
-      suggestedSteps: outputMode === 'compact' ? filteredSteps.map(compactStep) : filteredSteps,
+      primaryStep:
+        outputMode === 'compact'
+          ? compactStep(
+              filtersApplied ? (filteredSteps[0] ?? primaryStep) : primaryStep,
+            )
+          : filtersApplied
+            ? (filteredSteps[0] ?? primaryStep)
+            : primaryStep,
+      suggestedSteps:
+        outputMode === 'compact'
+          ? filteredSteps.map(compactStep)
+          : filteredSteps,
     },
-    ...(buildFallbackPlan(taskId, execution) ? {fallbackPlan: buildFallbackPlan(taskId, execution)} : {}),
+    ...(buildFallbackPlan(taskId, execution)
+      ? {fallbackPlan: buildFallbackPlan(taskId, execution)}
+      : {}),
     ...(execution ? {execution} : {}),
     ...(summary ? {summary} : {}),
   };
 }
 
-function matchesStepSelector(step: OrchestrationStep, selector: string): boolean {
+function matchesStepSelector(
+  step: OrchestrationStep,
+  selector: string,
+): boolean {
   return step.key === selector || step.tool === selector;
 }
 
-function ensureStepExists(steps: OrchestrationStep[], selector: string, optionName: string): void {
-  if (!steps.some((step) => matchesStepSelector(step, selector))) {
+function ensureStepExists(
+  steps: OrchestrationStep[],
+  selector: string,
+  optionName: string,
+): void {
+  if (!steps.some(step => matchesStepSelector(step, selector))) {
     throw new Error(`${optionName} references unknown step: ${selector}`);
   }
 }
@@ -460,23 +626,33 @@ function filterPlannedSteps(
   }
 
   if (onlySteps.length > 0) {
-    filtered = filtered.filter((step) => onlySteps.some((selector) => matchesStepSelector(step, selector)));
+    filtered = filtered.filter(step =>
+      onlySteps.some(selector => matchesStepSelector(step, selector)),
+    );
   }
 
   if (options.fromStep) {
-    const startIndex = filtered.findIndex((step) => matchesStepSelector(step, options.fromStep!));
+    const startIndex = filtered.findIndex(step =>
+      matchesStepSelector(step, options.fromStep!),
+    );
     if (startIndex < 0) {
-      throw new Error(`fromStep references a step excluded by onlySteps: ${options.fromStep}`);
+      throw new Error(
+        `fromStep references a step excluded by onlySteps: ${options.fromStep}`,
+      );
     }
     filtered = filtered.slice(startIndex);
   }
 
   if (skipSteps.length > 0) {
-    filtered = filtered.filter((step) => !skipSteps.some((selector) => matchesStepSelector(step, selector)));
+    filtered = filtered.filter(
+      step => !skipSteps.some(selector => matchesStepSelector(step, selector)),
+    );
   }
 
   if (filtered.length === 0) {
-    throw new Error('Step filters removed every planned step; adjust onlySteps/fromStep/skipSteps.');
+    throw new Error(
+      'Step filters removed every planned step; adjust onlySteps/fromStep/skipSteps.',
+    );
   }
 
   return filtered;

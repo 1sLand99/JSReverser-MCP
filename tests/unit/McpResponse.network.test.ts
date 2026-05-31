@@ -140,7 +140,10 @@ describe('McpResponse network detail formatting', () => {
           redirectChain: () => [],
         };
       },
-      getWebSocketConnections(_includePreserved?: boolean, targetPageIdx?: number) {
+      getWebSocketConnections(
+        _includePreserved?: boolean,
+        targetPageIdx?: number,
+      ) {
         calls.push(`list-ws:${targetPageIdx}`);
         return [];
       },

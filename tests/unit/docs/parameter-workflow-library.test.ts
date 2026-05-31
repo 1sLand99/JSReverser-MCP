@@ -27,7 +27,7 @@ describe('parameter blueprint knowledge base docs', () => {
     assert.strictEqual(index.schemaVersion, '1.0');
     assert.ok(index.libraryVersion);
 
-    const workflowIds = index.workflows.map((item) => item.id).sort();
+    const workflowIds = index.workflows.map(item => item.id).sort();
     assert.deepStrictEqual(workflowIds, [
       'douyin-a-bogus',
       'generic-header-sign',
@@ -48,7 +48,10 @@ describe('parameter blueprint knowledge base docs', () => {
         summary: string;
       }>(`docs/knowledge/parameter-blueprints/${item.path}/metadata.json`);
       const workflow = await readFile(
-        path.join(repoRoot, `docs/knowledge/parameter-blueprints/${item.path}/workflow.md`),
+        path.join(
+          repoRoot,
+          `docs/knowledge/parameter-blueprints/${item.path}/workflow.md`,
+        ),
         'utf8',
       );
 
@@ -97,20 +100,36 @@ describe('parameter blueprint knowledge base docs', () => {
 
     assert.strictEqual(h5stParts.parameter, 'h5st');
     assert.strictEqual(h5stParts.parts.length, 10);
-    assert.ok(h5stParts.parts.some((item) => item.name === 'body_digest'));
+    assert.ok(h5stParts.parts.some(item => item.name === 'body_digest'));
     assert.strictEqual(h5stMutations.parameter, 'h5st');
-    assert.ok(h5stMutations.mutations.some((item) => item.id === 'field-ordering-normalization'));
+    assert.ok(
+      h5stMutations.mutations.some(
+        item => item.id === 'field-ordering-normalization',
+      ),
+    );
 
     assert.strictEqual(douyinParts.parameter, 'a_bogus');
     assert.ok(douyinParts.parts.length >= 6);
-    assert.ok(douyinParts.parts.some((item) => item.name === 'send_time_patch_segment'));
+    assert.ok(
+      douyinParts.parts.some(item => item.name === 'send_time_patch_segment'),
+    );
     assert.strictEqual(douyinMutations.parameter, 'a_bogus');
-    assert.ok(douyinMutations.mutations.some((item) => item.id === 'send-time-patch-variant'));
+    assert.ok(
+      douyinMutations.mutations.some(
+        item => item.id === 'send-time-patch-variant',
+      ),
+    );
 
     assert.strictEqual(falconParts.parameter, '__NS_hxfalcon');
     assert.ok(falconParts.parts.length >= 6);
-    assert.ok(falconParts.parts.some((item) => item.name === 'vm_bridge_segment'));
+    assert.ok(
+      falconParts.parts.some(item => item.name === 'vm_bridge_segment'),
+    );
     assert.strictEqual(falconMutations.parameter, '__NS_hxfalcon');
-    assert.ok(falconMutations.mutations.some((item) => item.id === 'vm-bridge-callback-variant'));
+    assert.ok(
+      falconMutations.mutations.some(
+        item => item.id === 'vm-bridge-callback-variant',
+      ),
+    );
   });
 });

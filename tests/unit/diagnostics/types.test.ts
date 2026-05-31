@@ -7,7 +7,10 @@
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
-import type {DiagnosticReport, DiagnosticStatus} from '../../../src/diagnostics/types.js';
+import type {
+  DiagnosticReport,
+  DiagnosticStatus,
+} from '../../../src/diagnostics/types.js';
 
 describe('diagnostics types', () => {
   it('supports the expected report shape', () => {

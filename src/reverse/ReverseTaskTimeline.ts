@@ -29,7 +29,10 @@ export async function appendReverseTimeline(
   taskFile: string;
   timelineFile: string;
 }> {
-  const existingTask = await store.readSnapshot<Record<string, unknown>>(input.taskId, 'task.json');
+  const existingTask = await store.readSnapshot<Record<string, unknown>>(
+    input.taskId,
+    'task.json',
+  );
   const task = await store.openTask({
     taskId: input.taskId,
     slug: input.taskSlug ?? String(existingTask?.slug ?? input.taskId),
@@ -37,8 +40,12 @@ export async function appendReverseTimeline(
     goal: input.goal ?? String(existingTask?.goal ?? ''),
     currentStage: String(existingTask?.currentStage ?? input.stage),
     currentSummary: String(existingTask?.currentSummary ?? ''),
-    successCriteria: existingTask?.successCriteria as Record<string, unknown> | undefined,
-    targetContext: existingTask?.targetContext as Record<string, unknown> | undefined,
+    successCriteria: existingTask?.successCriteria as
+      | Record<string, unknown>
+      | undefined,
+    targetContext: existingTask?.targetContext as
+      | Record<string, unknown>
+      | undefined,
   });
 
   await task.appendTimeline({

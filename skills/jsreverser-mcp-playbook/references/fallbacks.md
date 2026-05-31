@@ -1,4 +1,5 @@
 # 失败回退
+
 - Hook 无数据：确认动作执行 -> 扩一档范围 -> 仍失败则停，不要直接猜 local rebuild。
 - 如果 Hook 错过首屏初始化：回到页面入口，先补 `inject_preload_script` 再重试。
 - 数据过多：summary 去噪 -> raw 单条下钻。

@@ -1,4 +1,9 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 代码收集模块 - 完整实现
  *
  * 功能:
@@ -10,7 +15,8 @@
  * - 反检测和资源拦截
  */
 
-import type { Browser, Page, CDPSession } from 'puppeteer-core';
+import type {Browser, Page, CDPSession} from 'puppeteer-core';
+
 import type {
   CollectCodeOptions,
   CollectCodeResult,
@@ -18,36 +24,40 @@ import type {
   PuppeteerConfig,
   DependencyGraph,
 } from '../../types/index.js';
-import { logger } from '../../utils/logger.js';
-import { CodeCache } from './CodeCache.js';
-import { SmartCodeCollector, type SmartCollectOptions } from './SmartCodeCollector.js';
-import { CodeCompressor } from './CodeCompressor.js';
+import {logger} from '../../utils/logger.js';
+import type {BrowserModeManager} from '../browser/BrowserModeManager.js';
+
+import {CodeCache} from './CodeCache.js';
+import {CodeCompressor} from './CodeCompressor.js';
+import {
+  SmartCodeCollector,
+  type SmartCollectOptions,
+} from './SmartCodeCollector.js';
 // import { StreamingCollector } from './StreamingCollector.js'; // 暂不使用
-import { BrowserModeManager } from '../browser/BrowserModeManager.js';
 
 export class CodeCollector {
   private config: PuppeteerConfig;
   private readonly browserManager: BrowserModeManager;
   private browser: Browser | null = null;
   private browserListenerAttached = false;
-  private collectedUrls: Set<string> = new Set(); // 防止重复收集
+  private collectedUrls = new Set<string>(); // 防止重复收集
 
   // 🔧 重新设计：支持大型网站完整收集
   // 策略：收集所有文件到缓存，返回时按需限制
   private readonly MAX_COLLECTED_URLS: number;
-  private readonly MAX_FILES_PER_COLLECT: number;  // 保留，但只在返回时使用
-  private readonly MAX_RESPONSE_SIZE: number;      // 🆕 单次响应最大大小（而非收集大小）
+  private readonly MAX_FILES_PER_COLLECT: number; // 保留，但只在返回时使用
+  private readonly MAX_RESPONSE_SIZE: number; // 🆕 单次响应最大大小（而非收集大小）
   private readonly MAX_SINGLE_FILE_SIZE: number;
-  private readonly MAX_FILES_CACHE_SIZE: number;   // 🆕 文件缓存最大数量（防止内存泄漏）
+  private readonly MAX_FILES_CACHE_SIZE: number; // 🆕 文件缓存最大数量（防止内存泄漏）
   private RESPONSE_BODY_TIMEOUT_MS: number;
   private readonly userAgent: string;
 
   // 🆕 收集的完整数据存储（支持大型网站）
-  private collectedFilesCache: Map<string, CodeFile> = new Map();
+  private collectedFilesCache = new Map<string, CodeFile>();
 
   // ✅ 缓存
   private cache: CodeCache;
-  private cacheEnabled: boolean = true;
+  private cacheEnabled = true;
 
   // 🆕 智能收集、压缩
   private smartCollector: SmartCodeCollector;
@@ -68,13 +78,14 @@ export class CodeCollector {
     // 收集阶段：可以收集大量文件（支持大型网站）
     // 返回阶段：限制单次响应大小（防止 MCP token 溢出）
     this.MAX_COLLECTED_URLS = config.maxCollectedUrls ?? 10000;
-    this.MAX_FILES_PER_COLLECT = config.maxFilesPerCollect ?? 200;     // 提高到200（原50）
+    this.MAX_FILES_PER_COLLECT = config.maxFilesPerCollect ?? 200; // 提高到200（原50）
     this.MAX_RESPONSE_SIZE = config.maxTotalContentSize ?? 512 * 1024; // 单次响应512KB
     this.MAX_SINGLE_FILE_SIZE = config.maxSingleFileSize ?? 200 * 1024; // 提高到200KB
-    this.MAX_FILES_CACHE_SIZE = 1000;  // 🆕 文件缓存最大1000个（防止内存泄漏）
+    this.MAX_FILES_CACHE_SIZE = 1000; // 🆕 文件缓存最大1000个（防止内存泄漏）
     this.RESPONSE_BODY_TIMEOUT_MS = 3000;
 
-    this.userAgent = config.userAgent ??
+    this.userAgent =
+      config.userAgent ??
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
     // 初始化所有模块
@@ -82,8 +93,12 @@ export class CodeCollector {
     this.smartCollector = new SmartCodeCollector();
     this.compressor = new CodeCompressor();
 
-    logger.info(`📊 CodeCollector limits: maxCollect=${this.MAX_FILES_PER_COLLECT} files, maxResponse=${(this.MAX_RESPONSE_SIZE / 1024).toFixed(0)}KB, maxSingle=${(this.MAX_SINGLE_FILE_SIZE / 1024).toFixed(0)}KB`);
-    logger.info(`💡 Strategy: Collect ALL files → Cache → Return summary/partial data to fit MCP limits`);
+    logger.info(
+      `📊 CodeCollector limits: maxCollect=${this.MAX_FILES_PER_COLLECT} files, maxResponse=${(this.MAX_RESPONSE_SIZE / 1024).toFixed(0)}KB, maxSingle=${(this.MAX_SINGLE_FILE_SIZE / 1024).toFixed(0)}KB`,
+    );
+    logger.info(
+      `💡 Strategy: Collect ALL files → Cache → Return summary/partial data to fit MCP limits`,
+    );
   }
 
   /**
@@ -132,7 +147,11 @@ export class CodeCollector {
     logger.success('✅ All data cleared');
   }
 
-  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    message: string,
+  ): Promise<T> {
     let timeoutHandle: NodeJS.Timeout | undefined;
     try {
       return await Promise.race([
@@ -197,7 +216,9 @@ export class CodeCollector {
         const firstKey = this.collectedFilesCache.keys().next().value;
         if (firstKey) {
           this.collectedFilesCache.delete(firstKey);
-          logger.debug(`[Cache] Removed oldest file to maintain cache limit: ${firstKey}`);
+          logger.debug(
+            `[Cache] Removed oldest file to maintain cache limit: ${firstKey}`,
+          );
         }
       }
 
@@ -217,26 +238,34 @@ export class CodeCollector {
    */
   private cleanupCollectedUrls(): void {
     if (this.collectedUrls.size > this.MAX_COLLECTED_URLS) {
-      logger.warn(`Collected URLs exceeded ${this.MAX_COLLECTED_URLS}, clearing...`);
+      logger.warn(
+        `Collected URLs exceeded ${this.MAX_COLLECTED_URLS}, clearing...`,
+      );
       // 保留最近的一半
       const urls = Array.from(this.collectedUrls);
       this.collectedUrls.clear();
-      urls.slice(-Math.floor(this.MAX_COLLECTED_URLS / 2)).forEach(url =>
-        this.collectedUrls.add(url)
-      );
+      urls
+        .slice(-Math.floor(this.MAX_COLLECTED_URLS / 2))
+        .forEach(url => this.collectedUrls.add(url));
     }
   }
 
   /**
    * 等待动态脚本基本稳定，优先使用 Puppeteer 的网络空闲能力
    */
-  private async waitForDynamicScripts(page: Page, waitMs: number): Promise<void> {
+  private async waitForDynamicScripts(
+    page: Page,
+    waitMs: number,
+  ): Promise<void> {
     if (waitMs <= 0) {
       return;
     }
 
     const pageWithNetworkIdle = page as unknown as {
-      waitForNetworkIdle?: (options?: { idleTime?: number; timeout?: number }) => Promise<void>;
+      waitForNetworkIdle?: (options?: {
+        idleTime?: number;
+        timeout?: number;
+      }) => Promise<void>;
     };
 
     if (typeof pageWithNetworkIdle.waitForNetworkIdle === 'function') {
@@ -251,7 +280,7 @@ export class CodeCollector {
       }
     }
 
-    await new Promise((resolve) => setTimeout(resolve, waitMs));
+    await new Promise(resolve => setTimeout(resolve, waitMs));
   }
 
   /**
@@ -300,7 +329,9 @@ export class CodeCollector {
       await this.browserManager.close();
       this.browser = null;
       this.browserListenerAttached = false;
-      logger.info('Browser closed (via BrowserModeManager) and all data cleared');
+      logger.info(
+        'Browser closed (via BrowserModeManager) and all data cleared',
+      );
     }
   }
 
@@ -324,7 +355,7 @@ export class CodeCollector {
 
     if (this.browser) {
       const pages = await this.browser.pages();
-      const usablePages = pages.filter((page) => !page.isClosed());
+      const usablePages = pages.filter(page => !page.isClosed());
       if (usablePages.length > 0) {
         const fallbackPage = usablePages[usablePages.length - 1];
         if (fallbackPage && !fallbackPage.isClosed()) {
@@ -466,13 +497,15 @@ export class CodeCollector {
 
       // ✅ 修复：保存监听器引用，便于移除
       this.cdpListeners.responseReceived = async (params: any) => {
-        const { response, requestId, type } = params;
+        const {response, requestId, type} = params;
         const url = response.url;
 
         // 🔧 修复：只限制文件数量，不限制总大小（支持大型网站完整收集）
         if (files.length >= this.MAX_FILES_PER_COLLECT) {
           if (files.length === this.MAX_FILES_PER_COLLECT) {
-            logger.warn(`⚠️  Reached max files limit (${this.MAX_FILES_PER_COLLECT}), will skip remaining files`);
+            logger.warn(
+              `⚠️  Reached max files limit (${this.MAX_FILES_PER_COLLECT}), will skip remaining files`,
+            );
           }
           return;
         }
@@ -494,7 +527,7 @@ export class CodeCollector {
             }
 
             // 获取响应体
-            const { body, base64Encoded } = await this.withTimeout(
+            const {body, base64Encoded} = await this.withTimeout(
               this.cdpSession.send('Network.getResponseBody', {
                 requestId,
               }) as Promise<{body: string; base64Encoded: boolean}>,
@@ -502,7 +535,9 @@ export class CodeCollector {
               `Timed out retrieving response body for ${url}`,
             );
 
-            const content = base64Encoded ? Buffer.from(body, 'base64').toString('utf-8') : body;
+            const content = base64Encoded
+              ? Buffer.from(body, 'base64').toString('utf-8')
+              : body;
 
             // 🔧 限制单文件大小（防止单个文件过大）
             const contentSize = content.length;
@@ -514,7 +549,9 @@ export class CodeCollector {
               // 截断超大文件，保留前面部分
               finalContent = content.substring(0, this.MAX_SINGLE_FILE_SIZE);
               truncated = true;
-              logger.warn(`[CDP] Large file truncated: ${url} (${(contentSize / 1024).toFixed(2)} KB -> ${(this.MAX_SINGLE_FILE_SIZE / 1024).toFixed(2)} KB)`);
+              logger.warn(
+                `[CDP] Large file truncated: ${url} (${(contentSize / 1024).toFixed(2)} KB -> ${(this.MAX_SINGLE_FILE_SIZE / 1024).toFixed(2)} KB)`,
+              );
             }
 
             // 防止重复收集
@@ -525,11 +562,13 @@ export class CodeCollector {
                 content: finalContent,
                 size: finalContent.length,
                 type: 'external',
-                metadata: truncated ? {
-                  truncated: true,
-                  originalSize: contentSize,
-                  truncatedSize: finalContent.length,
-                } : undefined,
+                metadata: truncated
+                  ? {
+                      truncated: true,
+                      originalSize: contentSize,
+                      truncatedSize: finalContent.length,
+                    }
+                  : undefined,
               };
               files.push(file);
 
@@ -539,14 +578,18 @@ export class CodeCollector {
                 const firstKey = this.collectedFilesCache.keys().next().value;
                 if (firstKey) {
                   this.collectedFilesCache.delete(firstKey);
-                  logger.debug(`[Cache] Removed oldest file to maintain cache limit: ${firstKey}`);
+                  logger.debug(
+                    `[Cache] Removed oldest file to maintain cache limit: ${firstKey}`,
+                  );
                 }
               }
 
               // 🆕 同时存储到缓存，供后续按需获取
               this.collectedFilesCache.set(url, file);
 
-              logger.debug(`[CDP] Collected (${files.length}/${this.MAX_FILES_PER_COLLECT}): ${url} (${(finalContent.length / 1024).toFixed(2)} KB)${truncated ? ' [TRUNCATED]' : ''}`);
+              logger.debug(
+                `[CDP] Collected (${files.length}/${this.MAX_FILES_PER_COLLECT}): ${url} (${(finalContent.length / 1024).toFixed(2)} KB)${truncated ? ' [TRUNCATED]' : ''}`,
+              );
             }
           } catch (error) {
             logger.warn(`[CDP] Failed to get response body for: ${url}`, error);
@@ -555,7 +598,10 @@ export class CodeCollector {
       };
 
       // ✅ 注册监听器
-      this.cdpSession.on('Network.responseReceived', this.cdpListeners.responseReceived);
+      this.cdpSession.on(
+        'Network.responseReceived',
+        this.cdpListeners.responseReceived,
+      );
 
       // 访问页面
       logger.info(`Navigating to: ${options.url}`);
@@ -587,8 +633,12 @@ export class CodeCollector {
 
       // 收集动态加载的脚本
       if (options.includeDynamic) {
-        const dynamicWaitMs = options.dynamicWaitMs ?? Math.min(3000, options.timeout ?? this.config.timeout);
-        logger.info(`Waiting for dynamic scripts (up to ${dynamicWaitMs}ms)...`);
+        const dynamicWaitMs =
+          options.dynamicWaitMs ??
+          Math.min(3000, options.timeout ?? this.config.timeout);
+        logger.info(
+          `Waiting for dynamic scripts (up to ${dynamicWaitMs}ms)...`,
+        );
         await this.waitForDynamicScripts(page, dynamicWaitMs);
       }
 
@@ -600,11 +650,18 @@ export class CodeCollector {
       // ✅ 统计截断的文件
       const truncatedFiles = files.filter(f => f.metadata?.truncated);
       if (truncatedFiles.length > 0) {
-        logger.warn(`⚠️  ${truncatedFiles.length} files were truncated due to size limits`);
+        logger.warn(
+          `⚠️  ${truncatedFiles.length} files were truncated due to size limits`,
+        );
         truncatedFiles.forEach(f => {
           // ✅ 修复：安全地访问 originalSize
-          const originalSize = typeof f.metadata?.originalSize === 'number' ? f.metadata.originalSize : f.size;
-          logger.warn(`  - ${f.url}: ${(originalSize / 1024).toFixed(2)} KB -> ${(f.size / 1024).toFixed(2)} KB`);
+          const originalSize =
+            typeof f.metadata?.originalSize === 'number'
+              ? f.metadata.originalSize
+              : f.size;
+          logger.warn(
+            `  - ${f.url}: ${(originalSize / 1024).toFixed(2)} KB -> ${(f.size / 1024).toFixed(2)} KB`,
+          );
         });
       }
 
@@ -613,7 +670,9 @@ export class CodeCollector {
 
       if (options.smartMode && options.smartMode !== 'full') {
         try {
-          logger.info(`🧠 Applying smart collection mode: ${options.smartMode}`);
+          logger.info(
+            `🧠 Applying smart collection mode: ${options.smartMode}`,
+          );
 
           const smartOptions: SmartCollectOptions = {
             mode: options.smartMode,
@@ -622,14 +681,23 @@ export class CodeCollector {
             priorities: options.priorities,
           };
 
-          const smartResult = await this.smartCollector.smartCollect(page, files, smartOptions);
+          const smartResult = await this.smartCollector.smartCollect(
+            page,
+            files,
+            smartOptions,
+          );
 
           // 如果是摘要模式，返回摘要而不是完整文件
           if (options.smartMode === 'summary') {
             logger.info(`📊 Returning ${smartResult.length} code summaries`);
 
             // ✅ 类型安全：summary 模式返回 CodeSummary[]
-            if (Array.isArray(smartResult) && smartResult.length > 0 && smartResult[0] && 'hasEncryption' in smartResult[0]) {
+            if (
+              Array.isArray(smartResult) &&
+              smartResult.length > 0 &&
+              smartResult[0] &&
+              'hasEncryption' in smartResult[0]
+            ) {
               return {
                 files: [], // 摘要模式不返回完整文件
                 summaries: smartResult as Array<{
@@ -643,7 +711,7 @@ export class CodeCollector {
                   imports: string[];
                   preview: string;
                 }>,
-                dependencies: { nodes: [], edges: [] },
+                dependencies: {nodes: [], edges: []},
                 totalSize: 0,
                 collectTime: Date.now() - startTime,
               };
@@ -651,10 +719,16 @@ export class CodeCollector {
           }
 
           // ✅ 类型安全：priority/incremental 模式返回 CodeFile[]
-          if (Array.isArray(smartResult) && (smartResult.length === 0 || (smartResult[0] && 'content' in smartResult[0]))) {
+          if (
+            Array.isArray(smartResult) &&
+            (smartResult.length === 0 ||
+              (smartResult[0] && 'content' in smartResult[0]))
+          ) {
             processedFiles = smartResult as CodeFile[];
           } else {
-            logger.warn('Smart collection returned unexpected type, using original files');
+            logger.warn(
+              'Smart collection returned unexpected type, using original files',
+            );
             processedFiles = files;
           }
         } catch (error) {
@@ -666,7 +740,9 @@ export class CodeCollector {
       // 🆕 压缩处理（增强版 - 使用批量压缩和智能级别选择）
       if (options.compress) {
         try {
-          logger.info(`🗜️  Compressing ${processedFiles.length} files with enhanced compressor...`);
+          logger.info(
+            `🗜️  Compressing ${processedFiles.length} files with enhanced compressor...`,
+          );
 
           // 准备需要压缩的文件
           const filesToCompress = processedFiles
@@ -680,21 +756,26 @@ export class CodeCollector {
             logger.info('No files need compression (all below threshold)');
           } else {
             // 使用批量压缩（并发优化）
-            const compressedResults = await this.compressor.compressBatch(filesToCompress, {
-              level: undefined, // 自动选择级别
-              useCache: true,
-              maxRetries: 3,
-              concurrency: 5,
-              onProgress: (progress) => {
-                if (progress % 25 === 0) {
-                  logger.debug(`Compression progress: ${progress.toFixed(0)}%`);
-                }
+            const compressedResults = await this.compressor.compressBatch(
+              filesToCompress,
+              {
+                level: undefined, // 自动选择级别
+                useCache: true,
+                maxRetries: 3,
+                concurrency: 5,
+                onProgress: progress => {
+                  if (progress % 25 === 0) {
+                    logger.debug(
+                      `Compression progress: ${progress.toFixed(0)}%`,
+                    );
+                  }
+                },
               },
-            });
+            );
 
             // 更新文件元数据
             const compressedMap = new Map(
-              compressedResults.map(r => [r.url, r])
+              compressedResults.map(r => [r.url, r]),
             );
 
             for (const file of processedFiles) {
@@ -712,9 +793,15 @@ export class CodeCollector {
 
             // 获取压缩统计
             const stats = this.compressor.getStats();
-            logger.info(`✅ Compressed ${compressedResults.length}/${processedFiles.length} files`);
-            logger.info(`📊 Compression stats: ${(stats.totalOriginalSize / 1024).toFixed(2)} KB -> ${(stats.totalCompressedSize / 1024).toFixed(2)} KB (${stats.averageRatio.toFixed(1)}% reduction)`);
-            logger.info(`⚡ Cache: ${stats.cacheHits} hits, ${stats.cacheMisses} misses (${stats.cacheHits > 0 ? ((stats.cacheHits / (stats.cacheHits + stats.cacheMisses)) * 100).toFixed(1) : 0}% hit rate)`);
+            logger.info(
+              `✅ Compressed ${compressedResults.length}/${processedFiles.length} files`,
+            );
+            logger.info(
+              `📊 Compression stats: ${(stats.totalOriginalSize / 1024).toFixed(2)} KB -> ${(stats.totalCompressedSize / 1024).toFixed(2)} KB (${stats.averageRatio.toFixed(1)}% reduction)`,
+            );
+            logger.info(
+              `⚡ Cache: ${stats.cacheHits} hits, ${stats.cacheMisses} misses (${stats.cacheHits > 0 ? ((stats.cacheHits / (stats.cacheHits + stats.cacheMisses)) * 100).toFixed(1) : 0}% hit rate)`,
+            );
           }
         } catch (error) {
           logger.error('Compression failed:', error);
@@ -726,7 +813,7 @@ export class CodeCollector {
       const dependencies = this.analyzeDependencies(processedFiles);
 
       logger.success(
-        `Collected ${processedFiles.length} files (${(totalSize / 1024).toFixed(2)} KB) in ${collectTime}ms`
+        `Collected ${processedFiles.length} files (${(totalSize / 1024).toFixed(2)} KB) in ${collectTime}ms`,
       );
 
       const result: CollectCodeResult = {
@@ -754,7 +841,10 @@ export class CodeCollector {
         try {
           // 先移除监听器
           if (this.cdpListeners.responseReceived) {
-            this.cdpSession.off('Network.responseReceived', this.cdpListeners.responseReceived);
+            this.cdpSession.off(
+              'Network.responseReceived',
+              this.cdpListeners.responseReceived,
+            );
           }
           // 再detach
           await this.cdpSession.detach();
@@ -778,9 +868,11 @@ export class CodeCollector {
    */
   private async collectInlineScripts(page: Page): Promise<CodeFile[]> {
     const scripts = await page.evaluate((maxSingleSize: number) => {
-      const scriptElements = Array.from(document.querySelectorAll('script')) as HTMLScriptElement[];
+      const scriptElements = Array.from(
+        document.querySelectorAll('script'),
+      ) as HTMLScriptElement[];
       return scriptElements
-        .filter((script) => !script.src && script.textContent)
+        .filter(script => !script.src && script.textContent)
         .map((script, index) => {
           let content = script.textContent || '';
           const originalSize = content.length;
@@ -814,12 +906,18 @@ export class CodeCollector {
     const limitedScripts = scripts.slice(0, this.MAX_FILES_PER_COLLECT);
 
     if (scripts.length > limitedScripts.length) {
-      logger.warn(`⚠️  Found ${scripts.length} inline scripts, limiting to ${this.MAX_FILES_PER_COLLECT}`);
+      logger.warn(
+        `⚠️  Found ${scripts.length} inline scripts, limiting to ${this.MAX_FILES_PER_COLLECT}`,
+      );
     }
 
-    const truncatedCount = limitedScripts.filter(s => s.metadata?.truncated).length;
+    const truncatedCount = limitedScripts.filter(
+      s => s.metadata?.truncated,
+    ).length;
     if (truncatedCount > 0) {
-      logger.warn(`⚠️  ${truncatedCount} inline scripts were truncated due to size limits`);
+      logger.warn(
+        `⚠️  ${truncatedCount} inline scripts were truncated due to size limits`,
+      );
     }
 
     logger.debug(`Collected ${limitedScripts.length} inline scripts`);
@@ -837,10 +935,13 @@ export class CodeCollector {
         }
 
         const registrations = await navigator.serviceWorker.getRegistrations();
-        const workers: Array<{ url: string; scope: string; state: string }> = [];
+        const workers: Array<{url: string; scope: string; state: string}> = [];
 
         for (const registration of registrations) {
-          const worker = registration.active || registration.installing || registration.waiting;
+          const worker =
+            registration.active ||
+            registration.installing ||
+            registration.waiting;
           if (worker && worker.scriptURL) {
             workers.push({
               url: worker.scriptURL,
@@ -859,7 +960,7 @@ export class CodeCollector {
       for (const worker of serviceWorkers) {
         try {
           // 使用 page.evaluate 中的 fetch，在页面上下文中执行
-          const content = await page.evaluate(async (url) => {
+          const content = await page.evaluate(async url => {
             const response = await fetch(url);
             return await response.text();
           }, worker.url);
@@ -899,7 +1000,10 @@ export class CodeCollector {
         const workerUrls: string[] = (window as any).__workerUrls || [];
         (window as any).__workerUrls = workerUrls;
 
-        (window as any).Worker = function (scriptURL: string, options?: WorkerOptions) {
+        (window as any).Worker = function (
+          scriptURL: string,
+          options?: WorkerOptions,
+        ) {
           workerUrls.push(scriptURL);
           return new originalWorker(scriptURL, options);
         };
@@ -908,7 +1012,9 @@ export class CodeCollector {
       });
 
       // 获取已创建的Worker URL（拦截注入后新创建的 + 无法捕获注入前已创建的）
-      const workerUrls = (await page.evaluate(() => (window as any).__workerUrls || [])) as string[];
+      const workerUrls = (await page.evaluate(
+        () => (window as any).__workerUrls || [],
+      )) as string[];
 
       const files: CodeFile[] = [];
 
@@ -919,7 +1025,7 @@ export class CodeCollector {
           const absoluteUrl = new URL(url, page.url()).href;
 
           // 使用 page.evaluate 中的 fetch，在页面上下文中执行
-          const content = await page.evaluate(async (workerUrl) => {
+          const content = await page.evaluate(async workerUrl => {
             const response = await fetch(workerUrl);
             return await response.text();
           }, absoluteUrl);
@@ -953,7 +1059,7 @@ export class CodeCollector {
     const edges: DependencyGraph['edges'] = [];
 
     // 为每个文件创建节点
-    files.forEach((file) => {
+    files.forEach(file => {
       nodes.push({
         id: file.url,
         url: file.url,
@@ -962,13 +1068,16 @@ export class CodeCollector {
     });
 
     // 分析import/require依赖
-    files.forEach((file) => {
+    files.forEach(file => {
       const dependencies = this.extractDependencies(file.content);
 
-      dependencies.forEach((dep) => {
+      dependencies.forEach(dep => {
         // 尝试匹配到实际文件
-        const targetFile = files.find((f) =>
-          f.url.includes(dep) || f.url.endsWith(dep) || f.url.endsWith(`${dep}.js`)
+        const targetFile = files.find(
+          f =>
+            f.url.includes(dep) ||
+            f.url.endsWith(dep) ||
+            f.url.endsWith(`${dep}.js`),
         );
 
         if (targetFile) {
@@ -981,8 +1090,10 @@ export class CodeCollector {
       });
     });
 
-    logger.debug(`Dependency graph: ${nodes.length} nodes, ${edges.length} edges`);
-    return { nodes, edges };
+    logger.debug(
+      `Dependency graph: ${nodes.length} nodes, ${edges.length} edges`,
+    );
+    return {nodes, edges};
   }
 
   /**
@@ -1038,8 +1149,8 @@ export class CodeCollector {
   async navigateWithRetry(
     page: Page,
     url: string,
-    options: { waitUntil?: any; timeout?: number },
-    maxRetries = 3
+    options: {waitUntil?: any; timeout?: number},
+    maxRetries = 3,
   ): Promise<void> {
     let lastError: Error | null = null;
 
@@ -1049,9 +1160,11 @@ export class CodeCollector {
         return;
       } catch (error) {
         lastError = error as Error;
-        logger.warn(`Navigation attempt ${i + 1}/${maxRetries} failed: ${error}`);
+        logger.warn(
+          `Navigation attempt ${i + 1}/${maxRetries} failed: ${error}`,
+        );
         if (i < maxRetries - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
         }
       }
     }
@@ -1065,9 +1178,12 @@ export class CodeCollector {
   async getPerformanceMetrics(page: Page): Promise<Record<string, number>> {
     try {
       const metrics = await page.evaluate(() => {
-        const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+        const perf = performance.getEntriesByType(
+          'navigation',
+        )[0] as PerformanceNavigationTiming;
         return {
-          domContentLoaded: perf.domContentLoadedEventEnd - perf.domContentLoadedEventStart,
+          domContentLoaded:
+            perf.domContentLoadedEventEnd - perf.domContentLoadedEventStart,
           loadComplete: perf.loadEventEnd - perf.loadEventStart,
           domInteractive: perf.domInteractive - perf.fetchStart,
           totalTime: perf.loadEventEnd - perf.fetchStart,
@@ -1148,13 +1264,21 @@ export class CodeCollector {
     truncated?: boolean;
     originalSize?: number;
   }> {
-    const summaries = Array.from(this.collectedFilesCache.values()).map(file => ({
-      url: file.url,
-      size: file.size,
-      type: file.type,
-      truncated: typeof file.metadata?.truncated === 'boolean' ? file.metadata.truncated : undefined,
-      originalSize: typeof file.metadata?.originalSize === 'number' ? file.metadata.originalSize : undefined,
-    }));
+    const summaries = Array.from(this.collectedFilesCache.values()).map(
+      file => ({
+        url: file.url,
+        size: file.size,
+        type: file.type,
+        truncated:
+          typeof file.metadata?.truncated === 'boolean'
+            ? file.metadata.truncated
+            : undefined,
+        originalSize:
+          typeof file.metadata?.originalSize === 'number'
+            ? file.metadata.originalSize
+            : undefined,
+      }),
+    );
 
     logger.info(`📋 Returning summary of ${summaries.length} collected files`);
     return summaries;
@@ -1169,7 +1293,9 @@ export class CodeCollector {
   getFileByUrl(url: string): CodeFile | null {
     const file = this.collectedFilesCache.get(url);
     if (file) {
-      logger.info(`📄 Returning file: ${url} (${(file.size / 1024).toFixed(2)} KB)`);
+      logger.info(
+        `📄 Returning file: ${url} (${(file.size / 1024).toFixed(2)} KB)`,
+      );
       return file;
     }
     logger.warn(`⚠️  File not found: ${url}`);
@@ -1185,8 +1311,8 @@ export class CodeCollector {
    */
   getFilesByPattern(
     pattern: string,
-    limit: number = 20,
-    maxTotalSize: number = this.MAX_RESPONSE_SIZE
+    limit = 20,
+    maxTotalSize: number = this.MAX_RESPONSE_SIZE,
   ): {
     files: CodeFile[];
     totalSize: number;
@@ -1243,10 +1369,14 @@ export class CodeCollector {
     }
 
     if (truncated || matched.length > limit) {
-      logger.warn(`⚠️  Pattern "${pattern}" matched ${matched.length} files, returning ${returned.length} (limited by size/count)`);
+      logger.warn(
+        `⚠️  Pattern "${pattern}" matched ${matched.length} files, returning ${returned.length} (limited by size/count)`,
+      );
     }
 
-    logger.info(`🔍 Pattern "${pattern}": matched ${matched.length}, returning ${returned.length} files (${(totalSize / 1024).toFixed(2)} KB)`);
+    logger.info(
+      `🔍 Pattern "${pattern}": matched ${matched.length}, returning ${returned.length} files (${(totalSize / 1024).toFixed(2)} KB)`,
+    );
 
     return {
       files: returned,
@@ -1264,8 +1394,8 @@ export class CodeCollector {
    * @param maxTotalSize 最大总大小（默认512KB）
    */
   getTopPriorityFiles(
-    topN: number = 10,
-    maxTotalSize: number = this.MAX_RESPONSE_SIZE
+    topN = 10,
+    maxTotalSize: number = this.MAX_RESPONSE_SIZE,
   ): {
     files: CodeFile[];
     totalSize: number;
@@ -1296,7 +1426,9 @@ export class CodeCollector {
       }
     }
 
-    logger.info(`⭐ Returning top ${selected.length}/${allFiles.length} priority files (${(totalSize / 1024).toFixed(2)} KB)`);
+    logger.info(
+      `⭐ Returning top ${selected.length}/${allFiles.length} priority files (${(totalSize / 1024).toFixed(2)} KB)`,
+    );
 
     return {
       files: selected,
@@ -1316,19 +1448,35 @@ export class CodeCollector {
     else if (file.type === 'external') score += 5;
 
     // 文件大小：小文件优先（更可能是核心逻辑）
-    if (file.size < 10 * 1024) score += 15;      // < 10KB
-    else if (file.size < 50 * 1024) score += 10; // < 50KB
+    if (file.size < 10 * 1024)
+      score += 15; // < 10KB
+    else if (file.size < 50 * 1024)
+      score += 10; // < 50KB
     else if (file.size > 200 * 1024) score -= 10; // > 200KB
 
     // URL 特征匹配（关键词加分）
     const url = file.url.toLowerCase();
-    if (url.includes('main') || url.includes('index') || url.includes('app')) score += 20;
-    if (url.includes('crypto') || url.includes('encrypt') || url.includes('sign')) score += 30;
-    if (url.includes('api') || url.includes('request') || url.includes('ajax')) score += 25;
-    if (url.includes('core') || url.includes('common') || url.includes('util')) score += 15;
+    if (url.includes('main') || url.includes('index') || url.includes('app'))
+      score += 20;
+    if (
+      url.includes('crypto') ||
+      url.includes('encrypt') ||
+      url.includes('sign')
+    )
+      score += 30;
+    if (url.includes('api') || url.includes('request') || url.includes('ajax'))
+      score += 25;
+    if (url.includes('core') || url.includes('common') || url.includes('util'))
+      score += 15;
 
     // 第三方库降分
-    if (url.includes('vendor') || url.includes('lib') || url.includes('jquery') || url.includes('react')) score -= 20;
+    if (
+      url.includes('vendor') ||
+      url.includes('lib') ||
+      url.includes('jquery') ||
+      url.includes('react')
+    )
+      score -= 20;
     if (url.includes('node_modules') || url.includes('bundle')) score -= 30;
 
     return score;

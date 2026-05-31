@@ -79,4 +79,3 @@ JSReverser-MCP 的默认工作流入口不是 get_parameter_workflow。
 ```text
 JSReverser-MCP: 新任务用 start_reverse_task；查状态/摘要/timeline 用 manage_reverse_task；自动推进用 orchestrate_reverse_task；一键 pure/port-ready 用 run_reverse_agent；最小交付导出用 export_portable_bundle。get_parameter_workflow 只用于看蓝图文档，不是默认执行入口。先读 responseSummary，再读 outcome/status，再读 errorType/blockedBy，再看 continuation.invoke。
 ```
-

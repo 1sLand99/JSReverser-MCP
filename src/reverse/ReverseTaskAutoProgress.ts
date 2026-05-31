@@ -6,13 +6,14 @@
 
 import {recommendNextStep} from '../modules/workflows/NextStepAdvisor.js';
 import type {ReverseStage} from '../modules/workflows/types.js';
-import type {ReverseTaskStore} from './ReverseTaskStore.js';
+
 import {getReverseTaskState} from './ReverseTaskQuery.js';
 import {updateReverseTaskState} from './ReverseTaskState.js';
+import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
 type TaskStatus = 'active' | 'blocked' | 'partial' | 'pass';
 
-type AutoProgressSignals = {
+interface AutoProgressSignals {
   hasTargetRequest: boolean;
   hookRecordCount: number;
   evidenceCount: number;
@@ -26,28 +27,51 @@ type AutoProgressSignals = {
   localRebuild: string;
   firstDivergenceKnown: boolean;
   explicitStage?: string;
-};
+}
 
 function normalizeReverseStage(value: string): ReverseStage | undefined {
-  if (['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port'].includes(value)) {
+  if (
+    [
+      'Observe',
+      'Capture',
+      'Rebuild',
+      'Patch',
+      'DeepDive',
+      'PureExtraction',
+      'Port',
+    ].includes(value)
+  ) {
     return value as ReverseStage;
   }
   return undefined;
 }
 
-function collectSignals(state: Awaited<ReturnType<typeof getReverseTaskState>>): AutoProgressSignals {
-  const successCriteria = (state.state?.successCriteria ?? state.task?.successCriteria ?? {}) as Record<string, unknown>;
-  const explicitStage = String(state.state?.currentStage ?? state.task?.currentStage ?? '');
-  const hasTargetRequest = Boolean(
-    (state.targetContext as Record<string, unknown> | undefined)?.targetRequest ||
-    state.recentEvidence.some((entry) => Boolean(entry.request)),
+function collectSignals(
+  state: Awaited<ReturnType<typeof getReverseTaskState>>,
+): AutoProgressSignals {
+  const successCriteria = (state.state?.successCriteria ??
+    state.task?.successCriteria ??
+    {}) as Record<string, unknown>;
+  const explicitStage = String(
+    state.state?.currentStage ?? state.task?.currentStage ?? '',
   );
-  const hookRecordCount = state.recentEvidence.filter((entry) => entry.kind === 'hook-hit' || entry.source === 'hook').length;
+  const hasTargetRequest = Boolean(
+    (state.targetContext as Record<string, unknown> | undefined)
+      ?.targetRequest ||
+      state.recentEvidence.some(entry => Boolean(entry.request)),
+  );
+  const hookRecordCount = state.recentEvidence.filter(
+    entry => entry.kind === 'hook-hit' || entry.source === 'hook',
+  ).length;
   const evidenceCount = state.recentEvidence.length;
   const hasEnvGap =
-    state.recentEvidence.some((entry) => entry.kind === 'env-gap') ||
-    state.recentTimeline.some((entry) => String(entry.action ?? '').includes('diff_env_requirements'));
-  const hasTimelineBlocker = state.recentTimeline.some((entry) => String(entry.status ?? '') === 'blocked');
+    state.recentEvidence.some(entry => entry.kind === 'env-gap') ||
+    state.recentTimeline.some(entry =>
+      String(entry.action ?? '').includes('diff_env_requirements'),
+    );
+  const hasTimelineBlocker = state.recentTimeline.some(
+    entry => String(entry.status ?? '') === 'blocked',
+  );
   const localRebuild = String(successCriteria.localRebuild ?? '');
   const browserAlignment = String(successCriteria.browserAlignment ?? '');
   const serverAcceptance = String(successCriteria.serverAcceptance ?? '');
@@ -55,10 +79,16 @@ function collectSignals(state: Awaited<ReturnType<typeof getReverseTaskState>>):
   const hasRebuildBundle =
     ['Rebuild', 'Patch', 'PureExtraction', 'Port'].includes(explicitStage) ||
     ['partial', 'pass'].includes(localRebuild) ||
-    state.recentTimeline.some((entry) => String(entry.action ?? '') === 'export_rebuild_bundle');
+    state.recentTimeline.some(
+      entry => String(entry.action ?? '') === 'export_rebuild_bundle',
+    );
   const firstDivergenceKnown =
     hasEnvGap ||
-    state.recentTimeline.some((entry) => typeof entry.result === 'string' && String(entry.result).toLowerCase().includes('divergence'));
+    state.recentTimeline.some(
+      entry =>
+        typeof entry.result === 'string' &&
+        String(entry.result).toLowerCase().includes('divergence'),
+    );
 
   return {
     hasTargetRequest,
@@ -82,7 +112,11 @@ function inferCurrentStage(
   signals: AutoProgressSignals,
 ): ReverseStage {
   const explicit = normalizeReverseStage(String(signals.explicitStage ?? ''));
-  if (explicit === 'Port' || explicit === 'PureExtraction' || explicit === 'Patch') {
+  if (
+    explicit === 'Port' ||
+    explicit === 'PureExtraction' ||
+    explicit === 'Patch'
+  ) {
     return explicit;
   }
 
@@ -96,7 +130,12 @@ function inferCurrentStage(
   if (signals.hasPassingRebuild && signals.browserAlignment === 'pass') {
     return 'PureExtraction';
   }
-  if (signals.hasRebuildBundle && (signals.hasEnvGap || signals.firstDivergenceKnown || signals.localRebuild === 'partial')) {
+  if (
+    signals.hasRebuildBundle &&
+    (signals.hasEnvGap ||
+      signals.firstDivergenceKnown ||
+      signals.localRebuild === 'partial')
+  ) {
     return 'Patch';
   }
   if (signals.hasRebuildBundle || signals.hasHookEvidence) {
@@ -108,7 +147,11 @@ function inferCurrentStage(
   return explicit ?? 'Observe';
 }
 
-function inferTaskStatus(state: Awaited<ReturnType<typeof getReverseTaskState>>, stage: ReverseStage, signals: AutoProgressSignals): TaskStatus {
+function inferTaskStatus(
+  state: Awaited<ReturnType<typeof getReverseTaskState>>,
+  stage: ReverseStage,
+  signals: AutoProgressSignals,
+): TaskStatus {
   const existing = String(state.state?.status ?? '');
   if (existing === 'blocked' || existing === 'pass') {
     return existing as TaskStatus;
@@ -116,7 +159,10 @@ function inferTaskStatus(state: Awaited<ReturnType<typeof getReverseTaskState>>,
 
   if (
     signals.localRebuild === 'pass' &&
-    (signals.browserAlignment === 'pass' || signals.serverAcceptance === 'pass' || stage === 'PureExtraction' || stage === 'Port')
+    (signals.browserAlignment === 'pass' ||
+      signals.serverAcceptance === 'pass' ||
+      stage === 'PureExtraction' ||
+      stage === 'Port')
   ) {
     return 'pass';
   }
@@ -129,18 +175,26 @@ function inferTaskStatus(state: Awaited<ReturnType<typeof getReverseTaskState>>,
   return 'active';
 }
 
-function inferCurrentSummary(state: Awaited<ReturnType<typeof getReverseTaskState>>, nextStepHint: string): string {
-  const existing = String(state.state?.currentSummary ?? state.task?.currentSummary ?? '');
+function inferCurrentSummary(
+  state: Awaited<ReturnType<typeof getReverseTaskState>>,
+  nextStepHint: string,
+): string {
+  const existing = String(
+    state.state?.currentSummary ?? state.task?.currentSummary ?? '',
+  );
   if (existing && existing.trim().length > 0) {
     return existing;
   }
 
-  const lastEvidence = state.recentEvidence.at(-1) as Record<string, unknown> | undefined;
-  const evidenceNote = typeof lastEvidence?.note === 'string'
-    ? lastEvidence.note
-    : typeof lastEvidence?.source === 'string'
-      ? `最近证据来自 ${lastEvidence.source}`
-      : '';
+  const lastEvidence = state.recentEvidence.at(-1) as
+    | Record<string, unknown>
+    | undefined;
+  const evidenceNote =
+    typeof lastEvidence?.note === 'string'
+      ? lastEvidence.note
+      : typeof lastEvidence?.source === 'string'
+        ? `最近证据来自 ${lastEvidence.source}`
+        : '';
 
   if (evidenceNote) {
     return `${evidenceNote}；建议下一步执行 ${nextStepHint}。`;
@@ -150,11 +204,27 @@ function inferCurrentSummary(state: Awaited<ReturnType<typeof getReverseTaskStat
 }
 
 function stageRank(stage: ReverseStage): number {
-  return ['Observe', 'Capture', 'Rebuild', 'Patch', 'DeepDive', 'PureExtraction', 'Port'].indexOf(stage);
+  return [
+    'Observe',
+    'Capture',
+    'Rebuild',
+    'Patch',
+    'DeepDive',
+    'PureExtraction',
+    'Port',
+  ].indexOf(stage);
 }
 
-function inferAdviceStage(inferredStage: ReverseStage, adviceStage: ReverseStage, signals: AutoProgressSignals): ReverseStage {
-  if (adviceStage === 'PureExtraction' && signals.browserAlignment === 'pass' && signals.serverAcceptance === 'pass') {
+function inferAdviceStage(
+  inferredStage: ReverseStage,
+  adviceStage: ReverseStage,
+  signals: AutoProgressSignals,
+): ReverseStage {
+  if (
+    adviceStage === 'PureExtraction' &&
+    signals.browserAlignment === 'pass' &&
+    signals.serverAcceptance === 'pass'
+  ) {
     return 'Port';
   }
   if (stageRank(inferredStage) > stageRank(adviceStage)) {
@@ -163,7 +233,11 @@ function inferAdviceStage(inferredStage: ReverseStage, adviceStage: ReverseStage
   return adviceStage;
 }
 
-function inferNextStepHint(stage: ReverseStage, adviceNextStep: string, signals: AutoProgressSignals): string {
+function inferNextStepHint(
+  stage: ReverseStage,
+  adviceNextStep: string,
+  signals: AutoProgressSignals,
+): string {
   if (stage === 'Port') {
     return 'manage_reverse_task:summarize';
   }
@@ -173,10 +247,23 @@ function inferNextStepHint(stage: ReverseStage, adviceNextStep: string, signals:
   if (stage === 'Rebuild' && !signals.hasRebuildBundle) {
     return 'export_rebuild_bundle';
   }
+  if (
+    stage === 'Capture' &&
+    signals.hasTargetRequest &&
+    !signals.hasHookEvidence &&
+    adviceNextStep === 'inject_hook'
+  ) {
+    return 'locate_signature_function';
+  }
   return adviceNextStep;
 }
 
-function buildReasoning(stage: ReverseStage, status: TaskStatus, nextStepHint: string, signals: AutoProgressSignals): string[] {
+function buildReasoning(
+  stage: ReverseStage,
+  status: TaskStatus,
+  nextStepHint: string,
+  signals: AutoProgressSignals,
+): string[] {
   const reasoning: string[] = [];
 
   if (!signals.hasTargetRequest) {
@@ -186,7 +273,9 @@ function buildReasoning(stage: ReverseStage, status: TaskStatus, nextStepHint: s
   }
 
   if (signals.hasHookEvidence) {
-    reasoning.push(`已存在 ${signals.hookRecordCount} 条 hook 证据，可进入本地固化或复现。`);
+    reasoning.push(
+      `已存在 ${signals.hookRecordCount} 条 hook 证据，可进入本地固化或复现。`,
+    );
   }
 
   if (signals.hasRebuildBundle) {
@@ -194,7 +283,9 @@ function buildReasoning(stage: ReverseStage, status: TaskStatus, nextStepHint: s
   }
 
   if (signals.hasEnvGap || signals.firstDivergenceKnown) {
-    reasoning.push('已观察到 env gap / first divergence，当前应按最小因果单元修补。');
+    reasoning.push(
+      '已观察到 env gap / first divergence，当前应按最小因果单元修补。',
+    );
   }
 
   if (stage === 'PureExtraction') {
@@ -202,7 +293,9 @@ function buildReasoning(stage: ReverseStage, status: TaskStatus, nextStepHint: s
   }
 
   if (stage === 'Port') {
-    reasoning.push('本地链路、浏览器对齐、服务端验收均已通过，可视为进入 Port 收口阶段。');
+    reasoning.push(
+      '本地链路、浏览器对齐、服务端验收均已通过，可视为进入 Port 收口阶段。',
+    );
   }
 
   if (status === 'blocked') {
@@ -225,7 +318,10 @@ export async function autoProgressReverseTask(
   signals: AutoProgressSignals;
   reasoning: string[];
 }> {
-  const state = await getReverseTaskState(store, taskId, {timelineLimit: 20, evidenceLimit: 20});
+  const state = await getReverseTaskState(store, taskId, {
+    timelineLimit: 20,
+    evidenceLimit: 20,
+  });
   const signals = collectSignals(state);
   const currentStage = inferCurrentStage(state, signals);
 
@@ -240,10 +336,19 @@ export async function autoProgressReverseTask(
   });
 
   const resolvedStage = inferAdviceStage(currentStage, advice.stage, signals);
-  const nextStepHint = inferNextStepHint(resolvedStage, advice.nextStep, signals);
+  const nextStepHint = inferNextStepHint(
+    resolvedStage,
+    advice.nextStep,
+    signals,
+  );
   const status = inferTaskStatus(state, resolvedStage, signals);
   const currentSummary = inferCurrentSummary(state, nextStepHint);
-  const reasoning = buildReasoning(resolvedStage, status, nextStepHint, signals);
+  const reasoning = buildReasoning(
+    resolvedStage,
+    status,
+    nextStepHint,
+    signals,
+  );
 
   await updateReverseTaskState(store, {
     taskId,
@@ -251,7 +356,7 @@ export async function autoProgressReverseTask(
     status,
     nextStepHint,
     currentSummary,
-    signals,
+    signals: {...signals},
     reasoning,
   });
 

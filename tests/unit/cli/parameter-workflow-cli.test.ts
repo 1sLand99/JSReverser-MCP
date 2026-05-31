@@ -41,20 +41,31 @@ describe('parameter workflow cli', () => {
   });
 
   it('exports a workflow template and validates it', async () => {
-    const tempDir = await mkdtemp(path.join(os.tmpdir(), 'jsreverser-workflow-'));
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), 'jsreverser-workflow-'),
+    );
     try {
       let handled = await executeKnowledgeCliCommand(
         {
           exportParameterWorkflowTemplate: tempDir,
         } as unknown as Partial<CliArguments>,
-        () => {},
+        () => undefined,
       );
       assert.strictEqual(handled, true);
 
-      const metadata = await readFile(path.join(tempDir, 'metadata.json'), 'utf8');
-      const workflow = await readFile(path.join(tempDir, 'workflow.md'), 'utf8');
+      const metadata = await readFile(
+        path.join(tempDir, 'metadata.json'),
+        'utf8',
+      );
+      const workflow = await readFile(
+        path.join(tempDir, 'workflow.md'),
+        'utf8',
+      );
       const parts = await readFile(path.join(tempDir, 'parts.json'), 'utf8');
-      const mutations = await readFile(path.join(tempDir, 'mutations.json'), 'utf8');
+      const mutations = await readFile(
+        path.join(tempDir, 'mutations.json'),
+        'utf8',
+      );
       assert.ok(metadata.includes('"id"'));
       assert.ok(workflow.includes('## 目标契约'));
       assert.ok(parts.includes('"parts"'));
@@ -64,7 +75,7 @@ describe('parameter workflow cli', () => {
         {
           validateParameterWorkflow: tempDir,
         } as unknown as Partial<CliArguments>,
-        () => {},
+        () => undefined,
       );
       assert.strictEqual(handled, true);
     } finally {

@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -31,11 +30,17 @@ describe('Backward compatibility', () => {
     ] as NamedToolExport[];
 
     assert.ok(tools.length > 0);
-    assert.ok(tools.some((tool) => tool.name === 'evaluate_script'));
+    assert.ok(tools.some(tool => tool.name === 'evaluate_script'));
   });
 
   it('keeps CLI argument compatibility', () => {
-    const args = parseArguments('1.0.0', ['node', 'mcp', '--channel', 'stable', '--headless']);
+    const args = parseArguments('1.0.0', [
+      'node',
+      'mcp',
+      '--channel',
+      'stable',
+      '--headless',
+    ]);
     assert.strictEqual(args.channel, 'stable');
     assert.strictEqual(args.headless, true);
   });
@@ -45,7 +50,9 @@ describe('Backward compatibility', () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.GEMINI_API_KEY;
 
-    const {HookManager} = await import('../../../src/modules/hook/HookManager.js');
+    const {HookManager} = await import(
+      '../../../src/modules/hook/HookManager.js'
+    );
     const manager = new HookManager();
     const hook = manager.create({type: 'fetch'});
     assert.ok(hook.hookId);

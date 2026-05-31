@@ -154,7 +154,10 @@ export class DebuggerContext {
   #pauseResolvers: Array<(state: PausedState) => void> = [];
   #breakpointHitWindowMs = 2000;
   #breakpointHitThreshold = 3;
-  #breakpointLoopTracker = new Map<string, {breakpointId: string; count: number; firstHitAt: number; lastHitAt: number}>();
+  #breakpointLoopTracker = new Map<
+    string,
+    {breakpointId: string; count: number; firstHitAt: number; lastHitAt: number}
+  >();
   #lastAutoRecoveryEvent: AutoRecoveryEvent | null = null;
 
   /**
@@ -700,10 +703,13 @@ export class DebuggerContext {
       VariableDeclarator(path: any) {
         if (
           t.isIdentifier(path.node.id) &&
-          (t.isFunctionExpression(path.node.init) || t.isArrowFunctionExpression(path.node.init))
+          (t.isFunctionExpression(path.node.init) ||
+            t.isArrowFunctionExpression(path.node.init))
         ) {
           const name = path.node.id.name;
-          const funcCode = generate(path.node, {comments: includeComments}).code;
+          const funcCode = generate(path.node, {
+            comments: includeComments,
+          }).code;
           const dependencies = extractDependencies(path);
           allFunctions.set(name, {
             name,
@@ -740,14 +746,14 @@ export class DebuggerContext {
     }
 
     const functions = Array.from(extracted)
-      .map((name) => allFunctions.get(name)!)
+      .map(name => allFunctions.get(name)!)
       .filter(Boolean);
 
     if (functions.length === 0) {
       throw new Error(`Function not found: ${functionName}`);
     }
 
-    const code = functions.map((item) => item.code).join('\n\n');
+    const code = functions.map(item => item.code).join('\n\n');
     const totalSize = code.length;
 
     if (totalSize > maxSize * 1024) {

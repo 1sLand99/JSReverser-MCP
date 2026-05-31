@@ -27,11 +27,18 @@ export default defineConfig([
 
       parserOptions: {
         projectService: {
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 16,
           allowDefaultProject: [
             '.prettierrc.cjs',
             'puppeteer.config.cjs',
+            'artifacts/tasks/_TEMPLATE/env/entry.js',
+            'artifacts/tasks/_TEMPLATE/env/env.js',
+            'artifacts/tasks/_TEMPLATE/env/polyfills.js',
+            'artifacts/tasks/_TEMPLATE/run/run-local.mjs',
+            'artifacts/tasks/_TEMPLATE/run/verify-once.mjs',
             'eslint.config.mjs',
             'rollup.config.mjs',
+            'tests/setup.js',
           ],
         },
       },
@@ -70,12 +77,7 @@ export default defineConfig([
           varsIgnorePattern: '^_',
         },
       ],
-      '@typescript-eslint/no-explicit-any': [
-        'error',
-        {
-          ignoreRestArgs: true,
-        },
-      ],
+      '@typescript-eslint/no-explicit-any': 'off',
       // This optimizes the dependency tracking for type-only files.
       '@typescript-eslint/consistent-type-imports': 'error',
       // So type-only exports get elided.

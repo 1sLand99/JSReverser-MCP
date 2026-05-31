@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import { BrowserManager } from '../../../src/browser.js';
+import {BrowserManager} from '../../../src/browser.js';
 
 interface BrowserLike {
   connected: boolean;
@@ -38,7 +38,10 @@ describe('BrowserManager crash handling', () => {
     global.clearInterval = originalClearInterval;
     global.setTimeout = originalSetTimeout;
     try {
-      const manager = BrowserManager.getInstance({ headless: true, isolated: true });
+      const manager = BrowserManager.getInstance({
+        headless: true,
+        isolated: true,
+      });
       await manager.close();
     } catch {
       // no-op
@@ -109,7 +112,10 @@ describe('BrowserManager crash handling', () => {
     };
     manager.crashCheckInterval = 7 as unknown as ReturnType<typeof setInterval>;
     manager.setupCrashDetection();
-    assert.strictEqual(clearedId, 7 as unknown as ReturnType<typeof setInterval>);
+    assert.strictEqual(
+      clearedId,
+      7 as unknown as ReturnType<typeof setInterval>,
+    );
   });
 
   it('handleBrowserCrash restarts browser and always resets restarting flag', async () => {

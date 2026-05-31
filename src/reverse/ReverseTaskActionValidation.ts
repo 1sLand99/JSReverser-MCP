@@ -24,7 +24,9 @@ export interface ReverseTaskActionValidationInput {
   successCriteria?: Record<string, unknown>;
 }
 
-export function validateReverseTaskActionInput(input: ReverseTaskActionValidationInput): void {
+export function validateReverseTaskActionInput(
+  input: ReverseTaskActionValidationInput,
+): void {
   const action = input.action;
 
   if (!input.taskId && !['list', 'search', 'prune'].includes(action)) {
@@ -35,7 +37,10 @@ export function validateReverseTaskActionInput(input: ReverseTaskActionValidatio
     throw new Error('query or tag is required when action="search"');
   }
 
-  if (action === 'tag' && !(input.tags ?? []).some((tag) => tag.trim().length > 0)) {
+  if (
+    action === 'tag' &&
+    !(input.tags ?? []).some(tag => tag.trim().length > 0)
+  ) {
     throw new Error('at least one tag is required when action="tag"');
   }
 
@@ -43,8 +48,13 @@ export function validateReverseTaskActionInput(input: ReverseTaskActionValidatio
     throw new Error('otherTaskId is required when action="compare"');
   }
 
-  if (action === 'timeline' && (!input.stage || !input.timelineAction || !input.timelineStatus)) {
-    throw new Error('stage, timelineAction, and timelineStatus are required when action="timeline"');
+  if (
+    action === 'timeline' &&
+    (!input.stage || !input.timelineAction || !input.timelineStatus)
+  ) {
+    throw new Error(
+      'stage, timelineAction, and timelineStatus are required when action="timeline"',
+    );
   }
 
   if (action === 'update') {
@@ -57,9 +67,11 @@ export function validateReverseTaskActionInput(input: ReverseTaskActionValidatio
       input.currentSummary,
       input.nextStepHint,
       input.successCriteria,
-    ].some((value) => value !== undefined);
+    ].some(value => value !== undefined);
     if (!hasMutableField) {
-      throw new Error('at least one mutable field is required when action="update"');
+      throw new Error(
+        'at least one mutable field is required when action="update"',
+      );
     }
   }
 }

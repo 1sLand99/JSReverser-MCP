@@ -40,9 +40,7 @@ function formatStackFrameLocation(
     ? `${frame.url}:${frame.lineNumber + 1}:${frame.columnNumber + 1}`
     : `script ${frame.scriptId}:${frame.lineNumber + 1}:${frame.columnNumber + 1}`;
 
-  return sourceMapURL
-    ? `${location} [SourceMap: ${sourceMapURL}]`
-    : location;
+  return sourceMapURL ? `${location} [SourceMap: ${sourceMapURL}]` : location;
 }
 
 function findSourceMapURLByScriptUrl(
@@ -60,18 +58,18 @@ function findSourceMapURLByScriptUrl(
   if (!url) {
     return undefined;
   }
-  const directMatch = debugger_.getScripts().find((script) => script.url === url);
+  const directMatch = debugger_.getScripts().find(script => script.url === url);
   if (directMatch?.sourceMapURL) {
     return directMatch.sourceMapURL;
   }
   const patternMatch = debugger_
     .getScriptsByUrlPattern?.(url)
-    .find((script) => script.url === url)?.sourceMapURL;
+    .find(script => script.url === url)?.sourceMapURL;
   if (patternMatch) {
     return patternMatch;
   }
   const stackFrameMatch = stackFrames?.find(
-    (frame) => frame.url === url && frame.scriptId,
+    frame => frame.url === url && frame.scriptId,
   );
   if (stackFrameMatch?.scriptId) {
     return debugger_.getScriptById?.(stackFrameMatch.scriptId)?.sourceMapURL;
@@ -80,18 +78,34 @@ function findSourceMapURLByScriptUrl(
 }
 
 const reverseTaskParamsSchema = {
-  taskId: zod.string().optional().describe('Optional reverse task ID for writing durable evidence artifacts.'),
-  taskSlug: zod.string().optional().describe('Optional reverse task slug used when opening the task artifact directory.'),
-  targetUrl: zod.string().optional().describe('Optional target page URL associated with the reverse task.'),
-  goal: zod.string().optional().describe('Optional reverse-engineering goal for the task artifact.'),
+  taskId: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional reverse task ID for writing durable evidence artifacts.',
+    ),
+  taskSlug: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional reverse task slug used when opening the task artifact directory.',
+    ),
+  targetUrl: zod
+    .string()
+    .optional()
+    .describe('Optional target page URL associated with the reverse task.'),
+  goal: zod
+    .string()
+    .optional()
+    .describe('Optional reverse-engineering goal for the task artifact.'),
 };
 
-type ReverseTaskParams = {
+interface ReverseTaskParams {
   taskId?: string;
   taskSlug?: string;
   targetUrl?: string;
   goal?: string;
-};
+}
 
 async function appendDebuggerEvidence(
   params: ReverseTaskParams,
@@ -203,11 +217,15 @@ export const listScripts = defineTool({
           return;
         }
 
-        response.appendResponseLine(`Found ${displayScripts.length} script(s):\n`);
+        response.appendResponseLine(
+          `Found ${displayScripts.length} script(s):\n`,
+        );
 
         for (const script of displayScripts) {
           response.appendResponseLine(`- ID: ${script.scriptId}`);
-          response.appendResponseLine(`  URL: ${script.url || '(inline/eval)'}`);
+          response.appendResponseLine(
+            `  URL: ${script.url || '(inline/eval)'}`,
+          );
           if (script.sourceMapURL) {
             response.appendResponseLine(`  SourceMap: ${script.sourceMapURL}`);
           }
@@ -283,61 +301,65 @@ export const getScriptSource = defineTool({
           const source = await debugger_.getScriptSource(scriptId);
 
           if (!source) {
-            response.appendResponseLine(`No source found for script ${scriptId}.`);
+            response.appendResponseLine(
+              `No source found for script ${scriptId}.`,
+            );
             return;
           }
 
-      // Character offset mode (for minified files)
-      if (offset !== undefined) {
-        const start = Math.max(0, offset);
-        const end = Math.min(source.length, start + length);
-        const extract = source.substring(start, end);
+          // Character offset mode (for minified files)
+          if (offset !== undefined) {
+            const start = Math.max(0, offset);
+            const end = Math.min(source.length, start + length);
+            const extract = source.substring(start, end);
 
-        const prefix = start > 0 ? '...' : '';
-        const suffix = end < source.length ? '...' : '';
+            const prefix = start > 0 ? '...' : '';
+            const suffix = end < source.length ? '...' : '';
 
-        response.appendResponseLine(
-          `Source for script ${scriptId} (chars ${start}-${end} of ${source.length}):\n`,
-        );
-        response.appendResponseLine('```javascript');
-        response.appendResponseLine(`${prefix}${extract}${suffix}`);
-        response.appendResponseLine('```');
-        return;
-      }
+            response.appendResponseLine(
+              `Source for script ${scriptId} (chars ${start}-${end} of ${source.length}):\n`,
+            );
+            response.appendResponseLine('```javascript');
+            response.appendResponseLine(`${prefix}${extract}${suffix}`);
+            response.appendResponseLine('```');
+            return;
+          }
 
-      // Line range mode (for normal files)
-      if (startLine !== undefined || endLine !== undefined) {
-        const lines = source.split('\n');
-        const start = (startLine ?? 1) - 1; // Convert to 0-based
-        const end = endLine ?? lines.length;
-        const selectedLines = lines.slice(start, end);
+          // Line range mode (for normal files)
+          if (startLine !== undefined || endLine !== undefined) {
+            const lines = source.split('\n');
+            const start = (startLine ?? 1) - 1; // Convert to 0-based
+            const end = endLine ?? lines.length;
+            const selectedLines = lines.slice(start, end);
 
-        response.appendResponseLine(
-          `Source for script ${scriptId} (lines ${start + 1}-${Math.min(end, lines.length)}):\n`,
-        );
-        response.appendResponseLine('```javascript');
-        for (let i = 0; i < selectedLines.length; i++) {
-          response.appendResponseLine(`${start + i + 1}: ${selectedLines[i]}`);
-        }
-        response.appendResponseLine('```');
-        return;
-      }
+            response.appendResponseLine(
+              `Source for script ${scriptId} (lines ${start + 1}-${Math.min(end, lines.length)}):\n`,
+            );
+            response.appendResponseLine('```javascript');
+            for (let i = 0; i < selectedLines.length; i++) {
+              response.appendResponseLine(
+                `${start + i + 1}: ${selectedLines[i]}`,
+              );
+            }
+            response.appendResponseLine('```');
+            return;
+          }
 
-      // Full source - but warn if it's too large
-      if (source.length > 50000) {
-        response.appendResponseLine(
-          `Script ${scriptId} is large (${source.length} chars). Use offset/length or startLine/endLine to read portions.`,
-        );
-        response.appendResponseLine(`First 1000 characters:\n`);
-        response.appendResponseLine('```javascript');
-        response.appendResponseLine(source.substring(0, 1000) + '...');
-        response.appendResponseLine('```');
-      } else {
-        response.appendResponseLine(`Source for script ${scriptId}:\n`);
-        response.appendResponseLine('```javascript');
-        response.appendResponseLine(source);
-        response.appendResponseLine('```');
-      }
+          // Full source - but warn if it's too large
+          if (source.length > 50000) {
+            response.appendResponseLine(
+              `Script ${scriptId} is large (${source.length} chars). Use offset/length or startLine/endLine to read portions.`,
+            );
+            response.appendResponseLine(`First 1000 characters:\n`);
+            response.appendResponseLine('```javascript');
+            response.appendResponseLine(source.substring(0, 1000) + '...');
+            response.appendResponseLine('```');
+          } else {
+            response.appendResponseLine(`Source for script ${scriptId}:\n`);
+            response.appendResponseLine('```javascript');
+            response.appendResponseLine(source);
+            response.appendResponseLine('```');
+          }
         } catch (error) {
           response.appendResponseLine(
             `Error getting script source: ${error instanceof Error ? error.message : String(error)}`,
@@ -407,82 +429,86 @@ export const findInScript = defineTool({
         try {
           const source = await debugger_.getScriptSource(scriptId);
 
-      if (!source) {
-        response.appendResponseLine(`No source found for script ${scriptId}.`);
-        return;
-      }
+          if (!source) {
+            response.appendResponseLine(
+              `No source found for script ${scriptId}.`,
+            );
+            return;
+          }
 
-      // Find the occurrence
-      const searchSource = caseSensitive ? source : source.toLowerCase();
-      const searchQuery = caseSensitive ? query : query.toLowerCase();
+          // Find the occurrence
+          const searchSource = caseSensitive ? source : source.toLowerCase();
+          const searchQuery = caseSensitive ? query : query.toLowerCase();
 
-      let position = -1;
-      let currentOccurrence = 0;
-      let searchStart = 0;
+          let position = -1;
+          let currentOccurrence = 0;
+          let searchStart = 0;
 
-      while (currentOccurrence < occurrence) {
-        position = searchSource.indexOf(searchQuery, searchStart);
-        if (position === -1) {
-          break;
-        }
-        currentOccurrence++;
-        searchStart = position + 1;
-      }
+          while (currentOccurrence < occurrence) {
+            position = searchSource.indexOf(searchQuery, searchStart);
+            if (position === -1) {
+              break;
+            }
+            currentOccurrence++;
+            searchStart = position + 1;
+          }
 
-      if (position === -1) {
-        response.appendResponseLine(
-          `"${query}" not found in script ${scriptId}${occurrence > 1 ? ` (occurrence ${occurrence})` : ''}.`,
-        );
-        return;
-      }
+          if (position === -1) {
+            response.appendResponseLine(
+              `"${query}" not found in script ${scriptId}${occurrence > 1 ? ` (occurrence ${occurrence})` : ''}.`,
+            );
+            return;
+          }
 
-      // Calculate line and column (0-based for CDP)
-      let lineNumber = 0;
-      let columnNumber = position;
-      for (let i = 0; i < position; i++) {
-        if (source[i] === '\n') {
-          lineNumber++;
-          columnNumber = position - i - 1;
-        }
-      }
+          // Calculate line and column (0-based for CDP)
+          let lineNumber = 0;
+          let columnNumber = position;
+          for (let i = 0; i < position; i++) {
+            if (source[i] === '\n') {
+              lineNumber++;
+              columnNumber = position - i - 1;
+            }
+          }
 
-      // Extract context
-      const contextStart = Math.max(0, position - contextChars);
-      const contextEnd = Math.min(
-        source.length,
-        position + query.length + contextChars,
-      );
+          // Extract context
+          const contextStart = Math.max(0, position - contextChars);
+          const contextEnd = Math.min(
+            source.length,
+            position + query.length + contextChars,
+          );
 
-      const beforeContext = source.substring(contextStart, position);
-      const matchText = source.substring(position, position + query.length);
-      const afterContext = source.substring(
-        position + query.length,
-        contextEnd,
-      );
+          const beforeContext = source.substring(contextStart, position);
+          const matchText = source.substring(position, position + query.length);
+          const afterContext = source.substring(
+            position + query.length,
+            contextEnd,
+          );
 
-      const prefix = contextStart > 0 ? '...' : '';
-      const suffix = contextEnd < source.length ? '...' : '';
+          const prefix = contextStart > 0 ? '...' : '';
+          const suffix = contextEnd < source.length ? '...' : '';
 
-      const script = debugger_.getScriptById(scriptId);
-      const url = script?.url || '(inline)';
+          const script = debugger_.getScriptById(scriptId);
+          const url = script?.url || '(inline)';
 
-      response.appendResponseLine(`Found "${query}" in script ${scriptId}:`);
-      response.appendResponseLine(`URL: ${url}`);
-      response.appendResponseLine(
-        `Position: line ${lineNumber + 1}, column ${columnNumber}`,
-      );
-      response.appendResponseLine(`Character offset: ${position}`);
-      response.appendResponseLine('');
-      response.appendResponseLine('Context:');
-      response.appendResponseLine('```javascript');
-      response.appendResponseLine(
-        `${prefix}${beforeContext}【${matchText}】${afterContext}${suffix}`,
-      );
-      response.appendResponseLine('```');
-      response.appendResponseLine('');
-      response.appendResponseLine(
-        `To set a breakpoint here: breakpoint(action: "set", url: "${url}", lineNumber: ${lineNumber + 1}, columnNumber: ${columnNumber})`,
-      );
+          response.appendResponseLine(
+            `Found "${query}" in script ${scriptId}:`,
+          );
+          response.appendResponseLine(`URL: ${url}`);
+          response.appendResponseLine(
+            `Position: line ${lineNumber + 1}, column ${columnNumber}`,
+          );
+          response.appendResponseLine(`Character offset: ${position}`);
+          response.appendResponseLine('');
+          response.appendResponseLine('Context:');
+          response.appendResponseLine('```javascript');
+          response.appendResponseLine(
+            `${prefix}${beforeContext}【${matchText}】${afterContext}${suffix}`,
+          );
+          response.appendResponseLine('```');
+          response.appendResponseLine('');
+          response.appendResponseLine(
+            `To set a breakpoint here: breakpoint(action: "set", url: "${url}", lineNumber: ${lineNumber + 1}, columnNumber: ${columnNumber})`,
+          );
         } catch (error) {
           response.appendResponseLine(
             `Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -512,13 +538,13 @@ export const extractFunctionTree = defineTool({
       .boolean()
       .optional()
       .default(false)
-      .describe('Persist the extracted function slice back into the reverse task artifact when task params are provided.'),
+      .describe(
+        'Persist the extracted function slice back into the reverse task artifact when task params are provided.',
+      ),
     scriptId: zod
       .string()
       .describe('The script ID (from list_scripts) to extract from.'),
-    functionName: zod
-      .string()
-      .describe('The function name to extract.'),
+    functionName: zod.string().describe('The function name to extract.'),
     maxDepth: zod
       .number()
       .int()
@@ -532,39 +558,48 @@ export const extractFunctionTree = defineTool({
       .min(1)
       .optional()
       .default(500)
-      .describe('Soft size limit in KB for the extracted result (default: 500).'),
+      .describe(
+        'Soft size limit in KB for the extracted result (default: 500).',
+      ),
     includeComments: zod
       .boolean()
       .optional()
       .default(true)
-      .describe('Whether to preserve comments in generated code (default: true).'),
+      .describe(
+        'Whether to preserve comments in generated code (default: true).',
+      ),
   },
   handler: async (request, response, context) => {
     await withOptionalDebuggerPageContext(
       context,
       request.params.pageIdx,
       async () => {
-        const debugger_ = context.debuggerContext as typeof context.debuggerContext & {
-          extractFunctionTree?: (
-            scriptId: string,
-            functionName: string,
-            options?: {maxDepth?: number; maxSize?: number; includeComments?: boolean},
-          ) => Promise<{
-            mainFunction: string;
-            code: string;
-            functions: Array<{
-              name: string;
+        const debugger_ =
+          context.debuggerContext as typeof context.debuggerContext & {
+            extractFunctionTree?: (
+              scriptId: string,
+              functionName: string,
+              options?: {
+                maxDepth?: number;
+                maxSize?: number;
+                includeComments?: boolean;
+              },
+            ) => Promise<{
+              mainFunction: string;
               code: string;
-              dependencies: string[];
-              startLine: number;
-              endLine: number;
-              size: number;
+              functions: Array<{
+                name: string;
+                code: string;
+                dependencies: string[];
+                startLine: number;
+                endLine: number;
+                size: number;
+              }>;
+              callGraph: Record<string, string[]>;
+              totalSize: number;
+              extractedCount: number;
             }>;
-            callGraph: Record<string, string[]>;
-            totalSize: number;
-            extractedCount: number;
-          }>;
-        };
+          };
 
         if (!debugger_.isEnabled()) {
           response.appendResponseLine(
@@ -591,9 +626,15 @@ export const extractFunctionTree = defineTool({
             },
           );
 
-          response.appendResponseLine(`Function tree for "${result.mainFunction}" in script ${request.params.scriptId}:`);
-          response.appendResponseLine(`- Extracted functions: ${result.extractedCount}`);
-          response.appendResponseLine(`- Total size: ${(result.totalSize / 1024).toFixed(2)} KB`);
+          response.appendResponseLine(
+            `Function tree for "${result.mainFunction}" in script ${request.params.scriptId}:`,
+          );
+          response.appendResponseLine(
+            `- Extracted functions: ${result.extractedCount}`,
+          );
+          response.appendResponseLine(
+            `- Total size: ${(result.totalSize / 1024).toFixed(2)} KB`,
+          );
           response.appendResponseLine('');
           response.appendResponseLine('Dependencies:');
           for (const fn of result.functions) {
@@ -620,11 +661,13 @@ export const extractFunctionTree = defineTool({
               targetUrl: request.params.targetUrl,
               goal: request.params.goal,
             });
-            const existingTargetContext = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(
-              request.params.taskId,
-              'target-context.json',
+            const existingTargetContext =
+              await runtime.reverseTaskStore.readSnapshot<
+                Record<string, unknown>
+              >(request.params.taskId, 'target-context.json');
+            const scriptInfo = debugger_.getScriptById?.(
+              request.params.scriptId,
             );
-            const scriptInfo = debugger_.getScriptById?.(request.params.scriptId);
             await task.writeSnapshot('target-context.json', {
               ...(existingTargetContext ?? {}),
               functionSlice: {
@@ -651,7 +694,9 @@ export const extractFunctionTree = defineTool({
               totalSize: result.totalSize,
               note: `persisted function slice for ${result.mainFunction}`,
             });
-            response.appendResponseLine('Persisted function slice into task artifact.');
+            response.appendResponseLine(
+              'Persisted function slice into task artifact.',
+            );
           }
         } catch (error) {
           response.appendResponseLine(
@@ -682,7 +727,9 @@ export const searchInSources = defineTool({
       .boolean()
       .optional()
       .default(false)
-      .describe('Persist a single unambiguous match back into the reverse task artifact when task params are provided.'),
+      .describe(
+        'Persist a single unambiguous match back into the reverse task artifact when task params are provided.',
+      ),
     query: zod.string().describe('The search query (string or regex pattern).'),
     caseSensitive: zod
       .boolean()
@@ -757,142 +804,146 @@ export const searchInSources = defineTool({
             isRegex,
           });
 
-      if (result.matches.length === 0) {
-        response.appendResponseLine(`No matches found for "${query}".`);
-        return;
-      }
-
-      // Filter matches
-      let filteredMatches = result.matches;
-
-      // Apply URL filter
-      if (urlFilter) {
-        const lowerFilter = urlFilter.toLowerCase();
-        filteredMatches = filteredMatches.filter(
-          m => m.url && m.url.toLowerCase().includes(lowerFilter),
-        );
-      }
-
-      // Filter out minified files (lines > 10000 chars)
-      const minifiedThreshold = 10000;
-      let skippedMinified = 0;
-      if (excludeMinified) {
-        const beforeCount = filteredMatches.length;
-        filteredMatches = filteredMatches.filter(m => {
-          if (m.lineContent.length > minifiedThreshold) {
-            return false;
+          if (result.matches.length === 0) {
+            response.appendResponseLine(`No matches found for "${query}".`);
+            return;
           }
-          return true;
-        });
-        skippedMinified = beforeCount - filteredMatches.length;
-      }
 
-      if (filteredMatches.length === 0) {
-        response.appendResponseLine(`No matches found for "${query}".`);
-        if (skippedMinified > 0) {
+          // Filter matches
+          let filteredMatches = result.matches;
+
+          // Apply URL filter
+          if (urlFilter) {
+            const lowerFilter = urlFilter.toLowerCase();
+            filteredMatches = filteredMatches.filter(
+              m => m.url && m.url.toLowerCase().includes(lowerFilter),
+            );
+          }
+
+          // Filter out minified files (lines > 10000 chars)
+          const minifiedThreshold = 10000;
+          let skippedMinified = 0;
+          if (excludeMinified) {
+            const beforeCount = filteredMatches.length;
+            filteredMatches = filteredMatches.filter(m => {
+              if (m.lineContent.length > minifiedThreshold) {
+                return false;
+              }
+              return true;
+            });
+            skippedMinified = beforeCount - filteredMatches.length;
+          }
+
+          if (filteredMatches.length === 0) {
+            response.appendResponseLine(`No matches found for "${query}".`);
+            if (skippedMinified > 0) {
+              response.appendResponseLine(
+                `(${skippedMinified} matches in minified files were skipped. Set excludeMinified=false to include them.)`,
+              );
+            }
+            return;
+          }
+
+          const displayMatches = filteredMatches.slice(0, maxResults);
+          const totalMatches = filteredMatches.length;
+
           response.appendResponseLine(
-            `(${skippedMinified} matches in minified files were skipped. Set excludeMinified=false to include them.)`,
+            `Found ${totalMatches} match(es) for "${query}"${totalMatches > maxResults ? ` (showing first ${maxResults})` : ''}:`,
           );
-        }
-        return;
-      }
+          if (skippedMinified > 0) {
+            response.appendResponseLine(
+              `(${skippedMinified} matches in minified files skipped)`,
+            );
+          }
+          response.appendResponseLine('');
 
-      const displayMatches = filteredMatches.slice(0, maxResults);
-      const totalMatches = filteredMatches.length;
+          for (const match of displayMatches) {
+            const lineNum = match.lineNumber + 1;
+            const scriptId = match.scriptId;
+            const url = match.url || '(inline)';
 
-      response.appendResponseLine(
-        `Found ${totalMatches} match(es) for "${query}"${totalMatches > maxResults ? ` (showing first ${maxResults})` : ''}:`,
-      );
-      if (skippedMinified > 0) {
-        response.appendResponseLine(
-          `(${skippedMinified} matches in minified files skipped)`,
-        );
-      }
-      response.appendResponseLine('');
+            // Truncate line content, centering around the match if possible
+            let preview = match.lineContent.trim();
+            if (maxLineLength > 0 && preview.length > maxLineLength) {
+              // Try to find the query position to center the preview
+              const lowerContent = caseSensitive
+                ? preview
+                : preview.toLowerCase();
+              const lowerQuery = caseSensitive ? query : query.toLowerCase();
+              const matchPos = isRegex ? 0 : lowerContent.indexOf(lowerQuery);
 
-      for (const match of displayMatches) {
-        const lineNum = match.lineNumber + 1;
-        const scriptId = match.scriptId;
-        const url = match.url || '(inline)';
+              if (matchPos >= 0) {
+                // Center around match position
+                const halfLen = Math.floor(maxLineLength / 2);
+                let start = Math.max(0, matchPos - halfLen);
+                let end = start + maxLineLength;
 
-        // Truncate line content, centering around the match if possible
-        let preview = match.lineContent.trim();
-        if (maxLineLength > 0 && preview.length > maxLineLength) {
-          // Try to find the query position to center the preview
-          const lowerContent = caseSensitive ? preview : preview.toLowerCase();
-          const lowerQuery = caseSensitive ? query : query.toLowerCase();
-          const matchPos = isRegex ? 0 : lowerContent.indexOf(lowerQuery);
+                if (end > preview.length) {
+                  end = preview.length;
+                  start = Math.max(0, end - maxLineLength);
+                }
 
-          if (matchPos >= 0) {
-            // Center around match position
-            const halfLen = Math.floor(maxLineLength / 2);
-            let start = Math.max(0, matchPos - halfLen);
-            let end = start + maxLineLength;
-
-            if (end > preview.length) {
-              end = preview.length;
-              start = Math.max(0, end - maxLineLength);
+                const prefix = start > 0 ? '...' : '';
+                const suffix = end < preview.length ? '...' : '';
+                preview = prefix + preview.substring(start, end) + suffix;
+              } else {
+                // Fallback: truncate from start
+                preview = preview.substring(0, maxLineLength) + '...';
+              }
             }
 
-            const prefix = start > 0 ? '...' : '';
-            const suffix = end < preview.length ? '...' : '';
-            preview = prefix + preview.substring(start, end) + suffix;
-          } else {
-            // Fallback: truncate from start
-            preview = preview.substring(0, maxLineLength) + '...';
+            response.appendResponseLine(`[${scriptId}] ${url}:${lineNum}`);
+            response.appendResponseLine(`  ${preview}`);
+            response.appendResponseLine('');
           }
-        }
 
-        response.appendResponseLine(`[${scriptId}] ${url}:${lineNum}`);
-        response.appendResponseLine(`  ${preview}`);
-        response.appendResponseLine('');
-      }
+          response.appendResponseLine('---');
+          response.appendResponseLine(
+            'Tip: Use get_script_source(scriptId, startLine, endLine) to view full context around a match.',
+          );
 
-      response.appendResponseLine('---');
-      response.appendResponseLine(
-        'Tip: Use get_script_source(scriptId, startLine, endLine) to view full context around a match.',
-      );
-
-      if (
-        persistResult &&
-        taskId &&
-        taskSlug &&
-        targetUrl &&
-        goal &&
-        displayMatches.length === 1
-      ) {
-        const selected = displayMatches[0];
-        const runtime = getJSHookRuntime();
-        const task = await runtime.reverseTaskStore.openTask({
-          taskId,
-          slug: taskSlug,
-          targetUrl,
-          goal,
-        });
-        const existingTargetContext = await runtime.reverseTaskStore.readSnapshot<Record<string, unknown>>(
-          taskId,
-          'target-context.json',
-        );
-        await task.writeSnapshot('target-context.json', {
-          ...(existingTargetContext ?? {}),
-          locatedSource: {
-            query,
-            scriptId: selected.scriptId,
-            url: selected.url,
-            lineNumber: selected.lineNumber + 1,
-          },
-        });
-        await task.appendLog('runtime-evidence', {
-          source: 'search_in_sources',
-          kind: 'source-locate',
-          scriptId: selected.scriptId,
-          url: selected.url,
-          lineNumber: selected.lineNumber + 1,
-          functionName: query,
-          note: `located source for ${query}`,
-        });
-        response.appendResponseLine('Persisted single match into task artifact.');
-      }
+          if (
+            persistResult &&
+            taskId &&
+            taskSlug &&
+            targetUrl &&
+            goal &&
+            displayMatches.length === 1
+          ) {
+            const selected = displayMatches[0];
+            const runtime = getJSHookRuntime();
+            const task = await runtime.reverseTaskStore.openTask({
+              taskId,
+              slug: taskSlug,
+              targetUrl,
+              goal,
+            });
+            const existingTargetContext =
+              await runtime.reverseTaskStore.readSnapshot<
+                Record<string, unknown>
+              >(taskId, 'target-context.json');
+            await task.writeSnapshot('target-context.json', {
+              ...(existingTargetContext ?? {}),
+              locatedSource: {
+                query,
+                scriptId: selected.scriptId,
+                url: selected.url,
+                lineNumber: selected.lineNumber + 1,
+              },
+            });
+            await task.appendLog('runtime-evidence', {
+              source: 'search_in_sources',
+              kind: 'source-locate',
+              scriptId: selected.scriptId,
+              url: selected.url,
+              lineNumber: selected.lineNumber + 1,
+              functionName: query,
+              note: `located source for ${query}`,
+            });
+            response.appendResponseLine(
+              'Persisted single match into task artifact.',
+            );
+          }
         } catch (error) {
           response.appendResponseLine(
             `Error searching: ${error instanceof Error ? error.message : String(error)}`,
@@ -915,8 +966,14 @@ async function handleBreakpointSet(
   response: {appendResponseLine(value: string): void},
   context: Parameters<typeof listScripts.handler>[2],
 ): Promise<void> {
-  const {url, lineNumber, columnNumber = 0, condition, isRegex = false, pageIdx} =
-    params;
+  const {
+    url,
+    lineNumber,
+    columnNumber = 0,
+    condition,
+    isRegex = false,
+    pageIdx,
+  } = params;
   if (!url) {
     throw new Error('url is required for action=set.');
   }
@@ -943,7 +1000,12 @@ async function handleBreakpointSet(
             columnNumber,
             condition,
           )
-        : await debugger_.setBreakpoint(url, line0based, columnNumber, condition);
+        : await debugger_.setBreakpoint(
+            url,
+            line0based,
+            columnNumber,
+            condition,
+          );
 
       response.appendResponseLine('Breakpoint set successfully!');
       response.appendResponseLine(`- ID: ${breakpointInfo.breakpointId}`);
@@ -1021,7 +1083,9 @@ async function handleBreakpointList(
       return;
     }
 
-    response.appendResponseLine(`Active breakpoints (${breakpoints.length}):\n`);
+    response.appendResponseLine(
+      `Active breakpoints (${breakpoints.length}):\n`,
+    );
 
     for (const bp of breakpoints) {
       response.appendResponseLine(`- ID: ${bp.breakpointId}`);
@@ -1053,7 +1117,9 @@ export const breakpoint = defineTool({
     readOnlyHint: false,
   },
   schema: {
-    action: zod.enum(['set', 'remove', 'list']).describe('Breakpoint action to perform.'),
+    action: zod
+      .enum(['set', 'remove', 'list'])
+      .describe('Breakpoint action to perform.'),
     ...pageIdxSchema,
     url: zod
       .string()
@@ -1084,7 +1150,9 @@ export const breakpoint = defineTool({
     breakpointId: zod
       .string()
       .optional()
-      .describe('Breakpoint ID for action=remove. Use breakpoint(action="list") to inspect active IDs.'),
+      .describe(
+        'Breakpoint ID for action=remove. Use breakpoint(action="list") to inspect active IDs.',
+      ),
   },
   handler: async (request, response, context) => {
     if (request.params.action === 'set') {
@@ -1123,105 +1191,108 @@ export const getRequestInitiator = defineTool({
   },
   handler: async (request, response, context) => {
     const {requestId, pageIdx} = request.params;
-    await withOptionalDebuggerPageContext(
-      context,
-      pageIdx,
-      async () => {
-        const debugger_ = context.debuggerContext;
+    await withOptionalDebuggerPageContext(context, pageIdx, async () => {
+      const debugger_ = context.debuggerContext;
 
-        try {
-          const httpRequest = context.getNetworkRequestById(requestId, pageIdx);
-          const initiator = context.getRequestInitiator(httpRequest);
+      try {
+        const httpRequest = context.getNetworkRequestById(requestId, pageIdx);
+        const initiator = context.getRequestInitiator(httpRequest);
 
-      if (!initiator) {
-        response.appendResponseLine(
-          `No initiator information found for request ${requestId}.`,
-        );
-        response.appendResponseLine(
-          'This might be a navigation request or the initiator was not captured.',
-        );
-        return;
-      }
-
-      response.appendResponseLine(
-        `Request initiator for ${httpRequest.url()}:\n`,
-      );
-      response.appendResponseLine(`Type: ${initiator.type}`);
-
-      if (initiator.url) {
-        const initiatorSourceMapURL = findSourceMapURLByScriptUrl(
-          debugger_,
-          initiator.url,
-          initiator.stack?.callFrames,
-        );
-        response.appendResponseLine(
-          `URL: ${formatUrlWithSourceMap(initiator.url, initiatorSourceMapURL)}`,
-        );
-      }
-      if (initiator.lineNumber !== undefined) {
-        response.appendResponseLine(`Line: ${initiator.lineNumber + 1}`);
-      }
-      if (initiator.columnNumber !== undefined) {
-        response.appendResponseLine(`Column: ${initiator.columnNumber}`);
-      }
-
-      if (initiator.stack && initiator.stack.callFrames.length > 0) {
-        response.appendResponseLine('\nCall Stack:');
-        for (let i = 0; i < initiator.stack.callFrames.length; i++) {
-          const frame = initiator.stack.callFrames[i];
-          const functionName = frame.functionName || '(anonymous)';
-          const script = frame.scriptId
-            ? debugger_.getScriptById(frame.scriptId)
-            : undefined;
-          const location = formatStackFrameLocation(frame, script?.sourceMapURL);
+        if (!initiator) {
           response.appendResponseLine(
-            `  ${i + 1}. ${functionName} @ ${location}`,
+            `No initiator information found for request ${requestId}.`,
           );
+          response.appendResponseLine(
+            'This might be a navigation request or the initiator was not captured.',
+          );
+          return;
         }
 
-        // Include parent stack if available (for async calls)
-        if (
-          initiator.stack.parent &&
-          initiator.stack.parent.callFrames.length > 0
-        ) {
-          response.appendResponseLine('\nAsync Parent Stack:');
-          for (let i = 0; i < initiator.stack.parent.callFrames.length; i++) {
-            const frame = initiator.stack.parent.callFrames[i];
+        response.appendResponseLine(
+          `Request initiator for ${httpRequest.url()}:\n`,
+        );
+        response.appendResponseLine(`Type: ${initiator.type}`);
+
+        if (initiator.url) {
+          const initiatorSourceMapURL = findSourceMapURLByScriptUrl(
+            debugger_,
+            initiator.url,
+            initiator.stack?.callFrames,
+          );
+          response.appendResponseLine(
+            `URL: ${formatUrlWithSourceMap(initiator.url, initiatorSourceMapURL)}`,
+          );
+        }
+        if (initiator.lineNumber !== undefined) {
+          response.appendResponseLine(`Line: ${initiator.lineNumber + 1}`);
+        }
+        if (initiator.columnNumber !== undefined) {
+          response.appendResponseLine(`Column: ${initiator.columnNumber}`);
+        }
+
+        if (initiator.stack && initiator.stack.callFrames.length > 0) {
+          response.appendResponseLine('\nCall Stack:');
+          for (let i = 0; i < initiator.stack.callFrames.length; i++) {
+            const frame = initiator.stack.callFrames[i];
             const functionName = frame.functionName || '(anonymous)';
             const script = frame.scriptId
               ? debugger_.getScriptById(frame.scriptId)
               : undefined;
-            const location = formatStackFrameLocation(frame, script?.sourceMapURL);
+            const location = formatStackFrameLocation(
+              frame,
+              script?.sourceMapURL,
+            );
             response.appendResponseLine(
               `  ${i + 1}. ${functionName} @ ${location}`,
             );
           }
-        }
-      }
 
-          await appendDebuggerEvidence(request.params, {
-            tool: 'get_request_initiator',
-            requestId,
-            requestUrl: httpRequest.url(),
-            initiatorType: initiator.type,
-            initiatorUrl: initiator.url,
-            lineNumber: initiator.lineNumber,
-            columnNumber: initiator.columnNumber,
-            callFrames: initiator.stack?.callFrames.map((frame) => ({
+          // Include parent stack if available (for async calls)
+          if (
+            initiator.stack.parent &&
+            initiator.stack.parent.callFrames.length > 0
+          ) {
+            response.appendResponseLine('\nAsync Parent Stack:');
+            for (let i = 0; i < initiator.stack.parent.callFrames.length; i++) {
+              const frame = initiator.stack.parent.callFrames[i];
+              const functionName = frame.functionName || '(anonymous)';
+              const script = frame.scriptId
+                ? debugger_.getScriptById(frame.scriptId)
+                : undefined;
+              const location = formatStackFrameLocation(
+                frame,
+                script?.sourceMapURL,
+              );
+              response.appendResponseLine(
+                `  ${i + 1}. ${functionName} @ ${location}`,
+              );
+            }
+          }
+        }
+
+        await appendDebuggerEvidence(request.params, {
+          tool: 'get_request_initiator',
+          requestId,
+          requestUrl: httpRequest.url(),
+          initiatorType: initiator.type,
+          initiatorUrl: initiator.url,
+          lineNumber: initiator.lineNumber,
+          columnNumber: initiator.columnNumber,
+          callFrames:
+            initiator.stack?.callFrames.map(frame => ({
               functionName: frame.functionName || '(anonymous)',
               url: frame.url,
               scriptId: frame.scriptId,
               lineNumber: frame.lineNumber,
               columnNumber: frame.columnNumber,
             })) ?? [],
-          });
-        } catch (error) {
-          response.appendResponseLine(
-            `Error getting initiator: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
-      },
-    );
+        });
+      } catch (error) {
+        response.appendResponseLine(
+          `Error getting initiator: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
   },
 });
 
@@ -1281,7 +1352,10 @@ export const getPausedInfo = defineTool({
           response.appendResponseLine(`Reason: ${pausedState.reason}`);
         }
 
-        if (pausedState.hitBreakpoints && pausedState.hitBreakpoints.length > 0) {
+        if (
+          pausedState.hitBreakpoints &&
+          pausedState.hitBreakpoints.length > 0
+        ) {
           response.appendResponseLine(
             `Hit breakpoints: ${pausedState.hitBreakpoints.join(', ')}`,
           );
@@ -1305,7 +1379,9 @@ export const getPausedInfo = defineTool({
             `Suggestion: move breakpoint to a lower-frequency path or use hook_function/trace_function(pause=false).`,
           );
           if (autoRecovery.error) {
-            response.appendResponseLine(`Recovery warning: ${autoRecovery.error}`);
+            response.appendResponseLine(
+              `Recovery warning: ${autoRecovery.error}`,
+            );
           }
         }
 
@@ -1372,7 +1448,9 @@ export const getPausedInfo = defineTool({
                   }
                 }
               } catch {
-                response.appendResponseLine('    (unable to retrieve variables)');
+                response.appendResponseLine(
+                  '    (unable to retrieve variables)',
+                );
               }
             }
           }
@@ -2077,9 +2155,10 @@ export const hookFunction = defineTool({
 `;
 
     try {
-      const frame = pageIdx === undefined
-        ? context.getSelectedFrame()
-        : context.getPageByOptionalIdx(pageIdx).mainFrame();
+      const frame =
+        pageIdx === undefined
+          ? context.getSelectedFrame()
+          : context.getPageByOptionalIdx(pageIdx).mainFrame();
       const result = await frame.evaluate(hookCode);
 
       if (result && typeof result === 'object') {
@@ -2452,9 +2531,10 @@ export const getStorage = defineTool({
 `;
 
     try {
-      const frame = pageIdx === undefined
-        ? context.getSelectedFrame()
-        : context.getPageByOptionalIdx(pageIdx).mainFrame();
+      const frame =
+        pageIdx === undefined
+          ? context.getSelectedFrame()
+          : context.getPageByOptionalIdx(pageIdx).mainFrame();
       const result = await frame.evaluate(storageCode);
 
       response.appendResponseLine(
@@ -2531,7 +2611,9 @@ export const xhrBreakpoint = defineTool({
     readOnlyHint: false,
   },
   schema: {
-    action: zod.enum(['set', 'remove']).describe('XHR breakpoint action to perform.'),
+    action: zod
+      .enum(['set', 'remove'])
+      .describe('XHR breakpoint action to perform.'),
     ...pageIdxSchema,
     url: zod
       .string()
@@ -2818,31 +2900,31 @@ export const traceFunction = defineTool({
       try {
         let foundMatch = null;
 
-      // Search for each pattern
-      for (const pattern of patterns) {
-        const result = await debugger_.searchInScripts(pattern, {
-          caseSensitive: true,
-          isRegex: false,
-        });
+        // Search for each pattern
+        for (const pattern of patterns) {
+          const result = await debugger_.searchInScripts(pattern, {
+            caseSensitive: true,
+            isRegex: false,
+          });
 
-        let matches = result.matches;
+          let matches = result.matches;
 
-        // Apply URL filter
-        if (urlFilter) {
-          const lowerFilter = urlFilter.toLowerCase();
-          matches = matches.filter(
-            m => m.url && m.url.toLowerCase().includes(lowerFilter),
-          );
+          // Apply URL filter
+          if (urlFilter) {
+            const lowerFilter = urlFilter.toLowerCase();
+            matches = matches.filter(
+              m => m.url && m.url.toLowerCase().includes(lowerFilter),
+            );
+          }
+
+          // Skip minified files with extremely long lines
+          matches = matches.filter(m => m.lineContent.length < 100000);
+
+          if (matches.length > 0) {
+            foundMatch = {pattern, match: matches[0]};
+            break;
+          }
         }
-
-        // Skip minified files with extremely long lines
-        matches = matches.filter(m => m.lineContent.length < 100000);
-
-        if (matches.length > 0) {
-          foundMatch = {pattern, match: matches[0]};
-          break;
-        }
-      }
 
         if (!foundMatch) {
           response.appendResponseLine(

@@ -157,7 +157,6 @@ function copyDevToolsDescriptionFiles() {
 }
 
 function copyPackagedReferenceDocs(): void {
-  const packagedDocsRoot = path.join(BUILD_DIR, 'docs');
   const manifest = {
     core: {} as Record<string, string>,
     extra: {} as Record<string, string>,

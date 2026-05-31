@@ -81,7 +81,9 @@ function annotateStackLine(
     return line;
   }
 
-  const candidates = Object.keys(sourceMapHints).sort((a, b) => b.length - a.length);
+  const candidates = Object.keys(sourceMapHints).sort(
+    (a, b) => b.length - a.length,
+  );
   for (const candidate of candidates) {
     if (!line.includes(candidate)) {
       continue;

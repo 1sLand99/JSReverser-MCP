@@ -1,18 +1,27 @@
-import "./env.js";
-import "./polyfills.js";
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import './env.js';
+import './polyfills.js';
 
 let capture = {};
 
 try {
-  const captureModule = await import("./capture.json", {with: {type: "json"}});
+  const captureModule = await import('./capture.json', {with: {type: 'json'}});
   capture = captureModule.default ?? {};
 } catch (error) {
-  console.warn('[env] capture.json not loaded:', error instanceof Error ? error.message : String(error));
+  console.warn(
+    '[env] capture.json not loaded:',
+    error instanceof Error ? error.message : String(error),
+  );
 }
 
 const targetScript = capture?.targetScript?.content;
 const targetFunction = Array.isArray(capture?.runtimeEvidence)
-  ? capture.runtimeEvidence.find((item) => typeof item?.functionName === 'string')?.functionName
+  ? capture.runtimeEvidence.find(item => typeof item?.functionName === 'string')
+      ?.functionName
   : undefined;
 
 try {

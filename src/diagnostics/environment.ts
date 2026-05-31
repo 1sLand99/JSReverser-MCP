@@ -1,12 +1,22 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {accessSync, constants, existsSync} from 'node:fs';
 import path from 'node:path';
 
-import type {DiagnosticCheck, DiagnosticReport, DiagnosticStatus} from './types.js';
 import {
   getAIConfigStatus,
   getArtifactsDirectory,
   getPackageRootDirectory,
 } from '../utils/config.js';
+
+import type {
+  DiagnosticCheck,
+  DiagnosticReport,
+  DiagnosticStatus,
+} from './types.js';
 
 function getNodeVersionStatus(version: string): DiagnosticCheck {
   const [major, minor] = version.replace(/^v/, '').split('.').map(Number);
@@ -39,7 +49,9 @@ function getBuildOutputStatus(packageRoot: string): DiagnosticCheck {
     reason: exists
       ? `Build entry exists at ${buildEntry}.`
       : `Build entry is missing at ${buildEntry}.`,
-    fix: exists ? 'No action required.' : 'Run `npm run build` before starting the server.',
+    fix: exists
+      ? 'No action required.'
+      : 'Run `npm run build` before starting the server.',
     details: {buildEntry},
   };
 }
@@ -94,10 +106,10 @@ function getArtifactsDirectoryStatus(): DiagnosticCheck {
 }
 
 function summarizeStatus(checks: DiagnosticCheck[]): DiagnosticStatus {
-  if (checks.some((item) => item.status === 'fail')) {
+  if (checks.some(item => item.status === 'fail')) {
     return 'fail';
   }
-  if (checks.some((item) => item.status === 'warn')) {
+  if (checks.some(item => item.status === 'warn')) {
     return 'warn';
   }
   return 'ok';

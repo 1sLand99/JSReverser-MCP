@@ -1,3 +1,8 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
 import {describe, it} from 'node:test';
 
@@ -22,9 +27,10 @@ describe('WaitForHelper', () => {
     const helper = new WaitForHelper(page as never, 1, 1);
 
     await assert.rejects(
-      () => helper.waitForEventsAfterAction(async () => {
-        throw new Error('boom');
-      }),
+      () =>
+        helper.waitForEventsAfterAction(async () => {
+          throw new Error('boom');
+        }),
       /boom/,
     );
   });

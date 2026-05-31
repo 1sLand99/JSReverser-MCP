@@ -1,18 +1,21 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import {describe, it} from 'node:test';
+import {rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
+import {describe, it} from 'node:test';
 
 import {CodeCache} from '../../../src/modules/collector/CodeCache.js';
 import {CodeCompressor} from '../../../src/modules/collector/CodeCompressor.js';
+import {logger} from '../../../src/utils/logger.js';
 
 interface MutableCodeCache {
   MAX_MEMORY_CACHE_SIZE: number;
+  cleanupIntervalMs: number;
+  lastCleanupAt: number;
   memoryCache: Map<string, unknown>;
   generateKey(url: string, options?: unknown): string;
 }
@@ -20,7 +23,11 @@ interface MutableCodeCache {
 describe('Code cache and compressor', () => {
   it('resolves the default cache directory from the package root instead of process cwd', () => {
     const originalCwd = process.cwd;
-    const fakeCwd = path.join(path.parse(process.cwd()).root, 'Windows', 'system32');
+    const fakeCwd = path.join(
+      path.parse(process.cwd()).root,
+      'Windows',
+      'system32',
+    );
 
     process.cwd = () => fakeCwd;
 
@@ -76,13 +83,27 @@ describe('Code cache and compressor', () => {
     mutableCache.MAX_MEMORY_CACHE_SIZE = 1;
     await cache.set(
       'https://example.com/a',
-      { files: [{url: 'a.js', content: 'a'.repeat(20), size: 20, type: 'external'}], dependencies: {nodes: [], edges: []}, totalSize: 20, collectTime: 1 },
-      { mode: 'x' },
+      {
+        files: [
+          {url: 'a.js', content: 'a'.repeat(20), size: 20, type: 'external'},
+        ],
+        dependencies: {nodes: [], edges: []},
+        totalSize: 20,
+        collectTime: 1,
+      },
+      {mode: 'x'},
     );
     await cache.set(
       'https://example.com/b',
-      { files: [{url: 'b.js', content: 'b'.repeat(20), size: 20, type: 'external'}], dependencies: {nodes: [], edges: []}, totalSize: 20, collectTime: 1 },
-      { mode: 'x' },
+      {
+        files: [
+          {url: 'b.js', content: 'b'.repeat(20), size: 20, type: 'external'},
+        ],
+        dependencies: {nodes: [], edges: []},
+        totalSize: 20,
+        collectTime: 1,
+      },
+      {mode: 'x'},
     );
     assert.strictEqual(mutableCache.memoryCache.size, 1);
 
@@ -107,11 +128,25 @@ describe('Code cache and compressor', () => {
 
     await cache.set(
       'https://example.com/disk',
-      { files: [{url: 'd.js', content: 'd'.repeat(3000), size: 3000, type: 'external'}], dependencies: {nodes: [], edges: []}, totalSize: 3000, collectTime: 1 },
-      { mode: 'x' },
+      {
+        files: [
+          {
+            url: 'd.js',
+            content: 'd'.repeat(3000),
+            size: 3000,
+            type: 'external',
+          },
+        ],
+        dependencies: {nodes: [], edges: []},
+        totalSize: 3000,
+        collectTime: 1,
+      },
+      {mode: 'x'},
     );
-    await new Promise((r) => setTimeout(r, 3));
-    const diskExpired = await cache.get('https://example.com/disk', { mode: 'x' });
+    await new Promise(r => setTimeout(r, 3));
+    const diskExpired = await cache.get('https://example.com/disk', {
+      mode: 'x',
+    });
     assert.strictEqual(diskExpired, null);
 
     const stats = await cache.getStats();
@@ -120,9 +155,112 @@ describe('Code cache and compressor', () => {
     await cache.cleanup();
     await cache.clear();
 
-    const bad = new CodeCache({ cacheDir: `${dir}-missing` });
+    const bad = new CodeCache({cacheDir: `${dir}-missing`});
+    const originalLoggerError = logger.error;
+    const loggedErrors: unknown[][] = [];
+    logger.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
     const badStats = await bad.getStats();
-    assert.strictEqual(badStats.diskEntries, 0);
-    await bad.clear();
+    try {
+      assert.strictEqual(badStats.diskEntries, 0);
+      await bad.clear();
+      await bad.cleanup();
+      assert.deepStrictEqual(loggedErrors, []);
+    } finally {
+      logger.error = originalLoggerError;
+    }
+  });
+
+  it('creates the disk cache directory automatically when saving', async () => {
+    const dir = `/tmp/jsreverser-mcp-cache-auto-init-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const cache = new CodeCache({cacheDir: dir});
+
+    await cache.set('https://example.com/auto-init', {
+      files: [
+        {
+          url: 'auto.js',
+          content: 'const auto = true;',
+          size: 18,
+          type: 'external',
+        },
+      ],
+      dependencies: {nodes: [], edges: []},
+      totalSize: 18,
+      collectTime: 1,
+    });
+
+    (cache as unknown as MutableCodeCache).memoryCache.clear();
+    const fromDisk = await cache.get('https://example.com/auto-init');
+    assert.strictEqual(fromDisk?.files[0]?.url, 'auto.js');
+
+    await cache.clear();
+  });
+
+  it('keeps recently used memory cache entries during eviction', async () => {
+    const dir = `/tmp/jsreverser-mcp-cache-lru-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const cache = new CodeCache({cacheDir: dir, cleanupIntervalMs: 60_000});
+    const mutableCache = cache as unknown as MutableCodeCache;
+    mutableCache.MAX_MEMORY_CACHE_SIZE = 2;
+
+    const makeResult = (name: string) => ({
+      files: [
+        {
+          url: `${name}.js`,
+          content: `const ${name} = true;`,
+          size: name.length,
+          type: 'external' as const,
+        },
+      ],
+      dependencies: {nodes: [], edges: []},
+      totalSize: name.length,
+      collectTime: 1,
+    });
+
+    await cache.set('https://example.com/a', makeResult('a'));
+    await cache.set('https://example.com/b', makeResult('b'));
+    await cache.get('https://example.com/a');
+    await cache.set('https://example.com/c', makeResult('c'));
+
+    assert.strictEqual(
+      mutableCache.memoryCache.has(
+        mutableCache.generateKey('https://example.com/a'),
+      ),
+      true,
+    );
+    assert.strictEqual(
+      mutableCache.memoryCache.has(
+        mutableCache.generateKey('https://example.com/b'),
+      ),
+      false,
+    );
+
+    await cache.clear();
+  });
+
+  it('throttles automatic cleanup while keeping explicit cleanup available', async () => {
+    const dir = `/tmp/jsreverser-mcp-cache-throttle-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    await writeFile(dir, 'not a directory');
+    const cache = new CodeCache({cacheDir: dir, cleanupIntervalMs: 60_000});
+    const mutableCache = cache as unknown as MutableCodeCache;
+    mutableCache.lastCleanupAt = Date.now();
+
+    const originalLoggerError = logger.error;
+    const loggedErrors: unknown[][] = [];
+    logger.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
+
+    try {
+      await cache.cleanup(false);
+      assert.deepStrictEqual(loggedErrors, []);
+
+      await cache.cleanup();
+      assert.strictEqual(loggedErrors.length, 1);
+      assert.match(String(loggedErrors[0]?.[0]), /Failed to cleanup cache/);
+    } finally {
+      logger.error = originalLoggerError;
+      await rm(dir, {force: true});
+    }
   });
 });

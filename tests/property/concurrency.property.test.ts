@@ -1,6 +1,13 @@
-import {describe, it} from 'node:test';
-import fc from 'fast-check';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
+import {describe, it} from 'node:test';
+
+import fc from 'fast-check';
+
 import {ToolExecutionScheduler} from '../../src/utils/ToolExecutionScheduler.js';
 
 describe('Property 32: Concurrent Tool Calls', () => {
@@ -11,7 +18,10 @@ describe('Property 32: Concurrent Tool Calls', () => {
         const start = Date.now();
         await Promise.all(
           Array.from({length: n}, () =>
-            scheduler.execute(true, async () => new Promise(resolve => setTimeout(resolve, 20))),
+            scheduler.execute(
+              true,
+              async () => new Promise(resolve => setTimeout(resolve, 20)),
+            ),
           ),
         );
         const elapsed = Date.now() - start;

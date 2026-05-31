@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import path from 'node:path';
 import {mkdir, stat, writeFile} from 'node:fs/promises';
+import path from 'node:path';
 
 import type {ReverseStage} from '../modules/workflows/types.js';
+
 import type {ReverseTaskStore} from './ReverseTaskStore.js';
 
 export interface StartReverseTaskInput {
@@ -44,7 +45,10 @@ async function pathExists(targetPath: string): Promise<boolean> {
   }
 }
 
-async function writeFileIfMissing(targetPath: string, contents: string): Promise<void> {
+async function writeFileIfMissing(
+  targetPath: string,
+  contents: string,
+): Promise<void> {
   if (await pathExists(targetPath)) {
     return;
   }
@@ -128,7 +132,8 @@ export async function startReverseTask(
     targetUrl: input.targetUrl,
     goal: input.goal,
     currentStage: input.currentStage ?? 'Observe',
-    currentSummary: input.currentSummary ?? '任务已初始化，等待补第一批 Observe 证据。',
+    currentSummary:
+      input.currentSummary ?? '任务已初始化，等待补第一批 Observe 证据。',
     successCriteria: input.successCriteria ?? {
       localRebuild: 'unknown',
       serverAcceptance: 'unknown',
@@ -154,7 +159,10 @@ export async function startReverseTask(
 
   await task.writeSnapshot('state.json', state);
   await task.writeSnapshot('target-context.json', input.targetContext ?? {});
-  await writeFileIfMissing(path.join(task.taskDir, 'report.md'), `${buildInitialReport(input)}\n`);
+  await writeFileIfMissing(
+    path.join(task.taskDir, 'report.md'),
+    `${buildInitialReport(input)}\n`,
+  );
   await task.appendTimeline({
     stage: String(input.currentStage ?? 'Observe').toLowerCase(),
     action: 'start_reverse_task',

@@ -1,14 +1,16 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { getJSHookRuntime } from '../../../src/tools/runtime.js';
-import { evaluateScript, injectPreloadScript } from '../../../src/tools/script.js';
+import {getJSHookRuntime} from '../../../src/tools/runtime.js';
+import {
+  evaluateScript,
+  injectPreloadScript,
+} from '../../../src/tools/script.js';
 
 interface HandleLike {
   dispose(): Promise<void>;
@@ -23,7 +25,7 @@ interface PageLike {
   ): Promise<string>;
 }
 
-interface FrameLike extends PageLike {}
+type FrameLike = PageLike;
 
 interface ContextLike {
   getSelectedPage(): PageLike;
@@ -49,7 +51,7 @@ describe('evaluate_script callback path', () => {
     const lines: string[] = [];
     let disposed = 0;
 
-    const fn = async () => ({ ok: true });
+    const fn = async () => ({ok: true});
 
     const handle = {
       dispose: async () => {
@@ -82,31 +84,37 @@ describe('evaluate_script callback path', () => {
       attachWebSocket: () => undefined,
     };
 
-    await evaluateScript.handler({ params: { function: '() => ({ ok: true })' } } as Parameters<typeof evaluateScript.handler>[0], response as Parameters<typeof evaluateScript.handler>[1], {
-      ...context,
-      getSelectedPage: () => ({
-        ...page,
-        evaluate: async (callback: unknown) => {
-          if (typeof callback !== 'function') {
-            throw new Error('expected callback evaluate path');
-          }
-          return callback(fn);
-        },
-      }),
-      getSelectedFrame: () => ({
-        ...page,
-        evaluate: async (callback: unknown) => {
-          if (typeof callback !== 'function') {
-            throw new Error('expected callback evaluate path');
-          }
-          return callback(fn);
-        },
-      }),
-    } as unknown as Parameters<typeof evaluateScript.handler>[2]);
+    await evaluateScript.handler(
+      {params: {function: '() => ({ ok: true })'}} as Parameters<
+        typeof evaluateScript.handler
+      >[0],
+      response as Parameters<typeof evaluateScript.handler>[1],
+      {
+        ...context,
+        getSelectedPage: () => ({
+          ...page,
+          evaluate: async (callback: unknown) => {
+            if (typeof callback !== 'function') {
+              throw new Error('expected callback evaluate path');
+            }
+            return callback(fn);
+          },
+        }),
+        getSelectedFrame: () => ({
+          ...page,
+          evaluate: async (callback: unknown) => {
+            if (typeof callback !== 'function') {
+              throw new Error('expected callback evaluate path');
+            }
+            return callback(fn);
+          },
+        }),
+      } as unknown as Parameters<typeof evaluateScript.handler>[2],
+    );
 
     assert.strictEqual(disposed, 1);
-    assert.ok(lines.some((l) => l.includes('Script ran on page and returned')));
-    assert.ok(lines.some((l) => l.includes('{"ok":true}')));
+    assert.ok(lines.some(l => l.includes('Script ran on page and returned')));
+    assert.ok(lines.some(l => l.includes('{"ok":true}')));
   });
 
   it('registers a preload script on future documents', async () => {
@@ -126,14 +134,21 @@ describe('evaluate_script callback path', () => {
     };
 
     const runtime = getJSHookRuntime();
-    const originalInject = runtime.pageController.injectScriptOnNewDocument.bind(runtime.pageController);
-    runtime.pageController.injectScriptOnNewDocument = async (scriptContent: string) => {
+    const originalInject =
+      runtime.pageController.injectScriptOnNewDocument.bind(
+        runtime.pageController,
+      );
+    runtime.pageController.injectScriptOnNewDocument = async (
+      scriptContent: string,
+    ) => {
       injected = scriptContent;
     };
 
     try {
       await injectPreloadScript.handler(
-        { params: { script: 'window.__preload = 1;' } } as Parameters<typeof injectPreloadScript.handler>[0],
+        {params: {script: 'window.__preload = 1;'}} as Parameters<
+          typeof injectPreloadScript.handler
+        >[0],
         response as Parameters<typeof injectPreloadScript.handler>[1],
         {} as Parameters<typeof injectPreloadScript.handler>[2],
       );
@@ -142,7 +157,7 @@ describe('evaluate_script callback path', () => {
     }
 
     assert.strictEqual(injected, 'window.__preload = 1;');
-    assert.ok(lines.some((line) => line.includes('Preload script registered')));
+    assert.ok(lines.some(line => line.includes('Preload script registered')));
   });
 
   it('runs evaluate_script in the selected frame execution context', async () => {
@@ -170,7 +185,7 @@ describe('evaluate_script callback path', () => {
         frameUsed = true;
         return frameHandle;
       },
-      evaluate: async (callback) => {
+      evaluate: async callback => {
         frameUsed = true;
         if (typeof callback !== 'function') {
           throw new Error('expected callback evaluate path');
@@ -192,7 +207,9 @@ describe('evaluate_script callback path', () => {
     };
 
     await evaluateScript.handler(
-      { params: { function: '() => ({ ok: true })' } } as Parameters<typeof evaluateScript.handler>[0],
+      {params: {function: '() => ({ ok: true })'}} as Parameters<
+        typeof evaluateScript.handler
+      >[0],
       response as Parameters<typeof evaluateScript.handler>[1],
       {
         getSelectedPage: () => page,
@@ -205,7 +222,7 @@ describe('evaluate_script callback path', () => {
 
     assert.strictEqual(pageUsed, false);
     assert.strictEqual(frameUsed, true);
-    assert.ok(lines.some((line) => line.includes('{"ok":true}')));
+    assert.ok(lines.some(line => line.includes('{"ok":true}')));
   });
 
   it('uses explicit pageIdx main frame when provided', async () => {
@@ -222,7 +239,7 @@ describe('evaluate_script callback path', () => {
         targetFrameUsed = true;
         return targetHandle;
       },
-      evaluate: async (callback) => {
+      evaluate: async callback => {
         targetFrameUsed = true;
         if (typeof callback !== 'function') {
           throw new Error('expected callback evaluate path');
@@ -245,7 +262,8 @@ describe('evaluate_script callback path', () => {
     const targetPage: PageLike = {
       mainFrame: () => targetFrame,
       evaluateHandle: async () => targetHandle,
-      evaluate: async (callback, passedFn) => callback(passedFn ?? (async () => ({ok: true}))),
+      evaluate: async (callback, passedFn) =>
+        callback(passedFn ?? (async () => ({ok: true}))),
     };
 
     const response: ResponseLike = {
@@ -261,7 +279,9 @@ describe('evaluate_script callback path', () => {
     };
 
     await evaluateScript.handler(
-      { params: { function: '() => ({ ok: true })', pageIdx: 1 } } as Parameters<typeof evaluateScript.handler>[0],
+      {params: {function: '() => ({ ok: true })', pageIdx: 1}} as Parameters<
+        typeof evaluateScript.handler
+      >[0],
       response as Parameters<typeof evaluateScript.handler>[1],
       {
         getSelectedPage: () => ({
@@ -284,7 +304,7 @@ describe('evaluate_script callback path', () => {
 
     assert.strictEqual(selectedFrameUsed, false);
     assert.strictEqual(targetFrameUsed, true);
-    assert.ok(lines.some((line) => line.includes('{"ok":true}')));
+    assert.ok(lines.some(line => line.includes('{"ok":true}')));
   });
 
   it('propagates script execution errors instead of returning an empty response', async () => {
@@ -317,17 +337,20 @@ describe('evaluate_script callback path', () => {
     };
 
     await assert.rejects(
-      () => evaluateScript.handler(
-        { params: { function: '() => { throw new Error("mcp-eval-throw"); }' } } as Parameters<typeof evaluateScript.handler>[0],
-        response as Parameters<typeof evaluateScript.handler>[1],
-        {
-          getSelectedPage: () => frame,
-          getSelectedFrame: () => frame,
-          waitForEventsAfterAction: async (action: () => Promise<void>) => {
-            await action();
-          },
-        } as unknown as Parameters<typeof evaluateScript.handler>[2],
-      ),
+      () =>
+        evaluateScript.handler(
+          {
+            params: {function: '() => { throw new Error("mcp-eval-throw"); }'},
+          } as Parameters<typeof evaluateScript.handler>[0],
+          response as Parameters<typeof evaluateScript.handler>[1],
+          {
+            getSelectedPage: () => frame,
+            getSelectedFrame: () => frame,
+            waitForEventsAfterAction: async (action: () => Promise<void>) => {
+              await action();
+            },
+          } as unknown as Parameters<typeof evaluateScript.handler>[2],
+        ),
       /mcp-eval-throw/,
     );
 

@@ -1,7 +1,13 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {zod} from '../third_party/index.js';
-import {defineTool, type Context} from './ToolDefinition.js';
+
 import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
+import {defineTool, type Context} from './ToolDefinition.js';
 
 async function withRuntimePageContext<T>(
   context: Context,
@@ -34,11 +40,17 @@ export const queryDom = defineTool({
   },
   handler: async (request, response, context) => {
     const runtime = getJSHookRuntime();
-    const result = await withRuntimePageContext(context, request.params.pageIdx, async () => (
-      request.params.all
-        ? runtime.domInspector.querySelectorAll(request.params.selector, request.params.limit)
-        : runtime.domInspector.querySelector(request.params.selector)
-    ));
+    const result = await withRuntimePageContext(
+      context,
+      request.params.pageIdx,
+      async () =>
+        request.params.all
+          ? runtime.domInspector.querySelectorAll(
+              request.params.selector,
+              request.params.limit,
+            )
+          : runtime.domInspector.querySelector(request.params.selector),
+    );
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(result, null, 2));
     response.appendResponseLine('```');
@@ -59,7 +71,11 @@ export const getDomStructure = defineTool({
     const result = await withRuntimePageContext(
       context,
       request.params.pageIdx,
-      () => runtime.domInspector.getStructure(request.params.maxDepth, request.params.includeText),
+      () =>
+        runtime.domInspector.getStructure(
+          request.params.maxDepth,
+          request.params.includeText,
+        ),
     );
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(result, null, 2));

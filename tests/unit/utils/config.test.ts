@@ -1,4 +1,3 @@
-
 /**
  * @license
  * Copyright 2026 Google LLC
@@ -7,12 +6,12 @@
 /**
  * Unit tests for configuration management
  * Tests configuration loading, validation, and environment variable parsing
- * 
+ *
  * Requirements: 11.3, 11.4, 11.5
  */
 
 import assert from 'node:assert';
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import {describe, it, beforeEach, afterEach} from 'node:test';
 
 import {
   getAIConfigStatus,
@@ -33,7 +32,7 @@ import {
 
 describe('Configuration Management', () => {
   // Store original environment variables
-  const originalEnv = { ...process.env };
+  const originalEnv = {...process.env};
 
   beforeEach(() => {
     // Clear environment variables before each test
@@ -58,7 +57,7 @@ describe('Configuration Management', () => {
 
   afterEach(() => {
     // Restore original environment variables
-    process.env = { ...originalEnv };
+    process.env = {...originalEnv};
   });
 
   describe('getDefaultLLMProvider', () => {
@@ -101,7 +100,7 @@ describe('Configuration Management', () => {
   describe('getAIConfig', () => {
     it('should return Gemini CLI config when no API keys are configured', () => {
       const config = getAIConfig();
-      
+
       // Gemini CLI is always available as a fallback
       assert.ok(config);
       assert.strictEqual(config.provider, 'gemini');
@@ -113,7 +112,7 @@ describe('Configuration Management', () => {
     it('should configure OpenAI when OPENAI_API_KEY is set', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.ok(config.openai);
       assert.strictEqual(config.openai.apiKey, 'sk-test-key');
@@ -124,7 +123,7 @@ describe('Configuration Management', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       process.env.OPENAI_BASE_URL = 'https://custom.openai.com/v1';
       const config = getAIConfig();
-      
+
       assert.ok(config?.openai);
       assert.strictEqual(config.openai.baseURL, 'https://custom.openai.com/v1');
     });
@@ -133,7 +132,7 @@ describe('Configuration Management', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       process.env.OPENAI_MODEL = 'gpt-3.5-turbo';
       const config = getAIConfig();
-      
+
       assert.ok(config?.openai);
       assert.strictEqual(config.openai.model, 'gpt-3.5-turbo');
     });
@@ -141,7 +140,7 @@ describe('Configuration Management', () => {
     it('should configure Anthropic when ANTHROPIC_API_KEY is set', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.ok(config.anthropic);
       assert.strictEqual(config.anthropic.apiKey, 'sk-ant-test-key');
@@ -152,7 +151,7 @@ describe('Configuration Management', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
       process.env.ANTHROPIC_MODEL = 'claude-3-opus-20240229';
       const config = getAIConfig();
-      
+
       assert.ok(config?.anthropic);
       assert.strictEqual(config.anthropic.model, 'claude-3-opus-20240229');
     });
@@ -160,7 +159,7 @@ describe('Configuration Management', () => {
     it('should configure Gemini with API key when set', () => {
       process.env.GEMINI_API_KEY = 'gemini-test-key';
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.ok(config.gemini);
       assert.strictEqual(config.gemini.apiKey, 'gemini-test-key');
@@ -172,7 +171,7 @@ describe('Configuration Management', () => {
       // Gemini is always configured with CLI fallback
       process.env.OPENAI_API_KEY = 'sk-test-key'; // Need at least one provider
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.ok(config.gemini);
       assert.strictEqual(config.gemini.useAPI, false);
@@ -183,7 +182,7 @@ describe('Configuration Management', () => {
       process.env.GEMINI_CLI_PATH = '/custom/path/gemini-cli';
       process.env.OPENAI_API_KEY = 'sk-test-key'; // Need at least one provider
       const config = getAIConfig();
-      
+
       assert.ok(config?.gemini);
       assert.strictEqual(config.gemini.cliPath, '/custom/path/gemini-cli');
     });
@@ -192,7 +191,7 @@ describe('Configuration Management', () => {
       process.env.GEMINI_API_KEY = 'gemini-test-key';
       process.env.GEMINI_MODEL = 'gemini-pro';
       const config = getAIConfig();
-      
+
       assert.ok(config?.gemini);
       assert.strictEqual(config.gemini.model, 'gemini-pro');
     });
@@ -201,7 +200,7 @@ describe('Configuration Management', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       process.env.DEFAULT_LLM_PROVIDER = 'openai';
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.strictEqual(config.provider, 'openai');
     });
@@ -211,7 +210,7 @@ describe('Configuration Management', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
       process.env.GEMINI_API_KEY = 'gemini-test-key';
       const config = getAIConfig();
-      
+
       assert.ok(config);
       assert.ok(config.openai);
       assert.ok(config.anthropic);
@@ -250,7 +249,7 @@ describe('Configuration Management', () => {
   describe('getBrowserConfig', () => {
     it('should return default browser configuration', () => {
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.headless, true);
       assert.strictEqual(config.isolated, true);
       assert.strictEqual(config.useStealthScripts, false);
@@ -259,49 +258,49 @@ describe('Configuration Management', () => {
     it('should set headless to false when BROWSER_HEADLESS is false', () => {
       process.env.BROWSER_HEADLESS = 'false';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.headless, false);
     });
 
     it('should set isolated to false when BROWSER_ISOLATED is false', () => {
       process.env.BROWSER_ISOLATED = 'false';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.isolated, false);
     });
 
     it('should enable stealth scripts when USE_STEALTH_SCRIPTS is true', () => {
       process.env.USE_STEALTH_SCRIPTS = 'true';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.useStealthScripts, true);
     });
 
     it('should set executable path when BROWSER_EXECUTABLE_PATH is set', () => {
       process.env.BROWSER_EXECUTABLE_PATH = '/path/to/chrome';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.executablePath, '/path/to/chrome');
     });
 
     it('should set channel when BROWSER_CHANNEL is set', () => {
       process.env.BROWSER_CHANNEL = 'chrome-beta';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.channel, 'chrome-beta');
     });
 
     it('should set remote debugging URL when REMOTE_DEBUGGING_URL is set', () => {
       process.env.REMOTE_DEBUGGING_URL = 'http://localhost:9222';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.remoteDebuggingUrl, 'http://localhost:9222');
     });
 
     it('should parse remote debugging port when REMOTE_DEBUGGING_PORT is set', () => {
       process.env.REMOTE_DEBUGGING_PORT = '9222';
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.remoteDebuggingPort, 9222);
     });
 
@@ -313,9 +312,9 @@ describe('Configuration Management', () => {
       process.env.BROWSER_CHANNEL = 'chrome-dev';
       process.env.REMOTE_DEBUGGING_URL = 'http://localhost:9222';
       process.env.REMOTE_DEBUGGING_PORT = '9222';
-      
+
       const config = getBrowserConfig();
-      
+
       assert.strictEqual(config.headless, false);
       assert.strictEqual(config.isolated, false);
       assert.strictEqual(config.useStealthScripts, true);
@@ -330,9 +329,9 @@ describe('Configuration Management', () => {
     it('should return complete system configuration', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       process.env.DEBUG = 'true';
-      
+
       const config = getSystemConfig();
-      
+
       assert.ok(config);
       assert.ok(config.ai);
       assert.ok(config.browser);
@@ -341,7 +340,7 @@ describe('Configuration Management', () => {
 
     it('should return system config with Gemini CLI when no API keys configured', () => {
       const config = getSystemConfig();
-      
+
       assert.ok(config);
       // Gemini CLI is always available as fallback
       assert.ok(config.ai);
@@ -353,14 +352,14 @@ describe('Configuration Management', () => {
     it('should detect debug mode from DEBUG=true', () => {
       process.env.DEBUG = 'true';
       const config = getSystemConfig();
-      
+
       assert.strictEqual(config.debug, true);
     });
 
     it('should detect debug mode from DEBUG=mcp:*', () => {
       process.env.DEBUG = 'mcp:*';
       const config = getSystemConfig();
-      
+
       assert.strictEqual(config.debug, true);
     });
   });
@@ -373,9 +372,9 @@ describe('Configuration Management', () => {
           isolated: true,
         },
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, true);
       assert.strictEqual(result.errors.length, 0);
     });
@@ -386,9 +385,9 @@ describe('Configuration Management', () => {
           remoteDebuggingPort: 0,
         },
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.length > 0);
       assert.ok(result.errors[0].includes('Invalid REMOTE_DEBUGGING_PORT'));
@@ -400,9 +399,9 @@ describe('Configuration Management', () => {
           remoteDebuggingPort: 70000,
         },
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.length > 0);
       assert.ok(result.errors[0].includes('Invalid REMOTE_DEBUGGING_PORT'));
@@ -414,9 +413,9 @@ describe('Configuration Management', () => {
           remoteDebuggingPort: 9222,
         },
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, true);
       assert.strictEqual(result.errors.length, 0);
     });
@@ -428,9 +427,9 @@ describe('Configuration Management', () => {
         },
         browser: {},
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.some(e => e.includes('OpenAI')));
     });
@@ -442,9 +441,9 @@ describe('Configuration Management', () => {
         },
         browser: {},
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.some(e => e.includes('Anthropic')));
     });
@@ -456,9 +455,9 @@ describe('Configuration Management', () => {
         },
         browser: {},
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.ok(result.errors.some(e => e.includes('Gemini')));
     });
@@ -474,9 +473,9 @@ describe('Configuration Management', () => {
         },
         browser: {},
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, true);
       assert.strictEqual(result.errors.length, 0);
     });
@@ -490,9 +489,9 @@ describe('Configuration Management', () => {
           remoteDebuggingPort: 0,
         },
       };
-      
+
       const result = validateConfig(config);
-      
+
       assert.strictEqual(result.valid, false);
       assert.strictEqual(result.errors.length, 2);
     });
@@ -502,26 +501,26 @@ describe('Configuration Management', () => {
     it('should return environment variable value when set', () => {
       process.env.TEST_VAR = 'test-value';
       const value = getEnv('TEST_VAR');
-      
+
       assert.strictEqual(value, 'test-value');
     });
 
     it('should return undefined when environment variable is not set', () => {
       const value = getEnv('NON_EXISTENT_VAR');
-      
+
       assert.strictEqual(value, undefined);
     });
 
     it('should return default value when environment variable is not set', () => {
       const value = getEnv('NON_EXISTENT_VAR', 'default-value');
-      
+
       assert.strictEqual(value, 'default-value');
     });
 
     it('should prefer environment variable over default value', () => {
       process.env.TEST_VAR = 'env-value';
       const value = getEnv('TEST_VAR', 'default-value');
-      
+
       assert.strictEqual(value, 'env-value');
     });
   });
@@ -529,28 +528,28 @@ describe('Configuration Management', () => {
   describe('isDebugEnabled', () => {
     it('should return false when DEBUG is not set', () => {
       const enabled = isDebugEnabled();
-      
+
       assert.strictEqual(enabled, false);
     });
 
     it('should return true when DEBUG is true', () => {
       process.env.DEBUG = 'true';
       const enabled = isDebugEnabled();
-      
+
       assert.strictEqual(enabled, true);
     });
 
     it('should return true when DEBUG contains mcp', () => {
       process.env.DEBUG = 'mcp:*';
       const enabled = isDebugEnabled();
-      
+
       assert.strictEqual(enabled, true);
     });
 
     it('should return false when DEBUG is set to other values', () => {
       process.env.DEBUG = 'other:*';
       const enabled = isDebugEnabled();
-      
+
       assert.strictEqual(enabled, false);
     });
   });
@@ -558,7 +557,7 @@ describe('Configuration Management', () => {
   describe('createAIService', () => {
     it('should return Gemini CLI service when no AI configuration is provided', () => {
       const service = createAIService();
-      
+
       // Gemini CLI is always available as fallback
       assert.ok(service);
     });
@@ -566,27 +565,27 @@ describe('Configuration Management', () => {
     it('should create OpenAI service when configured', () => {
       process.env.OPENAI_API_KEY = 'sk-test-key';
       process.env.DEFAULT_LLM_PROVIDER = 'openai';
-      
+
       const service = createAIService();
-      
+
       assert.ok(service);
     });
 
     it('should create Anthropic service when configured', () => {
       process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
       process.env.DEFAULT_LLM_PROVIDER = 'anthropic';
-      
+
       const service = createAIService();
-      
+
       assert.ok(service);
     });
 
     it('should create Gemini service when configured', () => {
       process.env.GEMINI_API_KEY = 'gemini-test-key';
       process.env.DEFAULT_LLM_PROVIDER = 'gemini';
-      
+
       const service = createAIService();
-      
+
       assert.ok(service);
     });
 
@@ -594,13 +593,10 @@ describe('Configuration Management', () => {
       const config: AIConfig = {
         provider: 'openai',
       };
-      
-      assert.throws(
-        () => createAIService(config),
-        {
-          message: /Failed to create AI service/,
-        }
-      );
+
+      assert.throws(() => createAIService(config), {
+        message: /Failed to create AI service/,
+      });
     });
 
     it('should create service with custom configuration', () => {
@@ -611,9 +607,9 @@ describe('Configuration Management', () => {
           model: 'gpt-3.5-turbo',
         },
       };
-      
+
       const service = createAIService(config);
-      
+
       assert.ok(service);
     });
   });

@@ -1,6 +1,11 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 页面控制器 - 薄封装Puppeteer API
- * 
+ *
  * 设计原则:
  * - 不重复实现Puppeteer已有的功能
  * - 直接调用page.click(), page.type()等API
@@ -8,10 +13,12 @@
  * - 所有方法都是薄封装，不超过5行代码
  */
 
-import type { CodeCollector } from './CodeCollector.js';
-import { logger } from '../../utils/logger.js';
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import {logger} from '../../utils/logger.js';
+
+import type {CodeCollector} from './CodeCollector.js';
 
 export interface NavigationOptions {
   waitUntil?: 'load' | 'domcontentloaded' | 'networkidle0' | 'networkidle2';
@@ -34,7 +41,14 @@ export interface ScrollOptions {
 }
 
 export interface ReplayAction {
-  action: 'navigate' | 'click' | 'type' | 'wait' | 'scroll' | 'pressKey' | 'evaluate';
+  action:
+    | 'navigate'
+    | 'click'
+    | 'type'
+    | 'wait'
+    | 'scroll'
+    | 'pressKey'
+    | 'evaluate';
   url?: string;
   selector?: string;
   text?: string;
@@ -59,7 +73,10 @@ export class PageController {
   /**
    * 导航到指定URL（薄封装page.goto）
    */
-  async navigate(url: string, options?: NavigationOptions): Promise<{
+  async navigate(
+    url: string,
+    options?: NavigationOptions,
+  ): Promise<{
     url: string;
     title: string;
     loadTime: number;
@@ -131,7 +148,11 @@ export class PageController {
   /**
    * 输入文本（薄封装page.type）
    */
-  async type(selector: string, text: string, options?: TypeOptions): Promise<void> {
+  async type(
+    selector: string,
+    text: string,
+    options?: TypeOptions,
+  ): Promise<void> {
     const page = await this.collector.getActivePage();
     await page.type(selector, text, {
       delay: options?.delay,
@@ -162,7 +183,7 @@ export class PageController {
    */
   async scroll(options: ScrollOptions): Promise<void> {
     const page = await this.collector.getActivePage();
-    await page.evaluate((opts) => {
+    await page.evaluate(opts => {
       window.scrollTo(opts.x || 0, opts.y || 0);
     }, options);
     logger.info(`Scrolled to: x=${options.x || 0}, y=${options.y || 0}`);
@@ -171,7 +192,10 @@ export class PageController {
   /**
    * 等待选择器出现并返回元素信息（增强版）
    */
-  async waitForSelector(selector: string, timeout?: number): Promise<{
+  async waitForSelector(
+    selector: string,
+    timeout?: number,
+  ): Promise<{
     success: boolean;
     element?: any;
     message: string;
@@ -185,7 +209,7 @@ export class PageController {
       });
 
       // 获取元素信息
-      const element = await page.evaluate((sel) => {
+      const element = await page.evaluate(sel => {
         const el = document.querySelector(sel);
         if (!el) return null;
 
@@ -194,10 +218,13 @@ export class PageController {
           id: el.id || undefined,
           className: el.className || undefined,
           textContent: el.textContent?.trim().substring(0, 100) || undefined,
-          attributes: Array.from(el.attributes).reduce((acc, attr) => {
-            acc[attr.name] = attr.value;
-            return acc;
-          }, {} as Record<string, string>),
+          attributes: Array.from(el.attributes).reduce(
+            (acc, attr) => {
+              acc[attr.name] = attr.value;
+              return acc;
+            },
+            {} as Record<string, string>,
+          ),
         };
       }, selector);
 
@@ -273,7 +300,7 @@ export class PageController {
     if (options?.path) {
       const dir = path.dirname(options.path);
       if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(dir, {recursive: true});
         logger.debug(`Screenshot directory created: ${dir}`);
       }
     }
@@ -295,11 +322,14 @@ export class PageController {
     const page = await this.collector.getActivePage();
 
     const metrics = await page.evaluate(() => {
-      const perf = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const perf = performance.getEntriesByType(
+        'navigation',
+      )[0] as PerformanceNavigationTiming;
 
       return {
         // 页面加载时间
-        domContentLoaded: perf.domContentLoadedEventEnd - perf.domContentLoadedEventStart,
+        domContentLoaded:
+          perf.domContentLoadedEventEnd - perf.domContentLoadedEventStart,
         loadComplete: perf.loadEventEnd - perf.loadEventStart,
 
         // 网络时间
@@ -326,7 +356,7 @@ export class PageController {
   async injectScript(scriptContent: string): Promise<void> {
     const page = await this.collector.getActivePage();
 
-    await page.evaluate((script) => {
+    await page.evaluate(script => {
       const scriptElement = document.createElement('script');
       scriptElement.textContent = script;
       document.head.appendChild(scriptElement);
@@ -341,11 +371,11 @@ export class PageController {
   async injectScriptOnNewDocument(scriptContent: string): Promise<void> {
     const page = await this.collector.getActivePage();
 
-    await page.evaluateOnNewDocument((script) => {
+    await page.evaluateOnNewDocument(script => {
       // Run script directly in the new document context.
       // This avoids relying on DOM readiness (head/body may not exist yet)
       // and is more reliable than appending an inline <script> element.
-      // eslint-disable-next-line no-new-func
+
       new Function(script)();
     }, scriptContent);
 
@@ -355,16 +385,18 @@ export class PageController {
   /**
    * 🆕 设置Cookie
    */
-  async setCookies(cookies: Array<{
-    name: string;
-    value: string;
-    domain?: string;
-    path?: string;
-    expires?: number;
-    httpOnly?: boolean;
-    secure?: boolean;
-    sameSite?: 'Strict' | 'Lax' | 'None';
-  }>): Promise<void> {
+  async setCookies(
+    cookies: Array<{
+      name: string;
+      value: string;
+      domain?: string;
+      path?: string;
+      expires?: number;
+      httpOnly?: boolean;
+      secure?: boolean;
+      sameSite?: 'Strict' | 'Lax' | 'None';
+    }>,
+  ): Promise<void> {
     const page = await this.collector.getActivePage();
     await page.setCookie(...cookies);
     logger.info(`Set ${cookies.length} cookies`);
@@ -395,28 +427,33 @@ export class PageController {
    */
   async setViewport(width: number, height: number): Promise<void> {
     const page = await this.collector.getActivePage();
-    await page.setViewport({ width, height });
+    await page.setViewport({width, height});
     logger.info(`Viewport set to ${width}x${height}`);
   }
 
   /**
    * 🆕 模拟设备
    */
-  async emulateDevice(deviceName: 'iPhone' | 'iPad' | 'Android'): Promise<void> {
+  async emulateDevice(
+    deviceName: 'iPhone' | 'iPad' | 'Android',
+  ): Promise<void> {
     const page = await this.collector.getActivePage();
 
     const devices = {
       iPhone: {
-        viewport: { width: 375, height: 812, isMobile: true },
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+        viewport: {width: 375, height: 812, isMobile: true},
+        userAgent:
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
       },
       iPad: {
-        viewport: { width: 768, height: 1024, isMobile: true },
-        userAgent: 'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
+        viewport: {width: 768, height: 1024, isMobile: true},
+        userAgent:
+          'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/605.1.15',
       },
       Android: {
-        viewport: { width: 360, height: 640, isMobile: true },
-        userAgent: 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/91.0.4472.120',
+        viewport: {width: 360, height: 640, isMobile: true},
+        userAgent:
+          'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/91.0.4472.120',
       },
     };
 
@@ -432,7 +469,7 @@ export class PageController {
    */
   async waitForNetworkIdle(timeout = 30000): Promise<void> {
     const page = await this.collector.getActivePage();
-    await page.waitForNetworkIdle({ timeout });
+    await page.waitForNetworkIdle({timeout});
     logger.info('Network is idle');
   }
 
@@ -463,9 +500,13 @@ export class PageController {
   async setLocalStorage(key: string, value: string): Promise<void> {
     const page = await this.collector.getActivePage();
 
-    await page.evaluate((k, v) => {
-      localStorage.setItem(k, v);
-    }, key, value);
+    await page.evaluate(
+      (k, v) => {
+        localStorage.setItem(k, v);
+      },
+      key,
+      value,
+    );
 
     logger.info(`Set localStorage: ${key}`);
   }
@@ -498,7 +539,9 @@ export class PageController {
       }
       return items;
     });
-    logger.info(`Retrieved ${Object.keys(storage).length} sessionStorage items`);
+    logger.info(
+      `Retrieved ${Object.keys(storage).length} sessionStorage items`,
+    );
     return storage;
   }
 
@@ -507,9 +550,13 @@ export class PageController {
    */
   async setSessionStorage(key: string, value: string): Promise<void> {
     const page = await this.collector.getActivePage();
-    await page.evaluate((k, v) => {
-      sessionStorage.setItem(k, v);
-    }, key, value);
+    await page.evaluate(
+      (k, v) => {
+        sessionStorage.setItem(k, v);
+      },
+      key,
+      value,
+    );
     logger.info(`Set sessionStorage: ${key}`);
   }
 
@@ -551,18 +598,18 @@ export class PageController {
   /**
    * 🆕 获取页面所有链接
    */
-  async getAllLinks(): Promise<Array<{ text: string; href: string }>> {
+  async getAllLinks(): Promise<Array<{text: string; href: string}>> {
     const page = await this.collector.getActivePage();
 
     const links = await page.evaluate(() => {
       const anchors = document.querySelectorAll('a[href]');
-      const result: Array<{ text: string; href: string }> = [];
+      const result: Array<{text: string; href: string}> = [];
 
-      for (let i = 0; i < anchors.length; i++) {
-        const anchor = anchors[i] as HTMLAnchorElement;
+      for (const anchor of Array.from(anchors)) {
+        const link = anchor as HTMLAnchorElement;
         result.push({
-          text: anchor.textContent?.trim() || '',
-          href: anchor.href,
+          text: link.textContent?.trim() || '',
+          href: link.href,
         });
       }
 
@@ -583,8 +630,17 @@ export class PageController {
   /**
    * 执行交互回放，用于在采样前自动触发关键动作。
    */
-  async replayActions(actions: ReplayAction[]): Promise<Array<{index: number; action: string; success: boolean; message: string}>> {
-    const results: Array<{index: number; action: string; success: boolean; message: string}> = [];
+  async replayActions(
+    actions: ReplayAction[],
+  ): Promise<
+    Array<{index: number; action: string; success: boolean; message: string}>
+  > {
+    const results: Array<{
+      index: number;
+      action: string;
+      success: boolean;
+      message: string;
+    }> = [];
     for (let index = 0; index < actions.length; index += 1) {
       const item = actions[index];
       try {
@@ -605,7 +661,9 @@ export class PageController {
             if (!item.selector) {
               throw new Error('type action requires selector');
             }
-            await this.type(item.selector, item.text ?? '', {delay: item.delay});
+            await this.type(item.selector, item.text ?? '', {
+              delay: item.delay,
+            });
             break;
           case 'wait':
             if (!item.selector) {
@@ -629,9 +687,16 @@ export class PageController {
             await this.evaluate(item.code);
             break;
           default:
-            throw new Error(`Unsupported action: ${(item as {action?: string}).action ?? 'unknown'}`);
+            throw new Error(
+              `Unsupported action: ${(item as {action?: string}).action ?? 'unknown'}`,
+            );
         }
-        results.push({index, action: item.action, success: true, message: 'ok'});
+        results.push({
+          index,
+          action: item.action,
+          success: true,
+          message: 'ok',
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         results.push({index, action: item.action, success: false, message});

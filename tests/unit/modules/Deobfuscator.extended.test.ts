@@ -4,28 +4,55 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { Deobfuscator } from '../../../src/modules/deobfuscator/Deobfuscator.js';
-import type { Transformation, UnresolvedPart } from '../../../src/types/index.js';
+import {Deobfuscator} from '../../../src/modules/deobfuscator/Deobfuscator.js';
+import type {Transformation, UnresolvedPart} from '../../../src/types/index.js';
 
 interface DeobfuscatorHarness {
   detectObfuscationType(code: string): string[];
-  basicTransform(code: string, transformations: Transformation[]): Promise<string>;
-  decodeStrings(code: string, transformations: Transformation[]): Promise<string>;
-  extractStringArrays(code: string, transformations: Transformation[]): Promise<string>;
-  decryptArrays(code: string, transformations: Transformation[]): Promise<string>;
-  simplifyExpressions(code: string, transformations: Transformation[]): Promise<string>;
-  renameVariables(code: string, transformations: Transformation[]): Promise<string>;
-  unflattenControlFlow(code: string, transformations: Transformation[]): Promise<string>;
+  basicTransform(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  decodeStrings(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  extractStringArrays(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  decryptArrays(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  simplifyExpressions(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  renameVariables(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
+  unflattenControlFlow(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
   shouldRun(
     explicitFlag: boolean | undefined,
     autoMode: boolean,
     detected: string[],
     triggers: string[],
   ): boolean;
-  mergeObfuscationTypes(original: string[], transformations: Transformation[]): string[];
-  calculateConfidence(transformations: Array<{ success: boolean }>, readabilityScore: number): number;
+  mergeObfuscationTypes(
+    original: string[],
+    transformations: Transformation[],
+  ): string[];
+  calculateConfidence(
+    transformations: Array<{success: boolean}>,
+    readabilityScore: number,
+  ): number;
   calculateReadabilityScore(code: string): number;
   llmAnalysis(code: string): Promise<string | null>;
   runUnpack(code: string, transformations: Transformation[]): Promise<string>;
@@ -42,9 +69,12 @@ interface DeobfuscatorHarness {
     transformations: Transformation[],
     pipelineWarnings: string[],
   ): Promise<string>;
-  runASTOptimizer(code: string, transformations: Transformation[]): Promise<string>;
+  runASTOptimizer(
+    code: string,
+    transformations: Transformation[],
+  ): Promise<string>;
   generateCacheKey(options: Record<string, unknown>): string;
-  cacheResult(key: string, result: { code: string }): void;
+  cacheResult(key: string, result: {code: string}): void;
   clearCache(): void;
   deobfuscate(options: {
     code: string;
@@ -60,7 +90,9 @@ interface DeobfuscatorHarness {
     unresolvedParts?: UnresolvedPart[];
   }>;
   universalUnpacker: {
-    deobfuscate(code: string): Promise<{ success: boolean; code: string; type: string }>;
+    deobfuscate(
+      code: string,
+    ): Promise<{success: boolean; code: string; type: string}>;
   };
   jsvmpDeobfuscator: {
     deobfuscate(options: Record<string, unknown>): Promise<{
@@ -84,10 +116,10 @@ interface DeobfuscatorHarness {
     optimize(code: string): string;
   };
   llm?: {
-    chat(): Promise<{ content: string }>;
+    chat(): Promise<{content: string}>;
   };
   maxCacheSize: number;
-  resultCache: Map<string, { code: string }>;
+  resultCache: Map<string, {code: string}>;
   stringArrays: Map<string, string[]>;
 }
 
@@ -124,11 +156,17 @@ describe('Deobfuscator extended', () => {
     const decrypted = await d.decryptArrays('console.log(_0x1[1]);', ts);
     assert.ok(decrypted.includes('"world"'));
 
-    const simplified = await d.simplifyExpressions('const a=!!x;const b=void 0;const c=!0;', ts);
+    const simplified = await d.simplifyExpressions(
+      'const a=!!x;const b=void 0;const c=!0;',
+      ts,
+    );
     assert.ok(simplified.includes('undefined'));
     assert.ok(simplified.includes('true'));
 
-    const renamed = await d.renameVariables('var _0xabc=1;console.log(_0xabc);', ts);
+    const renamed = await d.renameVariables(
+      'var _0xabc=1;console.log(_0xabc);',
+      ts,
+    );
     assert.ok(renamed.includes('var_0'));
   });
 
@@ -153,38 +191,63 @@ describe('Deobfuscator extended', () => {
     const d = new Deobfuscator() as unknown as DeobfuscatorHarness;
     assert.strictEqual(d.shouldRun(true, false, [], []), true);
     assert.strictEqual(d.shouldRun(false, true, ['packer'], ['packer']), false);
-    assert.strictEqual(d.shouldRun(undefined, true, ['packer'], ['packer']), true);
+    assert.strictEqual(
+      d.shouldRun(undefined, true, ['packer'], ['packer']),
+      true,
+    );
 
-    const merged = d.mergeObfuscationTypes(['unknown'], [
-      { type: 'unpack', description: 'Unpacked Packer obfuscation', success: true },
-      { type: 'advanced', description: 'contains control-flow-flattening', success: true },
-    ]);
+    const merged = d.mergeObfuscationTypes(
+      ['unknown'],
+      [
+        {
+          type: 'unpack',
+          description: 'Unpacked Packer obfuscation',
+          success: true,
+        },
+        {
+          type: 'advanced',
+          description: 'contains control-flow-flattening',
+          success: true,
+        },
+      ],
+    );
     assert.ok(merged.includes('packer'));
     assert.ok(merged.includes('control-flow-flattening'));
     assert.ok(!merged.includes('unknown'));
 
-    const confidence = d.calculateConfidence([{ success: true }, { success: false }], 50);
+    const confidence = d.calculateConfidence(
+      [{success: true}, {success: false}],
+      50,
+    );
     assert.ok(confidence >= 0 && confidence <= 1);
-    const readability = d.calculateReadabilityScore('const abc = 1;\n// comment');
+    const readability = d.calculateReadabilityScore(
+      'const abc = 1;\n// comment',
+    );
     assert.ok(readability > 0);
   });
 
   it('handles LLM analysis success and failure', async () => {
     const llmOk = {
-      generateDeobfuscationPrompt: (code: string) => [{ role: 'user', content: code }],
-      chat: async () => ({ content: 'analysis ok' }),
+      generateDeobfuscationPrompt: (code: string) => [
+        {role: 'user', content: code},
+      ],
+      chat: async () => ({content: 'analysis ok'}),
     };
-    const d1 = new Deobfuscator(llmOk as unknown as ConstructorParameters<typeof Deobfuscator>[0]) as unknown as DeobfuscatorHarness;
+    const d1 = new Deobfuscator(
+      llmOk as unknown as ConstructorParameters<typeof Deobfuscator>[0],
+    ) as unknown as DeobfuscatorHarness;
     const r1 = await d1.llmAnalysis('code');
     assert.strictEqual(r1, 'analysis ok');
 
     const llmFail = {
-      generateDeobfuscationPrompt: () => [{ role: 'user', content: 'x' }],
+      generateDeobfuscationPrompt: () => [{role: 'user', content: 'x'}],
       chat: async () => {
         throw new Error('llm down');
       },
     };
-    const d2 = new Deobfuscator(llmFail as unknown as ConstructorParameters<typeof Deobfuscator>[0]) as unknown as DeobfuscatorHarness;
+    const d2 = new Deobfuscator(
+      llmFail as unknown as ConstructorParameters<typeof Deobfuscator>[0],
+    ) as unknown as DeobfuscatorHarness;
     const r2 = await d2.llmAnalysis('code');
     assert.strictEqual(r2, null);
   });
@@ -196,7 +259,11 @@ describe('Deobfuscator extended', () => {
     const unresolved: UnresolvedPart[] = [];
 
     d.universalUnpacker = {
-      deobfuscate: async () => ({ success: true, code: 'unpacked', type: 'packer' }),
+      deobfuscate: async () => ({
+        success: true,
+        code: 'unpacked',
+        type: 'packer',
+      }),
     };
     const unpacked = await d.runUnpack('x', ts);
     assert.strictEqual(unpacked, 'unpacked');
@@ -207,7 +274,7 @@ describe('Deobfuscator extended', () => {
         confidence: 0.8,
         vmType: 'switch',
         warnings: ['w1'],
-        unresolvedParts: [{ location: 'vm', reason: 'trace-missing' }],
+        unresolvedParts: [{location: 'vm', reason: 'trace-missing'}],
         deobfuscatedCode: 'jsvmp-out',
       }),
     };
@@ -227,21 +294,21 @@ describe('Deobfuscator extended', () => {
     const adv = await d.runAdvanced('x', {}, ts, warnings);
     assert.strictEqual(adv, 'advanced-out');
 
-    d.astOptimizer = { optimize: (code: string) => `${code}//opt` };
+    d.astOptimizer = {optimize: (code: string) => `${code}//opt`};
     const opt = await d.runASTOptimizer('x', ts);
     assert.ok(opt.includes('//opt'));
   });
 
   it('builds cache key and evicts old entries', () => {
     const d = new Deobfuscator() as unknown as DeobfuscatorHarness;
-    const k1 = d.generateCacheKey({ code: 'a', aggressive: false });
-    const k2 = d.generateCacheKey({ code: 'b', aggressive: false });
+    const k1 = d.generateCacheKey({code: 'a', aggressive: false});
+    const k2 = d.generateCacheKey({code: 'b', aggressive: false});
     assert.notStrictEqual(k1, k2);
 
     d.maxCacheSize = 2;
-    d.cacheResult('k1', { code: '1' });
-    d.cacheResult('k2', { code: '2' });
-    d.cacheResult('k3', { code: '3' });
+    d.cacheResult('k1', {code: '1'});
+    d.cacheResult('k2', {code: '2'});
+    d.cacheResult('k3', {code: '3'});
     assert.strictEqual(d.resultCache.has('k1'), false);
     assert.strictEqual(d.resultCache.has('k3'), true);
     d.clearCache();
@@ -253,17 +320,28 @@ describe('Deobfuscator extended', () => {
     const d = new Deobfuscator() as unknown as DeobfuscatorHarness;
     d.detectObfuscationType = () => ['vm-protection', 'custom'];
     d.runUnpack = async (code: string, ts: Transformation[]) => {
-      ts.push({ type: 'unpack', success: true, description: 'u' });
+      ts.push({type: 'unpack', success: true, description: 'u'});
       return `${code}//u`;
     };
-    d.runJSVMP = async (code: string, _o: Record<string, unknown>, ts: Transformation[], ws: string[], ur: UnresolvedPart[]) => {
-      ts.push({ type: 'jsvmp', success: true, description: 'j' });
+    d.runJSVMP = async (
+      code: string,
+      _o: Record<string, unknown>,
+      ts: Transformation[],
+      ws: string[],
+      ur: UnresolvedPart[],
+    ) => {
+      ts.push({type: 'jsvmp', success: true, description: 'j'});
       ws.push('w');
-      ur.push({ location: 'x', reason: 'y', suggestion: 'z' });
+      ur.push({location: 'x', reason: 'y', suggestion: 'z'});
       return `${code}//j`;
     };
-    d.runAdvanced = async (code: string, _o: Record<string, unknown>, ts: Transformation[], ws: string[]) => {
-      ts.push({ type: 'advanced', success: true, description: 'a' });
+    d.runAdvanced = async (
+      code: string,
+      _o: Record<string, unknown>,
+      ts: Transformation[],
+      ws: string[],
+    ) => {
+      ts.push({type: 'advanced', success: true, description: 'a'});
       ws.push('aw');
       return `${code}//a`;
     };
@@ -274,11 +352,11 @@ describe('Deobfuscator extended', () => {
     d.unflattenControlFlow = async (code: string) => code;
     d.simplifyExpressions = async (code: string) => code;
     d.runASTOptimizer = async (code: string, ts: Transformation[]) => {
-      ts.push({ type: 'ast-optimize', success: true, description: 'o' });
+      ts.push({type: 'ast-optimize', success: true, description: 'o'});
       return `${code}//o`;
     };
     d.renameVariables = async (code: string) => `${code}//r`;
-    d.llm = { chat: async () => ({ content: 'analysis' }) };
+    d.llm = {chat: async () => ({content: 'analysis'})};
     d.llmAnalysis = async () => 'analysis';
 
     const opts = {
@@ -306,12 +384,9 @@ describe('Deobfuscator extended', () => {
     d.extractStringArrays = async () => {
       throw new Error('pipeline crash');
     };
-    await assert.rejects(
-      async () => {
-        await d.deobfuscate({ code: 'x' });
-      },
-      /pipeline crash/,
-    );
+    await assert.rejects(async () => {
+      await d.deobfuscate({code: 'x'});
+    }, /pipeline crash/);
   });
 
   it('covers parser-failure catch branches in helper transforms', async () => {
@@ -332,6 +407,6 @@ describe('Deobfuscator extended', () => {
     assert.strictEqual(e, bad);
     assert.strictEqual(f, bad);
     assert.strictEqual(g, bad);
-    assert.ok(ts.some((t) => t.success === false));
+    assert.ok(ts.some(t => t.success === false));
   });
 });

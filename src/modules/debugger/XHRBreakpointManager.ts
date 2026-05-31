@@ -1,19 +1,25 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * XHRBreakpointManager - XHR/Fetch 断点管理
- * 
+ *
  * 功能：
  * 1. 设置 XHR/Fetch 断点（URL 模式匹配）
  * 2. 在网络请求发送前暂停执行
  * 3. 追踪请求参数和响应
- * 
+ *
  * 设计原则：
  * - 使用 CDP DOMDebugger.setXHRBreakpoint
  * - 支持通配符模式匹配
  * - 提供断点命中统计
  */
 
-import type { CDPSession } from 'puppeteer-core';
-import { logger } from '../../utils/logger.js';
+import type {CDPSession} from 'puppeteer-core';
+
+import {logger} from '../../utils/logger.js';
 
 /**
  * XHR 断点信息
@@ -32,7 +38,7 @@ export interface XHRBreakpoint {
  * 🔧 重构：使用共享的 CDP session，不再创建独立 session
  */
 export class XHRBreakpointManager {
-  private xhrBreakpoints: Map<string, XHRBreakpoint> = new Map();
+  private xhrBreakpoints = new Map<string, XHRBreakpoint>();
   private breakpointCounter = 0;
 
   /**
@@ -65,7 +71,7 @@ export class XHRBreakpointManager {
         createdAt: Date.now(),
       });
 
-      logger.info(`XHR breakpoint set: ${urlPattern}`, { breakpointId });
+      logger.info(`XHR breakpoint set: ${urlPattern}`, {breakpointId});
       return breakpointId;
     } catch (error) {
       logger.error('Failed to set XHR breakpoint:', error);

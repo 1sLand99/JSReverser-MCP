@@ -48,11 +48,11 @@ type ReverseResponse = {
 };
 
 async function runReverseLoop(taskId: string) {
-  let response = await callTool('manage_reverse_task', {
+  let response = (await callTool('manage_reverse_task', {
     action: 'summarize',
     taskId,
     outputMode: 'compact',
-  }) as ReverseResponse;
+  })) as ReverseResponse;
 
   for (let step = 0; step < 8; step += 1) {
     if (response.schemaVersion !== '1.0') {
@@ -74,7 +74,12 @@ async function runReverseLoop(taskId: string) {
     }
 
     if (response.shouldSwitchStrategy) {
-      console.log('[switchStrategy]', response.continuation?.strategy ?? response.fallbackPlan?.recommendedStrategy ?? 'unknown');
+      console.log(
+        '[switchStrategy]',
+        response.continuation?.strategy ??
+          response.fallbackPlan?.recommendedStrategy ??
+          'unknown',
+      );
     }
 
     const nextInvoke = response.continuation?.ready
@@ -89,8 +94,11 @@ async function runReverseLoop(taskId: string) {
       };
     }
 
-    const requiredParams = response.continuation?.invokeHint?.requiredParams ?? [];
-    const missingRequiredParams = requiredParams.filter((key) => !(key in (nextInvoke.params ?? {})));
+    const requiredParams =
+      response.continuation?.invokeHint?.requiredParams ?? [];
+    const missingRequiredParams = requiredParams.filter(
+      key => !(key in (nextInvoke.params ?? {})),
+    );
     if (missingRequiredParams.length > 0) {
       return {
         status: 'invalid_next_invoke',
@@ -99,7 +107,10 @@ async function runReverseLoop(taskId: string) {
       };
     }
 
-    response = await callTool(nextInvoke.tool, nextInvoke.params ?? {}) as ReverseResponse;
+    response = (await callTool(
+      nextInvoke.tool,
+      nextInvoke.params ?? {},
+    )) as ReverseResponse;
 
     if (response.outcome === 'success' && !response.continuation?.invoke) {
       return {

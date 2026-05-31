@@ -55,12 +55,11 @@ export class PuppeteerDevToolsConnection implements devtools.CDPConnection {
       throw new Error('Unknown session ' + sessionId);
     }
     // Rolled protocol version between puppeteer and DevTools doesn't necessarily match
-    /* eslint-disable @typescript-eslint/no-explicit-any */
+
     return session
       .send(method as any, params)
       .then(result => ({result}))
       .catch(error => ({error})) as any;
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 
   observe(observer: devtools.CDPConnectionObserver): void {
@@ -90,7 +89,7 @@ export class PuppeteerDevToolsConnection implements devtools.CDPConnection {
   #handleEvent(
     sessionId: string,
     type: string | symbol | number,
-    event: any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    event: any,
   ): void {
     if (
       typeof type === 'string' &&

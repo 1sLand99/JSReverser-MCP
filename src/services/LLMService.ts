@@ -1,5 +1,11 @@
-import type {AIMessage, AIResponse, ChatOptions} from './AIService.js';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import {createAIService} from '../utils/config.js';
+
+import type {AIMessage, AIResponse, ChatOptions} from './AIService.js';
 
 export type LLMMessage = AIMessage;
 export type LLMResponse = AIResponse;
@@ -15,7 +21,9 @@ export class LLMService {
   ): Promise<LLMResponse> {
     const service = this.serviceFactory();
     if (!service) {
-      throw new Error('No AI provider configured. Set DEFAULT_LLM_PROVIDER and provider API key or Gemini CLI.');
+      throw new Error(
+        'No AI provider configured. Set DEFAULT_LLM_PROVIDER and provider API key or Gemini CLI.',
+      );
     }
 
     const chatOptions: ChatOptions = {

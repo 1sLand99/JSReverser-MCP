@@ -1,25 +1,9 @@
-# JSReverser-MCP
+# JS Reverse MCP
 
 [English README](README.en.md)
 
 一个把前端 JavaScript 逆向流程标准化的 MCP 服务。  
 目标不是只做页面调试，而是把页面观察、运行时采样、本地复现、补环境和证据沉淀串成一套可复用工作流。
-
-## 第一次启动建议
-
-如果你是第一次接触这个项目，建议先走这条最短路径：
-
-1. 启动服务
-2. 运行 `--doctor` 或 `diagnose_environment`
-3. 调 `check_browser_health`
-4. 再开始 `list_pages` / `network_request` / `list_scripts`
-
-这样可以先排除：
-
-- Node / build 问题
-- 浏览器连接问题
-- AI provider 配置问题
-- artifacts 目录问题
 
 ## 核心方法论
 
@@ -44,16 +28,6 @@
 
 以下参数链路已有公开索引，可作为仓库内复用入口：
 
-### 参数蓝图库
-
-- 主入口：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
-- 模板规范：[docs/reference/parameter-blueprint-template.md](docs/reference/parameter-blueprint-template.md)
-- 贡献指南：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
-- 说明：蓝图是主体资产，`workflow.md` 只是蓝图中的执行步骤文件
-- CLI：
-  - `node build/src/index.js --list-parameter-workflows`
-  - `node build/src/index.js --show-parameter-workflow jd-h5st`
-
 - 某东 `h5st` 参数
   - 索引：[scripts/cases/README.md](scripts/cases/README.md)
   - Case：[scripts/cases/jd-h5st-pure-node.mjs](scripts/cases/jd-h5st-pure-node.mjs)
@@ -72,6 +46,19 @@
 - 真实 `artifacts/tasks/<task-id>/` 默认视为本地私有任务目录
 - Git 默认只提交 `artifacts/tasks/_TEMPLATE/`
 
+### 参数蓝图库
+
+公开参数方法已沉淀到 [docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)，用于替代旧的可运行 case 入口。查看和贡献方式：
+
+```bash
+node build/src/index.js --list-parameter-workflows
+node build/src/index.js --show-parameter-workflow jd-h5st
+node build/src/index.js --export-parameter-workflow-template
+node build/src/index.js --validate-parameter-workflow docs/knowledge/parameter-blueprints/jd-h5st
+```
+
+贡献规范见 [docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)。
+
 ## 支持的能力
 
 ### 页面观察与脚本定位
@@ -82,7 +69,6 @@
 - `get_script_source`：查看指定脚本源码，适合继续阅读具体实现。
 - `find_in_script`：在单个脚本里定位字符串、变量名或特征片段。
 - `search_in_scripts`：在已采集脚本缓存中批量搜索，适合缩小候选脚本范围。
-- `extract_function_tree`：从指定脚本里提取目标函数和最小依赖闭包，避免全量阅读大 bundle。
 
 ### Hook 与运行时采样
 
@@ -98,7 +84,7 @@
 
 当 hook 不够时，再进入暂停式调试。
 
-- `breakpoint`：统一管理断点，支持 `set` / `remove` / `list`。
+- `set_breakpoint`：按脚本 URL 和行号设置断点。
 - `set_breakpoint_on_text`：按代码文本自动定位并设置断点。
 - `resume`：继续执行到下一个断点或执行结束。
 - `pause`：手动暂停当前页面的 JavaScript 执行。
@@ -108,102 +94,23 @@
 
 定位目标请求，确认是谁发起、带了什么参数。
 
-- `network_request`：统一查看网络请求，支持 `action=list` 和 `action=get`。
+- `list_network_requests`：列出当前页面的网络请求，先找到目标请求。
+- `get_network_request`：查看单个请求的详细内容，包括请求头、响应和载荷。
 - `get_request_initiator`：追溯某个请求是谁触发的，帮助定位调用链。
-- `xhr_breakpoint`：统一管理 XHR / Fetch 断点，支持 `action=set` 和 `action=remove`。
-- `locate_signature_function`：在候选脚本里自动排序可能的签名函数，适合已知目标参数但还没开始 Hook 的场景。
+- `break_on_xhr`：在目标请求发出时中断，适合抓参数生成前的现场。
 
 ### 页面状态与运行前检查
 
 补看页面运行状态、控制台输出和本地状态依赖。
 
 - `check_browser_health`：检查浏览器连接和当前页是否可控，适合作为起手验证。
-- `diagnose_environment`：静态检查启动环境、AI provider 和 artifacts 落点，适合作为真正的第一步。
-- `console_message`：统一查看 console 输出，支持 `action=list` 和 `action=get`。
+- `diagnose_environment`：输出 Node、浏览器、路径和依赖状态，适合第一次启动建议和故障排查。
+- `recommend_next_step`：根据当前证据推荐下一步动作。
+- `explain_reverse_stage`：解释当前逆向阶段、输入要求和退出条件。
+- `list_console_messages`：查看当前页面 console 输出，适合回看 hook 和 trace 日志。
 - `get_storage`：读取 cookie、`localStorage`、`sessionStorage`，确认状态依赖。
 - `evaluate_script`：在当前选中 frame 内执行一段函数，做小范围运行时验证。
 - `search_in_sources`：在所有已加载源码中搜索关键字，快速缩小可疑代码范围。
-
-### 阶段建议与下一步决策
-
-当你不想依赖外部 skill / playbook 时，可以先用这两个工具：
-
-- `recommend_next_step`：根据当前轻量信号给出下一步建议，避免过早断点或过早补环境。
-- `explain_reverse_stage`：解释当前阶段的目标、进入条件、禁止事项和推荐工具。
-
-### 任务初始化与状态管理
-
-如果你想把一次逆向任务变成可持续续跑的 artifact，优先用：
-
-- `start_reverse_task`：初始化 `task.json`、`state.json`、`report.md` 和首条 `timeline`
-- `create_reverse_task_from_request`：从一条已捕获的 network request 直接生成 reverse task，自动带上 target request、pageUrl、candidateScripts 和首轮 task context
-- **默认入口就是 `manage_reverse_task`**：除初始化外，task 的 list / get / summarize / progress / update / timeline / archive / restore / search / tag / prune / compare 全部统一走这个入口
-- `manage_reverse_task`：聚合 task 相关常用动作，减少模型在多个 task tools 之间来回选择的 token 开销
-  - 返回里会统一带 `agentGuidance`，包含 `status / summary / recommendedNextAction / recommendedTool / recommendedParams / confidence / resumeHint`
-  - `agentGuidance.recommendedStrategy` 会直接提示下一轮更适合的 orchestration 模板
-  - 返回里也会统一带 `artifacts`，提示本轮主要读取/写入了哪些 task 产物
-  - `outputMode: "compact" | "verbose"`：对大模型默认推荐 `compact`，尤其是 `get / summarize`
-  - `action: "list"`：查看所有 task 的阶段、状态、下一步和最近更新时间
-  - `action: "get"`：读取任务状态、目标上下文、最近 timeline 和 evidence 摘要
-  - `action: "summarize"`：把当前任务压缩成一页摘要，方便续跑前快速对齐上下文
-  - `action: "progress"`：根据最近 evidence / timeline / successCriteria 自动推断阶段、状态和下一步
-  - `action: "update"`：更新当前阶段、状态、摘要和成功判据
-  - `action: "timeline"`：显式追加一条 timeline，适合把“本轮动作 / 观察结果 / 下一步”写回 artifact
-  - `action: "archive" / "restore"`：归档或恢复任务，便于清理长期积累的本地 artifacts
-  - `action: "search"`：按 query / tag 检索历史任务
-  - `action: "tag"`：给任务打标签，便于后续筛选和分组
-  - `action: "prune"`：删除已归档任务
-  - `action: "compare"`：比较两个任务的目标请求、函数命中和证据差异
-- `orchestrate_reverse_task`：高层自动编排入口；默认先同步 task 状态并生成执行序列，也支持 `execute=true` 直接串行执行、写回 checkpoint，并在 `resume=true` 时从上次失败步骤续跑；失败时会返回 recovery 建议，还支持 `skipSteps` / `fromStep` / `onlySteps` 做步骤级控制，也支持通过 `strategy` 快速切到 `observe-first` / `rebuild-first` / `env-fix` / `artifact-sync` / `evidence-only` 模板
-  - `outputMode: "compact" | "verbose"`：给大模型时可优先用 `compact`，减少非必要字段和说明文字
-  - 执行失败时会补 `fallbackPlan`，帮助模型直接切换到下一条更稳的链路
-- `run_reverse_agent`：一键 reverse agent 入口；会自动串起 `locate_signature_function -> search_in_sources -> extract_function_tree -> understand_code -> deobfuscate_code`
-  - `goalMode: "signature-only" | "pure-draft" | "port-ready"`：控制自动流停在哪一层
-    - `signature-only`：停在最小函数切片，适合先只拿 `function-slice.json`
-    - `pure-draft`：默认模式，进入 `PureExtraction` 并自动落 `run/fixtures.json`、`run/pure-main.js`、`run/pure-selftest.test.mjs`
-    - `port-ready`：和 `pure-draft` 一样生成草稿，但会额外固化 `PORT_CONTRACT`、adapter boundary、`fixtureId` 等 port 侧约束，方便后续跨 runtime port
-  - `autoExportPortable: true`：当 `goalMode=port-ready` 且到达 `PureExtraction` 时，自动再导出 `run/portable.js`
-  - 当 `goalMode=port-ready` 并进入 `PureExtraction` 后，agent 会优先建议继续执行 `export_portable_bundle --artifactMode pure`
-  - 返回里会补 `generatedArtifacts`，方便外部 agent / client 直接读取本轮新生成的 task-local 文件
-- `export_portable_bundle`：把现有分析态 artifacts 收敛成便携交付文件
-  - `artifactMode: "portable" | "rebuild" | "pure"`
-    - `portable`：同时导出 `run/portable.js` 和 `env/replay.js`
-    - `pure`：只导出 `run/portable.js`
-    - `rebuild`：只导出 `env/replay.js`
-- `export_rebuild_bundle` 现在也支持 `autoExportPortable=true`，在导出 rebuild bundle 后顺手生成 `env/replay.js`
-- CLI 也统一成一个 task 入口：
-  - `--manageReverseTask list`
-  - `--manageReverseTask get --taskId <taskId>`
-  - `--manageReverseTask summarize --taskId <taskId>`
-  - `--manageReverseTask progress --taskId <taskId>`
-  - `--manageReverseTask search --query sign --tag jd`
-  - `--manageReverseTask tag --taskId <taskId> --tags jd,blocked`
-  - `--manageReverseTask archive --taskId <taskId>`
-  - `--manageReverseTask restore --taskId <taskId>`
-  - `--manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>`
-  - `--manageReverseTask prune --pruneOlderThanDays 7`
-  - `--orchestrateReverseTask <taskId>`
-  - `--orchestrateReverseTask <taskId> --execute --resume`
-  - `--orchestrateReverseTask <taskId> --strategy env-fix`
-  - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
-  - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
-  - `--runReverseAgent <taskId>`
-  - `--runReverseAgent <taskId> --goalMode signature-only`
-  - `--runReverseAgent <taskId> --maxRounds 4 --outputMode compact`
-  - `--runReverseAgent <taskId> --goalMode port-ready --outputMode compact`
-  - `--runReverseAgent <taskId> --goalMode port-ready --autoExportPortable`
-  - `--exportPortableBundle <taskId>`
-  - `--exportPortableBundle <taskId> --artifactMode pure`
-- 自动化编排的 checkpoint、CLI cheatsheet、失败分类对照表、`codex --resume` 协同方式见 [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
-
-说明：
-
-- 上述部分页面级工具已支持显式 `pageIdx`，未传时默认继续使用当前 `select_page` 选中的页面
-- `navigate_page`、`evaluate_script` 也已支持显式 `pageIdx`
-- `list_scripts`、`get_script_source`、`find_in_script`、`search_in_sources`、`get_storage`、`get_request_initiator` 也已支持显式 `pageIdx`
-- `breakpoint`、`set_breakpoint_on_text`、`pause`、`resume`、`step_over`、`step_into`、`step_out`、`xhr_breakpoint`、`trace_function`、`hook_function` 也已支持显式 `pageIdx`
-- `console_message` 使用显式页面参数时请传 `targetPageIdx`，避免和结果分页参数 `pageIdx` 混淆
-- `network_request` 以及 WebSocket 相关工具在需要显式指定浏览器页面时也使用 `targetPageIdx`
 
 ### WebSocket 观察与消息分组
 
@@ -218,23 +125,8 @@
 把页面证据带回本地，逐步补齐 Node 运行环境。
 
 - `export_rebuild_bundle`：导出本地复现工程所需的入口、补环境和证据材料。
-- `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力，并返回 `patchSuggestions`，直接给出最小补环境片段。
-- `get_rebuild_health_report`：聚合当前阶段、env blockers、首个 divergence、`patchSuggestions` 和 `evidenceAggregates`，用于补环境前先做一次体检。
-- `get_rebuild_health_report` 也支持 `outputMode: "compact"`，适合把它作为 orchestration 失败后的快速诊断输入。
-- 现在 `agentGuidance` 还会直接给出 `recommendedStrategy`，方便下一轮直接调用 `--orchestrateReverseTask <taskId> --strategy ...`
-- `orchestrate_reverse_task` 的失败返回里，`fallbackPlan` 现在也会带 `recommendedStrategy`
-- `manage_reverse_task` / `orchestrate_reverse_task` / `get_rebuild_health_report` 现在都补了统一的 `agentGuidance`，更适合大模型直接续推而不是先自己解释一遍结果。
-- `agentGuidance` 现在还会补 `toolClass / routeHint / avoidTools`，用于把模型继续约束在 reverse 主链路，减少误跳到无关工具。
-- 这三个工具现在也统一补了 `responseSummary` 和 `diagnostics` 顶层字段；其中 `responseSummary` 专门留给模型快速判断结果，而不会覆盖业务语义上的 `summary` 对象。
-- 运行时响应现在统一带 `schemaVersion: "1.0"`，外部 client / agent 可以先做版本校验，再决定是否继续自动续跑。
-- 现在还会补统一的续推字段：`outcome`、`shouldResume`、`shouldSwitchStrategy`、`nextBestTool`、`nextBestParams`，进一步减少模型自己读长结果做判断的成本。
-- 另外新增统一 `continuation` 对象：`{ ready, reason, tool, params, strategy, resumeCommand }`，方便模型直接取“下一跳”。
-- `continuation` 现在还会带 `invoke: { tool, params }`，方便模型零拼装直接调用下一跳。
-- `continuation.invokeHint` 现在会补 `requiredParams / optionalParams / example`，方便模型在执行前先做参数完整性检查。
-- 现在又补了一层统一失败契约：`errorCode` / `errorType` / `retryable` / `blockedBy`，并固定返回 `detailLevel` 与 `continuation.actionKey`，方便模型做更稳定的分支判断。
-- `compact` 模式现在进一步收紧：优先保留 `responseSummary`、`diagnostics`、关键状态和 `continuation`，去掉重复 next-step 冗余块，`detailLevel` 会降到 `minimal`。
-- 同时统一补 `routeGuard`，把 `preferredToolClass / routeHint / avoidTools` 直接提升到顶层，方便模型先做路由决策。
-- `record_reverse_evidence`：把 hook / network / script 的关键观察正式写回 task artifact，供后续 summarize / progress / orchestration 复用。现在 summary/query 还会给出去重后的 `evidenceAggregates`，方便快速看 top URLs、top functions 和 env blockers。
+- `diff_env_requirements`：根据报错和观测能力比对当前缺失的环境能力。
+- `record_reverse_evidence`：把关键观察结果写入 task artifact，避免证据只留在对话里。
 
 ### 页面自动化
 
@@ -257,11 +149,48 @@
 
 ### 会话与登录态复用
 
-- `session_state`：统一管理会话快照，支持 `save` / `restore` / `list` / `delete` / `dump` / `load`。
+- `save_session_state`：保存当前页面的 cookie 和存储状态到内存快照。
+- `restore_session_state`：把快照恢复到当前页面，复用登录态和现场。
+- `dump_session_state`：把会话快照导出为 JSON 文件，便于持久化。
+- `load_session_state`：从已有 JSON 或字符串重新载入会话快照。
+
+### 逆向任务编排与 Agent 消费
+
+- `start_reverse_task` / `create_reverse_task_from_request`：从目标、请求或页面证据创建 task artifact，供后续 summarize / progress / orchestration 复用。
+- `manage_reverse_task`：默认入口就是 `manage_reverse_task`，支持 `get / summarize` 以及 `archive / restore / search / tag / prune / compare`。
+- `orchestrate_reverse_task`：按阶段推进观察、采样、重建、验证和提纯，输出 `recommendedStrategy`、`agentGuidance`、`fallbackPlan` 和 `skipSteps`。
+- `run_reverse_agent`：提供面向 agent 的一站式任务运行入口。
+- `query_reverse_task`：读取 compact 摘要、下一步建议、`outputMode`、`artifacts`、`patchSuggestions`、`evidenceAggregates` 和可续跑 payload。
+- `get_rebuild_health_report`：汇总 local rebuild 健康状态，辅助 env-fix。
+- `export_rebuild_bundle` 支持 portable bundle / replay bundle 导出，便于把 `env-pass` 结果交给后续纯算法提取。
+
+CLI cheatsheet：
+
+```bash
+node build/src/index.js --doctor
+node build/src/index.js --manageReverseTask list
+node build/src/index.js --manageReverseTask get --taskId <taskId>
+node build/src/index.js --manageReverseTask summarize --taskId <taskId>
+node build/src/index.js --manageReverseTask progress --taskId <taskId>
+node build/src/index.js --manageReverseTask search --query sign --tag jd
+node build/src/index.js --manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>
+node build/src/index.js --orchestrateReverseTask <taskId>
+node build/src/index.js --orchestrateReverseTask <taskId> --execute --resume
+node build/src/index.js --orchestrateReverseTask <taskId> --strategy env-fix
+node build/src/index.js --orchestrateReverseTask <taskId> --executionOverrides '{"resume":true}'
+node build/src/index.js --runReverseAgent <taskId>
+```
+
+更多细节见：
+
+- [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
+- [docs/guides/mcp-agent-quick-reference.md](docs/guides/mcp-agent-quick-reference.md)
+- [docs/guides/mcp-client-auto-resume-example.md](docs/guides/mcp-client-auto-resume-example.md)
+- [docs/reference/reverse-agent-response.schema.json](docs/reference/reverse-agent-response.schema.json)
+- [docs/reference/reverse-agent-schema-versioning.md](docs/reference/reverse-agent-schema-versioning.md)
 
 完整参数说明见 [docs/reference/tool-reference.md](docs/reference/tool-reference.md)。
 按逆向流程选工具可继续看 [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)。
-
 
 ### 外部 AI 怎么配置
 
@@ -272,70 +201,192 @@
 - `gemini`
 
 配置入口本质上是进程环境变量。  
-无论你是源码启动还是 `npx jsreverser-mcp@latest` 启动，**env 都是传给 MCP server 进程的**。
+通过 MCP 客户端启动时，优先在 MCP server 配置里的 `env` 传入；`.env` 只适合你直接本地运行 `node build/src/index.js` 或 `npm run start` 的场景。
 
-最小示例：
+推荐方式示例：
 
 ```toml
-[mcp_servers.jsreverser-mcp]
-command = "npx"
-args = ["-y", "jsreverser-mcp@latest"]
+[mcp_servers.js-reverse]
+command = "node"
+args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 
-[mcp_servers.jsreverser-mcp.env]
-DEFAULT_LLM_PROVIDER = "openai"
-OPENAI_API_KEY = "your_key"
-OPENAI_MODEL = "gpt-4o"
+[mcp_servers.js-reverse.env]
+DEFAULT_LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "your_key"
+ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 ```
 
-如果你接的是兼容 OpenAI API 的模型，可额外传 `OPENAI_BASE_URL`。
+如果你是直接在项目目录本地启动，也可以使用 `.env`：
 
-详细配置、不同客户端示例、`npx` / `node` / `.env` / OpenAI-compatible 用法，统一放在：
+```bash
+# 三选一：openai / anthropic / gemini
+DEFAULT_LLM_PROVIDER=gemini
 
-- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-- [docs/guides/getting-started.md](docs/guides/getting-started.md)
+# OpenAI
+OPENAI_API_KEY=your_key
+OPENAI_MODEL=gpt-4o
+OPENAI_BASE_URL=
+
+# Anthropic / Claude
+ANTHROPIC_API_KEY=your_key
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_BASE_URL=
+
+# Gemini
+GEMINI_API_KEY=your_key
+GEMINI_MODEL=gemini-2.0-flash-exp
+
+# 如果不用 API，也可以走本地 CLI
+GEMINI_CLI_PATH=gemini-cli
+```
+
+说明：
+
+- `DEFAULT_LLM_PROVIDER` 决定默认走哪个 provider
+- `gemini` 支持两种模式：有 `GEMINI_API_KEY` 时走 API；没有时会尝试走 `GEMINI_CLI_PATH`
+- `openai` 和 `anthropic` 需要对应 API key
+- 如果你配了多个 provider，实际使用哪个，仍由 `DEFAULT_LLM_PROVIDER` 决定
 
 ### 哪些功能依赖外部 AI
 
-- 强依赖：`understand_code`
-- 可选增强：`detect_crypto`、`analyze_target`、`locate_signature_function`、`risk_panel`、`deobfuscate_code`
-- 不依赖外部 AI：浏览器接管、Hook / 断点 / Console / Storage / Network / WebSocket、`collect_code`、`export_rebuild_bundle`、`diff_env_requirements`、`record_reverse_evidence`
+强依赖外部 AI 的功能：
 
-如果没配外部 AI，最直接的影响通常是：
+- `understand_code`
+  - 内部会调用 LLM 做代码语义理解、业务逻辑提取、安全风险补充
 
-- `understand_code` 无法使用
-- 部分 AI 增强分析会退回本地规则或降级运行
+可选启用外部 AI 的功能：
 
-详细说明建议看：
+- `detect_crypto`
+  - 只有传 `useAI=true` 时才会额外调用 LLM；不传时主要依赖本地规则和 AST 分析
+- `analyze_target`
+  - 传 `useAI=true` 时会在一站式分析里启用更深的 AI 辅助分析
+- `risk_panel`
+  - 参数里有 `useAI`，但当前实现主体仍以本地分析结果聚合为主
 
-- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+有 AI 时效果更好，但不配也能运行的功能：
 
-## 任务与流程文档
+- `deobfuscate_code`
+  - 本地规则、AST 优化、专项反混淆管线始终可用；配置外部 AI 后，复杂语义清理、VM 结构理解、部分编码型混淆降级分析会更完整
 
-详细的 task 目录结构、执行流程、补环境边界、安全规则不再堆在 README 首页，统一看：
+完全不依赖外部 AI 的功能：
 
-- [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
+- 浏览器接管
+- Hook / 断点 / Console / Storage / Network / WebSocket
+- `collect_code`
+- `export_rebuild_bundle`
+- `diff_env_requirements`
+- `record_reverse_evidence`
+
+如果没配外部 AI，典型影响是：
+
+- `understand_code` 会直接报 provider 未配置
+- `detect_crypto(useAI=true)` 会退回本地分析或忽略 AI 增强
+- `deobfuscate_code` 仍可跑，但某些高难度混淆的解释和清理质量会下降
+
+## 标准任务结构
+
+任务目录统一使用：
+
+- `artifacts/tasks/_TEMPLATE/`
+- `artifacts/tasks/<task-id>/`
+
+推荐目录结构：
+
+- `task.json`
+- `runtime-evidence.jsonl`
+- `network.jsonl`
+- `scripts.jsonl`
+- `env/env.js`
+- `env/polyfills.js`
+- `env/entry.js`
+- `env/capture.json`
+- `run/`
+- `report.md`
+
+职责边界：
+
+- `env.js`
+  - 基础宿主对象和最小 shim
+- `polyfills.js`
+  - 代理诊断层、`watch`、`safeFunction`、`makeFunction`
+- `entry.js`
+  - 运行入口、目标脚本加载、first divergence 输出
+
+## 标准执行流程
+
+推荐流程：
+
+1. 页面观察
+2. 运行时采样
+3. 证据入库
+4. local rebuild
+5. 逐项补环境
+6. first divergence 定位
+7. `env-pass` 后再进入纯算法 / 风控逻辑提纯
+
+默认原则：
+
+- 不要跳过页面证据直接猜环境
+- 不要一次性全量模拟浏览器
+- 不要把真实任务目录直接提交 Git
+
+## 参数沉淀与安全边界
+
+参数链路沉淀遵循以下规则：
+
+1. 先读本地 task artifact
+
+- `artifacts/tasks/<task-id>/`
+
+2. 本地没有时再读抽象 case
+
+- `scripts/cases/*`
+
+3. 仍不足时按模板新建
+
+- `docs/reference/parameter-methodology-template.md`
+- `docs/reference/parameter-site-mapping-template.md`
+
+安全边界：
+
+- case 只保留抽象方法和流程
+- 真实任务目录默认本地保留
+- 敏感值必须脱敏后才允许共享
+- Git 默认只提交 `_TEMPLATE`
+
+详见：
+
+- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
 - [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
 - [docs/reference/env-patching.md](docs/reference/env-patching.md)
-- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
+
+## 第一次启动建议
+
+先运行 `npm ci` 和 `npm run build`，再用 `node build/src/index.js --doctor` 检查本地 Node、浏览器连接、路径和外部 AI 配置。
+
+## 工具暴露模式
+
+默认启动使用 `--toolProfile compact`。
+该模式只暴露 38 个高频工具，用来减少 MCP tool list 占用的 token。
+这不是缺工具，而是默认把低频手工调试工具隐藏起来。
+
+需要全量工具时，使用 `--toolProfile full`。
+`full` 会暴露全部 85 个工具，包括暂停、单步、断点、WebSocket 细节和 DOM 细调工具。
+深度人工调试、精确断点排查、WebSocket 消息深挖时再切换到 `full`。
+
+```bash
+node build/src/index.js --toolProfile full
+```
+
+成功响应默认使用 `--traceOutput errors`，只在错误响应中携带 `traceId`。
+需要每次成功响应也携带 `traceId` 时，使用 `--traceOutput all`。
 
 ## 3 分钟快速开始
 
-### 1) 最快启动方式
+### 1) 安装依赖并构建
 
 ```bash
-npx -y jsreverser-mcp@latest
-```
-
-如果你想先做启动自检：
-
-```bash
-npx -y jsreverser-mcp@latest --doctor
-```
-
-### 2) 如果你要源码运行
-
-```bash
-npm install
+npm ci
 npm run build
 ```
 
@@ -345,87 +396,78 @@ npm run build
 build/src/index.js
 ```
 
+### 2) 最简单启动方式
+
+```bash
+npm run start
+```
+
 ### 3) 配置客户端
 
 最小配置示例：
 
-#### Claude Code（`npx`）
+#### Claude Code
 
 ```bash
-claude mcp add jsreverser-mcp npx -y jsreverser-mcp@latest
+claude mcp add js-reverse node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
 ```
 
-#### Claude Code（源码版）
-
-```bash
-claude mcp add jsreverser-mcp node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
-```
-
-#### Cursor（`npx`）
-
-- Command: `npx`
-- Args: `["-y", "jsreverser-mcp@latest"]`
-
-#### Cursor（源码版）
+#### Cursor
 
 - Command: `node`
 - Args: `[/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js]`
 
-#### Codex（`npx`）
+#### Codex
 
 ```toml
-[mcp_servers.jsreverser-mcp]
-command = "npx"
-args = ["-y", "jsreverser-mcp@latest"]
-```
-
-#### Codex（源码版）
-
-```toml
-[mcp_servers.jsreverser-mcp]
+[mcp_servers.js-reverse]
 command = "node"
 args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 ```
 
-更完整的内容请看：
+如果你需要接管已经打开的浏览器，请继续看：
 
-- 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
-- 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
-- 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+
+完整可直接复制的 MCP 配置实例，包括：
+
+- `mcpServers` JSON 结构示例
+- Codex `config.toml` 示例
+- `--browserUrl` 接管浏览器示例
+- Gemini / Claude / OpenAI 的 API `env` 示例
+
+都放在 [docs/guides/client-configuration.md](docs/guides/client-configuration.md)。
 
 ## 文档入口
 
-逆向相关任务开场先读：`docs/reference/reverse-bootstrap.md`。该入口会继续要求模型读取 `docs/reference/case-safety-policy.md`、`docs/reference/reverse-workflow.md`；若已进入 `env-pass` 后的提纯阶段，再读 `docs/reference/pure-extraction.md`。
+逆向相关任务开场先读：`docs/reference/reverse-bootstrap.md`。
+该入口会继续要求模型读取 `docs/reference/case-safety-policy.md`、`docs/reference/reverse-workflow.md`。
+若已进入 `env-pass` 后的提纯阶段，再读 `docs/reference/pure-extraction.md`。
 
-常用入口：
+### Guides
 
 - 快速开始：[docs/guides/getting-started.md](docs/guides/getting-started.md)
 - 浏览器连接：[docs/guides/browser-connection.md](docs/guides/browser-connection.md)
 - 客户端配置：[docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-- 启动自检：`--doctor` / `diagnose_environment`
-- 阶段建议：`recommend_next_step` / `explain_reverse_stage`
-- 任务状态：`start_reverse_task` / `manage_reverse_task`
-- 自动编排：`orchestrate_reverse_task`
-- 一键 agent：`run_reverse_agent`
-- 任务摘要：`manage_reverse_task`
-- 参数蓝图库：[docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
-- 参数蓝图贡献：[docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
-- 工作流入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
+- 逆向工作流：[docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
+- 补环境规范：[docs/reference/env-patching.md](docs/reference/env-patching.md)
+
+### Reference
+
+- 模型首读入口：[docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
+- 逆向任务索引：[docs/reference/reverse-task-index.md](docs/reference/reverse-task-index.md)
 - 工具参数总表：[docs/reference/tool-reference.md](docs/reference/tool-reference.md)
+- 工具读写契约：[docs/reference/tool-io-contract.md](docs/reference/tool-io-contract.md)
 - 任务产物说明：[docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
-- 续跑提示模板：`reverse-update-prompt-template`
-- 结果报告模板：`reverse-report-template`
 
-## Artifacts 默认落点
+### Templates And Supporting Docs
 
-- **源码仓库运行**：默认写到 `<repo>/artifacts/tasks`
-- **`npx -y jsreverser-mcp@latest` 运行**：默认写到  
-  `~/.local/state/jsreverser-mcp/artifacts/tasks`
-- 如果你想自定义，设置：
-
-```bash
-export JSREVERSER_ARTIFACTS_DIR=/your/path/artifacts/tasks
-```
+- [docs/reference/reverse-update-prompt-template.md](docs/reference/reverse-update-prompt-template.md)
+- [docs/reference/reverse-report-template.md](docs/reference/reverse-report-template.md)
+- [docs/reference/algorithm-upgrade-template.md](docs/reference/algorithm-upgrade-template.md)
+- [docs/reference/parameter-methodology-template.md](docs/reference/parameter-methodology-template.md)
+- [docs/reference/parameter-site-mapping-template.md](docs/reference/parameter-site-mapping-template.md)
 
 ## 开发与测试
 
@@ -447,8 +489,7 @@ npm run coverage:full
 本项目在设计和实现过程中参考了以下项目，具体协议声明（如 MIT 等）以对应上游仓库为准：
 
 - https://github.com/wuji66dde/jshook-skill
-- https://github.com/NoOne-hub/JSReverser-MCP
-- https://github.com/ChromeDevTools/chrome-devtools-mcp
+- https://github.com/zhizhuodemao/js-reverse-mcp
 
 ## License
 

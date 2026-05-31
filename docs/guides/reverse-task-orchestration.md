@@ -514,13 +514,13 @@ read responseSummary
 
 下面这张表适合在“还没决定先调哪个 MCP 工具”时直接套用：
 
-| 目标 | 优先工具 | 什么时候用 | 不要先用什么 |
-| --- | --- | --- | --- |
-| 看任务状态 / 摘要 / 标签 / timeline / compare | `manage_reverse_task` | 你已经有 `taskId`，但还在查状态、补上下文、做轻量管理 | 不要先上 `orchestrate_reverse_task` |
-| 想自动决定下一步并连续推进 | `orchestrate_reverse_task` | 你已经确认 task 目标稳定，想减少 tool 选择并直接续跑 | 不要先手工乱选 analysis 类工具 |
-| 想诊断补环境缺口 | `get_rebuild_health_report` | 已经进入 rebuild / env-fix 阶段，或者报了典型 runtime env error | 不要先盲目重试 `export_rebuild_bundle` |
-| 想把观察结果正式写回 artifact | `record_reverse_evidence` | 本轮拿到了 hook / network / script / runtime 证据，想沉淀给后续 summarize / orchestration 复用 | 不要把证据只留在对话里 |
-| 只想拿一个轻量 next step 提示 | `recommend_next_step` | 你还不想跑完整编排，只想快速拿一个方向性建议 | 不要把它当成持久化编排器 |
+| 目标                                          | 优先工具                    | 什么时候用                                                                                     | 不要先用什么                           |
+| --------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 看任务状态 / 摘要 / 标签 / timeline / compare | `manage_reverse_task`       | 你已经有 `taskId`，但还在查状态、补上下文、做轻量管理                                          | 不要先上 `orchestrate_reverse_task`    |
+| 想自动决定下一步并连续推进                    | `orchestrate_reverse_task`  | 你已经确认 task 目标稳定，想减少 tool 选择并直接续跑                                           | 不要先手工乱选 analysis 类工具         |
+| 想诊断补环境缺口                              | `get_rebuild_health_report` | 已经进入 rebuild / env-fix 阶段，或者报了典型 runtime env error                                | 不要先盲目重试 `export_rebuild_bundle` |
+| 想把观察结果正式写回 artifact                 | `record_reverse_evidence`   | 本轮拿到了 hook / network / script / runtime 证据，想沉淀给后续 summarize / orchestration 复用 | 不要把证据只留在对话里                 |
+| 只想拿一个轻量 next step 提示                 | `recommend_next_step`       | 你还不想跑完整编排，只想快速拿一个方向性建议                                                   | 不要把它当成持久化编排器               |
 
 ### 简化决策树
 
@@ -671,13 +671,13 @@ node build/src/index.js --orchestrateReverseTask task-001 --execute --skipStep e
 
 当前失败分类包括：
 
-| failureType | 常见含义 | 默认 retryable | 典型例子 |
-| --- | --- | --- | --- |
-| `tool_error` | 执行器未实现或工具侧失败 | `true` | `not implemented` |
-| `env_error` | 本地补环境缺失 | `true` | `window is not defined` / `localStorage is not defined` |
-| `validation_error` | 参数或输入不合法 | `false` | `invalid` / `required` |
-| `external_error` | 外部依赖或浏览器链路异常 | `true` | `timed out` / `fetch failed` / `browser failed` |
-| `unknown` | 目前规则未命中的异常 | `false` | 其他未分类错误 |
+| failureType        | 常见含义                 | 默认 retryable | 典型例子                                                |
+| ------------------ | ------------------------ | -------------- | ------------------------------------------------------- |
+| `tool_error`       | 执行器未实现或工具侧失败 | `true`         | `not implemented`                                       |
+| `env_error`        | 本地补环境缺失           | `true`         | `window is not defined` / `localStorage is not defined` |
+| `validation_error` | 参数或输入不合法         | `false`        | `invalid` / `required`                                  |
+| `external_error`   | 外部依赖或浏览器链路异常 | `true`         | `timed out` / `fetch failed` / `browser failed`         |
+| `unknown`          | 目前规则未命中的异常     | `false`        | 其他未分类错误                                          |
 
 这让你可以快速判断：
 

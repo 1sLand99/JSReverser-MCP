@@ -4,16 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { AdvancedDeobfuscator } from '../../../src/modules/deobfuscator/AdvancedDeobfuscator.js';
+import {AdvancedDeobfuscator} from '../../../src/modules/deobfuscator/AdvancedDeobfuscator.js';
 import type {
   AdvancedDeobfuscateOptions,
   AdvancedDeobfuscateResult,
 } from '../../../src/modules/deobfuscator/AdvancedDeobfuscator.js';
 
 interface LLMServiceLike {
-  chat(messages: unknown[]): Promise<{ content: string } | string>;
+  chat(messages: unknown[]): Promise<{content: string} | string>;
 }
 
 interface VmDetectionLike {
@@ -55,7 +55,9 @@ interface AdvancedDeobfuscatorTestHarness {
     code: string,
   ): number;
   llmCleanup(code: string, techniques: string[]): Promise<string | null>;
-  deobfuscate(options: AdvancedDeobfuscateOptions): Promise<AdvancedDeobfuscateResult>;
+  deobfuscate(
+    options: AdvancedDeobfuscateOptions,
+  ): Promise<AdvancedDeobfuscateResult>;
   deobfuscateVM(
     code: string,
     vmInfo: Pick<VmDetectionLike, 'type' | 'instructionCount'>,
@@ -67,7 +69,8 @@ interface AdvancedDeobfuscatorTestHarness {
 
 describe('AdvancedDeobfuscator', () => {
   it('covers invisible unicode/string detection and decode helpers', () => {
-    const d = new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
+    const d =
+      new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
     const zw = '\u200b\u200c\u200b\u200b\u200b\u200b\u200b\u200c'; // 01000001 => 'A'
 
     assert.strictEqual(d.detectInvisibleUnicode(`x${zw}y`), true);
@@ -81,7 +84,8 @@ describe('AdvancedDeobfuscator', () => {
   });
 
   it('covers VM/control-flow/dead-code/opaque detection and transforms', async () => {
-    const d = new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
+    const d =
+      new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
     const vmCode = `
       while(true){ switch(op){ case 0: stack.push(1); break; case 1: stack.pop(); break; } }
       var code=[1,2,3,4,5,6,7,8,9,10,11,12];
@@ -99,7 +103,7 @@ describe('AdvancedDeobfuscator', () => {
 
     const simplifiedVm = d.simplifyVMCode(
       'function interp(){return 1;} var inst=[1,2,3]; interp();',
-      { interpreterFunction: 'interp', instructionArray: 'inst' },
+      {interpreterFunction: 'interp', instructionArray: 'inst'},
     );
     assert.ok(simplifiedVm.includes('VM interpreter removed'));
 
@@ -108,7 +112,9 @@ describe('AdvancedDeobfuscator', () => {
       true,
     );
 
-    const deadOut = d.removeDeadCode('function f(){ if(false){a()} else {b()} if(true){c()} return 1; d(); }');
+    const deadOut = d.removeDeadCode(
+      'function f(){ if(false){a()} else {b()} if(true){c()} return 1; d(); }',
+    );
     assert.ok(!deadOut.includes('if (false)'));
     assert.ok(!deadOut.includes('d();'));
 
@@ -121,26 +127,39 @@ describe('AdvancedDeobfuscator', () => {
   });
 
   it('covers code extraction/validation/ast optimization/confidence', () => {
-    const d = new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
-    const extracted = d.extractCodeFromLLMResponse('```javascript\nconst x = 1;\n```');
+    const d =
+      new AdvancedDeobfuscator() as unknown as AdvancedDeobfuscatorTestHarness;
+    const extracted = d.extractCodeFromLLMResponse(
+      '```javascript\nconst x = 1;\n```',
+    );
     assert.strictEqual(extracted, 'const x = 1;');
 
     assert.strictEqual(d.isValidJavaScript('const a = 1;'), true);
     assert.strictEqual(d.isValidJavaScript('const a = ;'), false);
 
-    const optimized = d.applyASTOptimizations('const a=(1+2); const b=true&&x; false||y;');
+    const optimized = d.applyASTOptimizations(
+      'const a=(1+2); const b=true&&x; false||y;',
+    );
     assert.ok(optimized.includes('3'));
     assert.ok(optimized.includes('x'));
 
-    const c1 = d.calculateConfidence(['vm-protection', 'ast-optimized'], ['warn'], 'const a=1;');
-    const c2 = d.calculateConfidence([], ['w1', 'w2', 'w3'], 'function a(){if(x){while(y){}}}');
+    const c1 = d.calculateConfidence(
+      ['vm-protection', 'ast-optimized'],
+      ['warn'],
+      'const a=1;',
+    );
+    const c2 = d.calculateConfidence(
+      [],
+      ['w1', 'w2', 'w3'],
+      'function a(){if(x){while(y){}}}',
+    );
     assert.ok(c1 >= 0.1 && c1 <= 0.95);
     assert.ok(c2 >= 0.1 && c2 <= 0.95);
   });
 
   it('covers llm cleanup path and full deobfuscate path', async () => {
     const llm = {
-      chat: async () => ({ content: '```javascript\nconst cleaned = 1;\n```' }),
+      chat: async () => ({content: '```javascript\nconst cleaned = 1;\n```'}),
     } satisfies LLMServiceLike;
     const d = new AdvancedDeobfuscator(
       llm as unknown as ConstructorParameters<typeof AdvancedDeobfuscator>[0],
@@ -161,31 +180,39 @@ describe('AdvancedDeobfuscator', () => {
 
   it('covers deobfuscateVM success/fallback branches', async () => {
     const llmOk = {
-      chat: async () => ({ content: '```javascript\nconst vmOut = 1;\n```' }),
+      chat: async () => ({content: '```javascript\nconst vmOut = 1;\n```'}),
     } satisfies LLMServiceLike;
     const d1 = new AdvancedDeobfuscator(
       llmOk as unknown as ConstructorParameters<typeof AdvancedDeobfuscator>[0],
     ) as unknown as AdvancedDeobfuscatorTestHarness;
-    const vmOk = await d1.deobfuscateVM('while(true){switch(x){case 0x1:break;}}', {
-      type: 'custom-vm',
-      instructionCount: 1,
-    });
+    const vmOk = await d1.deobfuscateVM(
+      'while(true){switch(x){case 0x1:break;}}',
+      {
+        type: 'custom-vm',
+        instructionCount: 1,
+      },
+    );
     assert.strictEqual(vmOk.success, true);
     assert.ok(vmOk.code.includes('vmOut'));
 
     const llmBad = {
-      chat: async () => ({ content: 'not js {{' }),
+      chat: async () => ({content: 'not js {{'}),
     } satisfies LLMServiceLike;
     const d2 = new AdvancedDeobfuscator(
-      llmBad as unknown as ConstructorParameters<typeof AdvancedDeobfuscator>[0],
+      llmBad as unknown as ConstructorParameters<
+        typeof AdvancedDeobfuscator
+      >[0],
     ) as unknown as AdvancedDeobfuscatorTestHarness;
-    const vmBad = await d2.deobfuscateVM('var x=1;', { type: 'custom-vm', instructionCount: 0 });
+    const vmBad = await d2.deobfuscateVM('var x=1;', {
+      type: 'custom-vm',
+      instructionCount: 0,
+    });
     assert.strictEqual(typeof vmBad.code, 'string');
   });
 
   it('covers control-flow llm branch, derotate and normalization helpers', async () => {
     const llm = {
-      chat: async () => ({ content: '```js\nconst cleanFlow = 1;\n```' }),
+      chat: async () => ({content: '```js\nconst cleanFlow = 1;\n```'}),
     } satisfies LLMServiceLike;
     const d = new AdvancedDeobfuscator(
       llm as unknown as ConstructorParameters<typeof AdvancedDeobfuscator>[0],
@@ -194,7 +221,9 @@ describe('AdvancedDeobfuscator', () => {
     const unflattened = await d.unflattenControlFlow(
       'while(true){switch(i){case 0:i=1;break;case 1:break;}}',
     );
-    assert.ok(unflattened.includes('cleanFlow') || unflattened.includes('while'));
+    assert.ok(
+      unflattened.includes('cleanFlow') || unflattened.includes('while'),
+    );
 
     const rotated = `
       (function(_0xabc,_0xdef){
@@ -207,10 +236,14 @@ describe('AdvancedDeobfuscator', () => {
     const derotated = d.derotateStringArray(rotated);
     assert.ok(derotated.includes('console.log'));
 
-    const normalized = d.normalizeCode('/*a*/ const x = 1; // c\\n\\n const y = 2;');
+    const normalized = d.normalizeCode(
+      '/*a*/ const x = 1; // c\\n\\n const y = 2;',
+    );
     assert.ok(normalized.includes('const'));
 
-    const complexity = d.estimateCodeComplexity('if(a){for(let i=0;i<2;i++){while(b){break;}}}');
+    const complexity = d.estimateCodeComplexity(
+      'if(a){for(let i=0;i<2;i++){while(b){break;}}}',
+    );
     assert.ok(complexity > 0);
   });
 });

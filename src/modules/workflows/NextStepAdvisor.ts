@@ -1,7 +1,15 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import type {NextStepAdvice, NextStepAdvisorInput} from './types.js';
 
 export function recommendNextStep(input: NextStepAdvisorInput): NextStepAdvice {
-  if (input.currentStage === 'Patch' && (!input.firstDivergenceKnown || !input.hasPassingRebuild)) {
+  if (
+    input.currentStage === 'Patch' &&
+    (!input.firstDivergenceKnown || !input.hasPassingRebuild)
+  ) {
     return {
       stage: 'Patch',
       confidence: 0.9,
@@ -47,11 +55,11 @@ export function recommendNextStep(input: NextStepAdvisorInput): NextStepAdvice {
 
   if ((input.hookRecordCount ?? 0) <= 0) {
     return {
-      stage: 'Observe',
+      stage: 'Capture',
       confidence: 0.9,
-      nextStep: 'locate_signature_function',
-      why: '已经识别到目标请求，但还没有运行时样本，优先先缩小到候选签名函数，再决定具体 hook 点位。',
-      alternatives: ['inject_hook', 'hook_function'],
+      nextStep: 'inject_hook',
+      why: '已经识别到目标请求，但还没有运行时样本，应先做最小 hook 采样，避免过早进入断点调试。',
+      alternatives: ['hook_function', 'trace_function'],
       avoid: ['breakpoint'],
     };
   }

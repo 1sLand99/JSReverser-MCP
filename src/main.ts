@@ -7,7 +7,11 @@
 import './polyfill.js';
 
 import type {Channel} from './browser.js';
-import {ensureBrowserConnected, ensureBrowserLaunched, resolveAutoConnectTarget} from './browser.js';
+import {
+  ensureBrowserConnected,
+  ensureBrowserLaunched,
+  resolveAutoConnectTarget,
+} from './browser.js';
 import {executeKnowledgeCliCommand, parseArguments} from './cli.js';
 import {features} from './features.js';
 import {loadIssueDescriptions} from './issue-descriptions.js';
@@ -20,39 +24,41 @@ import {
   type CallToolResult,
   SetLevelRequestSchema,
 } from './third_party/index.js';
-import * as jshookAnalyzerTools from './tools/analyzer.js';
-import * as agentRunnerTools from './tools/agent-runner.js';
 import * as advisorTools from './tools/advisor.js';
+import * as agentRunnerTools from './tools/agent-runner.js';
+import * as jshookAnalyzerTools from './tools/analyzer.js';
 import {ToolCategory} from './tools/categories.js';
 import * as jshookCollectorTools from './tools/collector.js';
 import * as consoleTools from './tools/console.js';
 import * as debuggerTools from './tools/debugger.js';
 import * as diagnosticsTools from './tools/diagnostics.js';
 import * as jshookDomTools from './tools/dom.js';
-import * as jshookHookTools from './tools/hook.js';
 import * as frameTools from './tools/frames.js';
+import * as jshookHookTools from './tools/hook.js';
 import * as networkTools from './tools/network.js';
+import * as orchestratorTools from './tools/orchestrator.js';
 import * as jshookPageTools from './tools/page.js';
 import * as pagesTools from './tools/pages.js';
+import {selectToolsForProfile, type ToolProfile} from './tools/profile.js';
 import * as jshookRebuildTools from './tools/rebuild.js';
+import {getJSHookRuntime} from './tools/runtime.js';
 import * as screenshotTools from './tools/screenshot.js';
 import * as scriptTools from './tools/script.js';
 import * as jshookStealthTools from './tools/stealth.js';
-import * as orchestratorTools from './tools/orchestrator.js';
-import * as taskTools from './tools/task.js';
 import * as taskManagerTools from './tools/task-manager.js';
+import * as taskTools from './tools/task.js';
 import type {ToolDefinition} from './tools/ToolDefinition.js';
 import {ToolRegistry} from './tools/ToolRegistry.js';
+import {withOptionalTraceIdContent} from './tools/trace-output.js';
 import * as websocketTools from './tools/websocket.js';
 import * as workflowTools from './tools/workflows.js';
 import {ErrorCodes, formatError} from './utils/errors.js';
 import {TokenBudgetManager} from './utils/TokenBudgetManager.js';
 import {ToolExecutionScheduler} from './utils/ToolExecutionScheduler.js';
-import {getJSHookRuntime} from './tools/runtime.js';
 
 // If moved update release-please config
 // x-release-please-start-version
-const VERSION = '2.0.3';
+const VERSION = '2.0.4';
 // x-release-please-end
 
 export const args = parseArguments(VERSION);
@@ -132,24 +138,21 @@ function createTraceId(toolName: string): string {
   return `${toolName}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function withTraceIdContent(content: CallToolResult['content'], traceId: string): CallToolResult['content'] {
-  return [
-    {
-      type: 'text',
-      text: JSON.stringify({traceId}, null, 2),
-    },
-    ...content,
-  ];
-}
-
-function logToolEvent(traceId: string, toolName: string, phase: string, details: Record<string, unknown> = {}): void {
-  logger(JSON.stringify({
-    type: 'tool_event',
-    traceId,
-    tool: toolName,
-    phase,
-    ...details,
-  }));
+function logToolEvent(
+  traceId: string,
+  toolName: string,
+  phase: string,
+  details: Record<string, unknown> = {},
+): void {
+  logger(
+    JSON.stringify({
+      type: 'tool_event',
+      traceId,
+      tool: toolName,
+      phase,
+      ...details,
+    }),
+  );
 }
 
 function registerTool(tool: ToolDefinition): void {
@@ -186,19 +189,32 @@ function registerTool(tool: ToolDefinition): void {
           );
           try {
             const content = await response.handle(tool.name, context);
-            const wrapped = withTraceIdContent(content, traceId);
+            const wrapped = withOptionalTraceIdContent(
+              content,
+              traceId,
+              args.traceOutput,
+            );
             tokenBudgetManager.recordToolCall(tool.name, params, content);
-            logToolEvent(traceId, tool.name, 'success', {durationMs: Date.now() - startedAt});
+            logToolEvent(traceId, tool.name, 'success', {
+              durationMs: Date.now() - startedAt,
+            });
             return {
               content: wrapped,
             };
           } catch (error) {
-            const formatted = formatError(error, ErrorCodes.TOOL_EXECUTION_ERROR, {
-              tool: tool.name,
-              traceId,
-            });
+            const formatted = formatError(
+              error,
+              ErrorCodes.TOOL_EXECUTION_ERROR,
+              {
+                tool: tool.name,
+                traceId,
+              },
+            );
             tokenBudgetManager.recordToolCall(tool.name, params, formatted);
-            logToolEvent(traceId, tool.name, 'response_error', {durationMs: Date.now() - startedAt, error: formatted});
+            logToolEvent(traceId, tool.name, 'response_error', {
+              durationMs: Date.now() - startedAt,
+              error: formatted,
+            });
 
             return {
               content: [
@@ -212,7 +228,10 @@ function registerTool(tool: ToolDefinition): void {
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
-          logToolEvent(traceId, tool.name, 'handler_error', {error: message, durationMs: Date.now() - startedAt});
+          logToolEvent(traceId, tool.name, 'handler_error', {
+            error: message,
+            durationMs: Date.now() - startedAt,
+          });
           throw err;
         }
       });
@@ -249,14 +268,16 @@ const toolSources: Array<{source: string; tools: ToolDefinition[]}> = [
   {source: 'workflow', tools: asTools(workflowTools)},
 ];
 
-const tools = toolSources.flatMap((entry) =>
-  entry.tools.map((tool) => ({
+const tools = toolSources.flatMap(entry =>
+  entry.tools.map(tool => ({
     source: entry.source,
     tool,
   })),
 );
 
-function applyCanonicalSelection(allTools: Array<{source: string; tool: ToolDefinition}>): ToolDefinition[] {
+function applyCanonicalSelection(
+  allTools: Array<{source: string; tool: ToolDefinition}>,
+): ToolDefinition[] {
   const selected = new Map<string, {source: string; tool: ToolDefinition}>();
   for (const entry of allTools) {
     const existing = selected.get(entry.tool.name);
@@ -270,11 +291,16 @@ function applyCanonicalSelection(allTools: Array<{source: string; tool: ToolDefi
       selected.set(entry.tool.name, entry);
     }
   }
-  return Array.from(selected.values()).map((entry) => entry.tool);
+  return Array.from(selected.values()).map(entry => entry.tool);
 }
 
 const registry = new ToolRegistry();
-registry.registerMany(applyCanonicalSelection(tools));
+registry.registerMany(
+  selectToolsForProfile(
+    applyCanonicalSelection(tools),
+    args.toolProfile as ToolProfile,
+  ),
+);
 
 const registeredTools = registry.values();
 registeredTools.sort((a, b) => {

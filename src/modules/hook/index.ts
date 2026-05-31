@@ -1,9 +1,14 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * Hook 模块公共导出
  */
 
 // 核心构建器
-export { HookCodeBuilder } from './HookCodeBuilder.js';
+export {HookCodeBuilder} from './HookCodeBuilder.js';
 export type {
   HookTarget,
   CaptureOptions,
@@ -15,11 +20,11 @@ export type {
 } from './HookCodeBuilder.js';
 
 // 类型注册表
-export { HookTypeRegistry } from './HookTypeRegistry.js';
-export type { HookTypePlugin } from './HookTypeRegistry.js';
+export {HookTypeRegistry} from './HookTypeRegistry.js';
+export type {HookTypePlugin} from './HookTypeRegistry.js';
 
 // Hook 管理器
-export { HookManager } from './HookManager.js';
+export {HookManager} from './HookManager.js';
 export type {
   HookCreateOptions,
   HookMeta,
@@ -28,7 +33,7 @@ export type {
 } from './HookManager.js';
 
 // AI Hook 生成器
-export { AIHookGenerator } from './AIHookGenerator.js';
+export {AIHookGenerator} from './AIHookGenerator.js';
 export type {
   AIHookRequest,
   AIHookTarget,

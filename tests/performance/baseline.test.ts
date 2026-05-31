@@ -1,6 +1,12 @@
-import {describe, it} from 'node:test';
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import assert from 'node:assert';
 import {performance} from 'node:perf_hooks';
+import {describe, it} from 'node:test';
+
 import {CodeCompressor} from '../../src/modules/collector/CodeCompressor.js';
 import {ToolExecutionScheduler} from '../../src/utils/ToolExecutionScheduler.js';
 
@@ -8,7 +14,10 @@ const runPerf = process.env.RUN_PERF_TESTS === 'true';
 
 function percentile(values: number[], p: number): number {
   const sorted = [...values].sort((a, b) => a - b);
-  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
+  const idx = Math.min(
+    sorted.length - 1,
+    Math.max(0, Math.ceil((p / 100) * sorted.length) - 1),
+  );
   return sorted[idx];
 }
 

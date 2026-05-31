@@ -1,25 +1,9 @@
-# JSReverser-MCP
+# JS Reverse MCP
 
 [中文 README](README.md)
 
 An MCP server that standardizes frontend JavaScript reverse-engineering workflows.
 The goal is not just page debugging. It is to connect page observation, runtime sampling, local reproduction, environment patching, and evidence capture into one reusable workflow.
-
-## First-run recommendation
-
-For a first successful run, use this order:
-
-1. Start the server
-2. Run `--doctor` or `diagnose_environment`
-3. Run `check_browser_health`
-4. Then continue with `list_pages`, `network_request`, and `list_scripts`
-
-This catches the most common setup issues early:
-
-- Node / build problems
-- browser connectivity problems
-- AI provider misconfiguration
-- artifacts directory issues
 
 ## Core Methodology
 
@@ -44,16 +28,6 @@ In practice, that means:
 
 The following parameter chains already have public in-repo entry points:
 
-### parameter blueprint knowledge base
-
-- Main entry: [docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
-- Template: [docs/reference/parameter-blueprint-template.md](docs/reference/parameter-blueprint-template.md)
-- Contribution guide: [docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
-- Note: blueprint is the main asset; `workflow.md` is only one execution-oriented file inside a blueprint
-- CLI:
-  - `node build/src/index.js --list-parameter-workflows`
-  - `node build/src/index.js --show-parameter-workflow jd-h5st`
-
 - JD `h5st`
   - Index: [scripts/cases/README.md](scripts/cases/README.md)
   - Case: [scripts/cases/jd-h5st-pure-node.mjs](scripts/cases/jd-h5st-pure-node.mjs)
@@ -71,6 +45,19 @@ Notes:
 - The homepage only shows sanitized parameter categories and public entry points.
 - Real `artifacts/tasks/<task-id>/` directories are treated as local/private task folders by default.
 - Git only tracks `artifacts/tasks/_TEMPLATE/` by default.
+
+### Parameter Blueprint Knowledge Base
+
+Public parameter methods are kept in the parameter blueprint knowledge base at `docs/knowledge/parameter-blueprints/`.
+
+```bash
+node build/src/index.js --list-parameter-workflows
+node build/src/index.js --show-parameter-workflow jd-h5st
+node build/src/index.js --export-parameter-workflow-template
+node build/src/index.js --validate-parameter-workflow docs/knowledge/parameter-blueprints/jd-h5st
+```
+
+Contribution rules: [docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md).
 
 ## Capabilities
 
@@ -97,7 +84,7 @@ Use lightweight observation before stepping into paused debugging.
 
 Use paused debugging only when hooks are not enough.
 
-- `breakpoint` — unified breakpoint management with `set` / `remove` / `list`
+- `set_breakpoint`
 - `set_breakpoint_on_text`
 - `resume`
 - `pause`
@@ -107,80 +94,20 @@ Use paused debugging only when hooks are not enough.
 
 Locate the target request and identify what triggers it.
 
-- `network_request` — unified request inspection with `action=list` and `action=get`
+- `list_network_requests`
+- `get_network_request`
 - `get_request_initiator`
-- `xhr_breakpoint` — unified XHR / Fetch breakpoint management with `action=set` and `action=remove`
+- `break_on_xhr`
 
 ### Page State and Runtime Checks
 
 Inspect browser state, logs, and storage dependencies.
 
 - `check_browser_health`
-- `diagnose_environment`
-- `console_message` — unified console inspection with `action=list` and `action=get`
+- `list_console_messages`
 - `get_storage`
 - `evaluate_script`
 - `search_in_sources`
-
-### Stage Guidance and Next-Step Advice
-
-If you do not want to rely on an external skill/playbook, start with:
-
-- `recommend_next_step`
-- `explain_reverse_stage`
-
-### Task Initialization and State Management
-
-For durable task artifacts and resumable work:
-
-- `start_reverse_task`
-- `create_reverse_task_from_request`: create a reverse task directly from one captured network request, including target request, page URL, candidate scripts, and initial task context
-- **Use `manage_reverse_task` as the default entry** for all list / get / summarize / progress / update / timeline / archive / restore / search / tag / prune / compare task flows.
-- `manage_reverse_task`: aggregated reverse-task entry for reverse-task lifecycle and lookup flows
-  - responses now include `agentGuidance` with `status / summary / recommendedNextAction / recommendedTool / recommendedParams / confidence / resumeHint`
-  - `agentGuidance.recommendedStrategy` points the model to the next orchestration template directly
-  - responses also include `artifacts` so agent callers know which task files matter next
-  - `outputMode: "compact" | "verbose"` is recommended for agent callers, especially on `get / summarize`
-  - `action: "list"`
-  - `action: "get"`
-  - `action: "summarize"`
-  - `action: "progress"`
-  - `action: "update"`
-  - `action: "timeline"`
-  - `action: "archive" / "restore"`
-  - `action: "search"`
-  - `action: "tag"`
-  - `action: "prune"`
-  - `action: "compare"`
-- `orchestrate_reverse_task`: high-level orchestration entry that syncs task state, returns the next-step plan, and can also run it directly with `execute=true`, persist a checkpoint, and continue from it with `resume=true`; failures now include recovery guidance, step-level controls are available through `skipSteps`, `fromStep`, and `onlySteps`, and `strategy` can switch between `observe-first`, `rebuild-first`, `env-fix`, `artifact-sync`, and `evidence-only`
-  - `outputMode: "compact" | "verbose"` lets agent callers trade detail for lower token cost
-  - failed executions now also expose `fallbackPlan` so the model can pivot without replanning from scratch
-- Task CLI shortcuts:
-  - `--manageReverseTask list`
-  - `--manageReverseTask get --taskId <taskId>`
-  - `--manageReverseTask summarize --taskId <taskId>`
-  - `--manageReverseTask progress --taskId <taskId>`
-  - `--manageReverseTask search --query sign --tag jd`
-  - `--manageReverseTask tag --taskId <taskId> --tags jd,blocked`
-  - `--manageReverseTask archive --taskId <taskId>`
-  - `--manageReverseTask restore --taskId <taskId>`
-  - `--manageReverseTask compare --taskId <taskId> --otherTaskId <otherTaskId>`
-  - `--manageReverseTask prune --pruneOlderThanDays 7`
-  - `--orchestrateReverseTask <taskId>`
-  - `--orchestrateReverseTask <taskId> --execute --resume`
-  - `--orchestrateReverseTask <taskId> --strategy env-fix`
-  - `--orchestrateReverseTask <taskId> --execute --stopOnError=false`
-  - `--orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
-- See [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md) for the CLI cheatsheet, checkpoint behavior, failure classification table, and how it works with `codex --resume`.
-
-Notes:
-
-- Some page-scoped tools now accept an explicit `pageIdx`; when omitted, they still use the page selected via `select_page`
-- `navigate_page` and `evaluate_script` also support explicit `pageIdx`
-- `list_scripts`, `get_script_source`, `find_in_script`, `search_in_sources`, `get_storage`, and `get_request_initiator` also support explicit `pageIdx`
-- `breakpoint`, `set_breakpoint_on_text`, `pause`, `resume`, `step_over`, `step_into`, `step_out`, `xhr_breakpoint`, `trace_function`, and `hook_function` also support explicit `pageIdx`
-- `console_message` uses `targetPageIdx` for explicit page targeting so it does not conflict with result pagination `pageIdx`
-- `network_request` and the WebSocket tools also use `targetPageIdx` when you need explicit browser-page targeting
 
 ### WebSocket Inspection
 
@@ -195,21 +122,8 @@ Useful for long-lived connections, streaming flows, and binary frames.
 Bring browser evidence back to a local Node workflow.
 
 - `export_rebuild_bundle`
-- `diff_env_requirements` — now also returns `patchSuggestions` with minimal environment shim snippets
-- `get_rebuild_health_report` — aggregates current stage, env blockers, first divergence, `patchSuggestions`, and `evidenceAggregates`
-- `get_rebuild_health_report` also supports `outputMode: "compact"` for lower-cost diagnostic loops
-- `agentGuidance` now also includes `recommendedStrategy` for direct follow-up orchestration
-- `fallbackPlan` now also exposes `recommendedStrategy` on orchestration failures
-- `manage_reverse_task`, `orchestrate_reverse_task`, and `get_rebuild_health_report` now expose a shared `agentGuidance` block so models can continue with less prompt-side interpretation
-- `agentGuidance` now also includes `toolClass / routeHint / avoidTools` to keep model routing on the reverse-engineering main path.
-- These three tools now also expose shared top-level `responseSummary` and `diagnostics` fields; `responseSummary` is reserved for agent-facing continuation hints without overwriting business-level `summary` objects.
-- They also expose shared continuation fields: `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, and `nextBestParams`.
-- They also expose a shared `continuation` object: `{ ready, reason, tool, params, strategy, resumeCommand }`.
-- `continuation` now also exposes `invoke: { tool, params }` so agents can execute the next hop directly.
-- They now also expose a shared failure contract: `errorCode`, `errorType`, `retryable`, `blockedBy`, plus `detailLevel` and `continuation.actionKey`.
-- `compact` mode is now slimmer: it keeps `responseSummary`, `diagnostics`, critical status fields, and `continuation`, while trimming redundant next-step blocks and switching `detailLevel` to `minimal`.
-- A shared top-level `routeGuard` is also exposed with `preferredToolClass / routeHint / avoidTools` for routing decisions.
-- `record_reverse_evidence`: persist key hook / network / script observations into task artifacts so later summarize / progress / orchestration steps can reuse them. Summary/query responses now also expose deduped `evidenceAggregates` for top URLs, top functions, and env blockers.
+- `diff_env_requirements`
+- `record_reverse_evidence`
 
 ### Page Automation
 
@@ -232,7 +146,26 @@ Once code and runtime evidence are available:
 
 ### Session and Login-State Reuse
 
-- `session_state` — unified snapshot management with `save` / `restore` / `list` / `delete` / `dump` / `load`
+- `save_session_state`
+- `restore_session_state`
+- `dump_session_state`
+- `load_session_state`
+
+### Reverse Task Orchestration and Agent Consumption
+
+- `start_reverse_task` / `manage_reverse_task`: create, inspect, advance, and manage reverse-engineering tasks.
+- `orchestrate_reverse_task`: advance observation, sampling, rebuild, verification, and extraction stages.
+- `run_reverse_agent`: provide a one-shot task runner entry point for agents.
+- `query_reverse_task`: read compact summaries, next-step guidance, artifact indexes, and resumable payloads.
+- `export_rebuild_bundle` supports portable bundle and replay bundle exports for handing `env-pass` results to pure extraction work.
+
+More details:
+
+- [docs/guides/reverse-task-orchestration.md](docs/guides/reverse-task-orchestration.md)
+- [docs/guides/mcp-agent-quick-reference.md](docs/guides/mcp-agent-quick-reference.md)
+- [docs/guides/mcp-client-auto-resume-example.md](docs/guides/mcp-client-auto-resume-example.md)
+- [docs/reference/reverse-agent-response.schema.json](docs/reference/reverse-agent-response.schema.json)
+- [docs/reference/reverse-agent-schema-versioning.md](docs/reference/reverse-agent-schema-versioning.md)
 
 For full parameter details, see [docs/reference/tool-reference.md](docs/reference/tool-reference.md).
 For workflow-oriented tool selection, see [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md).
@@ -247,67 +180,143 @@ Currently supported providers:
 - `gemini`
 
 The real configuration surface is environment variables.
-Whether you start from source or via `npx jsreverser-mcp@latest`, **the env values belong to the MCP server process**.
+When launched from an MCP client, prefer passing them via the MCP server `env` block.
+Use `.env` mainly when you run `node build/src/index.js` or `npm run start` directly from the project root.
 
-Minimal example:
+Example:
 
 ```toml
-[mcp_servers.jsreverser-mcp]
-command = "npx"
-args = ["-y", "jsreverser-mcp@latest"]
+[mcp_servers.js-reverse]
+command = "node"
+args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 
-[mcp_servers.jsreverser-mcp.env]
-DEFAULT_LLM_PROVIDER = "openai"
-OPENAI_API_KEY = "your_key"
-OPENAI_MODEL = "gpt-4o"
+[mcp_servers.js-reverse.env]
+DEFAULT_LLM_PROVIDER = "anthropic"
+ANTHROPIC_API_KEY = "your_key"
+ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 ```
 
-If you use an OpenAI-compatible model, add `OPENAI_BASE_URL`.
-
-Full client examples and detailed configuration are documented in:
-
-- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
-- [docs/guides/getting-started.md](docs/guides/getting-started.md)
-- [docs/guides/parameter-workflow-contribution.md](docs/guides/parameter-workflow-contribution.md)
-
-## Task and Workflow Docs
-
-Detailed task layout, execution flow, environment-patching boundaries, and safety rules live in:
-
-- [docs/knowledge/parameter-blueprints/](docs/knowledge/parameter-blueprints/)
-- [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
-- [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
-- [docs/reference/env-patching.md](docs/reference/env-patching.md)
-- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
-- `reverse-update-prompt-template`
-- `reverse-report-template`
-
-## Default artifacts location
-
-- **Running from source checkout**: defaults to `<repo>/artifacts/tasks`
-- **Running via `npx -y jsreverser-mcp@latest`**: defaults to  
-  `~/.local/state/jsreverser-mcp/artifacts/tasks`
-- Override with:
+If you start the project locally from the repository root, you can also use `.env`:
 
 ```bash
-export JSREVERSER_ARTIFACTS_DIR=/your/path/artifacts/tasks
+DEFAULT_LLM_PROVIDER=gemini
+
+# OpenAI
+OPENAI_API_KEY=your_key
+OPENAI_MODEL=gpt-4o
+OPENAI_BASE_URL=
+
+# Anthropic
+ANTHROPIC_API_KEY=your_key
+ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_BASE_URL=
+
+# Gemini
+GEMINI_API_KEY=your_key
+GEMINI_MODEL=gemini-2.0-flash-exp
+
+# Optional Gemini CLI fallback
+GEMINI_CLI_PATH=gemini-cli
 ```
+
+Notes:
+
+- `DEFAULT_LLM_PROVIDER` selects the default provider.
+- `gemini` supports two modes: API mode when `GEMINI_API_KEY` is present, or CLI mode via `GEMINI_CLI_PATH`.
+- `openai` and `anthropic` require their own API keys.
+
+## Standard Task Layout
+
+Task directories use:
+
+- `artifacts/tasks/_TEMPLATE/`
+- `artifacts/tasks/<task-id>/`
+
+Recommended structure:
+
+- `task.json`
+- `runtime-evidence.jsonl`
+- `network.jsonl`
+- `scripts.jsonl`
+- `env/env.js`
+- `env/polyfills.js`
+- `env/entry.js`
+- `env/capture.json`
+- `run/`
+- `report.md`
+
+Responsibility boundaries:
+
+- `env.js`
+  - Minimal host objects and shims
+- `polyfills.js`
+  - Proxy diagnostics, `watch`, `safeFunction`, `makeFunction`
+- `entry.js`
+  - Runtime entry, target script loading, and first-divergence output
+
+## Standard Execution Flow
+
+Recommended flow:
+
+1. Page observation
+2. Runtime sampling
+3. Evidence capture
+4. Local rebuild
+5. Environment patching
+6. First-divergence analysis
+7. Pure extraction only after `env-pass`
+
+Default rules:
+
+- Do not guess the environment before collecting browser evidence.
+- Do not simulate the whole browser at once.
+- Do not commit real task directories directly.
+
+## Parameter Retention and Safety Boundary
+
+Recommended lookup order:
+
+1. Local task artifacts first
+   - `artifacts/tasks/<task-id>/`
+2. Abstract case scripts second
+   - `scripts/cases/*`
+3. Create from templates if still missing
+   - [docs/reference/parameter-methodology-template.md](docs/reference/parameter-methodology-template.md)
+   - [docs/reference/parameter-site-mapping-template.md](docs/reference/parameter-site-mapping-template.md)
+
+Safety boundary:
+
+- Cases only keep abstract methodology and workflow.
+- Real task directories stay local by default.
+- Sensitive values must be sanitized before sharing.
+- Git only tracks `_TEMPLATE` by default.
+
+See:
+
+- [docs/reference/case-safety-policy.md](docs/reference/case-safety-policy.md)
+- [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
+- [docs/reference/env-patching.md](docs/reference/env-patching.md)
+
+## Tool Exposure Modes
+
+The default startup mode is `--toolProfile compact`.
+This mode exposes 38 high-frequency tools to reduce MCP tool-list token usage.
+It does not mean tools are missing; low-frequency manual debugging tools are hidden by default.
+
+Use `--toolProfile full` when you need the complete tool set.
+`full` exposes all 85 tools, including pause, stepping, breakpoints, WebSocket details, and fine-grained DOM controls.
+Switch to `full` for deep manual debugging, precise breakpoint work, or WebSocket message inspection.
+
+```bash
+node build/src/index.js --toolProfile full
+```
+
+Successful responses default to `--traceOutput errors`, which keeps `traceId` metadata only on error responses.
+Use `--traceOutput all` when every successful response should include `traceId` metadata.
 
 ## 3-Minute Quick Start
 
-### 1) Fastest launch path
-
-```bash
-npx -y jsreverser-mcp@latest
-```
-
-If you want a startup self-check first:
-
-```bash
-npx -y jsreverser-mcp@latest --doctor
-```
-
-### 2) If you want to run from source
+### 1) Install and build
 
 ```bash
 npm install
@@ -320,53 +329,39 @@ Build entry:
 build/src/index.js
 ```
 
+### 2) Start with the simplest command
+
+```bash
+npm run start
+```
+
 ### 3) Configure your MCP client
 
 Minimal examples:
 
-#### Claude Code (`npx`)
+#### Claude Code
 
 ```bash
-claude mcp add jsreverser-mcp npx -y jsreverser-mcp@latest
+claude mcp add js-reverse node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
 ```
 
-#### Claude Code (source)
-
-```bash
-claude mcp add jsreverser-mcp node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js
-```
-
-#### Cursor (`npx`)
-
-- Command: `npx`
-- Args: `["-y", "jsreverser-mcp@latest"]`
-
-#### Cursor (source)
+#### Cursor
 
 - Command: `node`
 - Args: `[/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js]`
 
-#### Codex (`npx`)
+#### Codex
 
 ```toml
-[mcp_servers.jsreverser-mcp]
-command = "npx"
-args = ["-y", "jsreverser-mcp@latest"]
-```
-
-#### Codex (source)
-
-```toml
-[mcp_servers.jsreverser-mcp]
+[mcp_servers.js-reverse]
 command = "node"
 args = ["/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js"]
 ```
 
-See the guides for full details:
+If you need to attach to an already running browser, continue with:
 
-- Quick start: [docs/guides/getting-started.md](docs/guides/getting-started.md)
-- Browser connection: [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
-- Client configuration: [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
 
 ## Documentation Entry Points
 
@@ -380,14 +375,29 @@ That entry will further route you to:
 - [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
 - [docs/reference/pure-extraction.md](docs/reference/pure-extraction.md) when you are already in the post-`env-pass` stage
 
-Common entry points:
+### Guides
 
 - [docs/guides/getting-started.md](docs/guides/getting-started.md)
 - [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
 - [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/reference/reverse-workflow.md](docs/reference/reverse-workflow.md)
+- [docs/reference/env-patching.md](docs/reference/env-patching.md)
+
+### Reference
+
 - [docs/reference/reverse-bootstrap.md](docs/reference/reverse-bootstrap.md)
+- [docs/reference/reverse-task-index.md](docs/reference/reverse-task-index.md)
 - [docs/reference/tool-reference.md](docs/reference/tool-reference.md)
+- [docs/reference/tool-io-contract.md](docs/reference/tool-io-contract.md)
 - [docs/reference/reverse-artifacts.md](docs/reference/reverse-artifacts.md)
+
+### Templates and Supporting Docs
+
+- [docs/reference/reverse-update-prompt-template.md](docs/reference/reverse-update-prompt-template.md)
+- [docs/reference/reverse-report-template.md](docs/reference/reverse-report-template.md)
+- [docs/reference/algorithm-upgrade-template.md](docs/reference/algorithm-upgrade-template.md)
+- [docs/reference/parameter-methodology-template.md](docs/reference/parameter-methodology-template.md)
+- [docs/reference/parameter-site-mapping-template.md](docs/reference/parameter-site-mapping-template.md)
 
 ## Development and Test
 
@@ -410,8 +420,7 @@ This project references the following upstream projects during design and implem
 Actual licenses such as MIT should be checked in the corresponding upstream repositories.
 
 - https://github.com/wuji66dde/jshook-skill
-- https://github.com/NoOne-hub/JSReverser-MCP
-- https://github.com/ChromeDevTools/chrome-devtools-mcp
+- https://github.com/zhizhuodemao/js-reverse-mcp
 
 ## License
 

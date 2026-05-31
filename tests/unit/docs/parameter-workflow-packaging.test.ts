@@ -23,15 +23,65 @@ describe('parameter workflow packaging', () => {
     }>('build/docs/knowledge/parameter-blueprints/index.json');
 
     assert.ok(index.workflows.length >= 3);
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/generic-header-sign/metadata.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/generic-header-sign/workflow.md'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/metadata.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/workflow.md'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/parts.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/jd-h5st/mutations.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/douyin-a-bogus/parts.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/douyin-a-bogus/mutations.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/ks-hxfalcon/parts.json'));
-    await access(path.join(repoRoot, 'build/docs/knowledge/parameter-blueprints/ks-hxfalcon/mutations.json'));
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/generic-header-sign/metadata.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/generic-header-sign/workflow.md',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/jd-h5st/metadata.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/jd-h5st/workflow.md',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/jd-h5st/parts.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/jd-h5st/mutations.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/douyin-a-bogus/parts.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/douyin-a-bogus/mutations.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/ks-hxfalcon/parts.json',
+      ),
+    );
+    await access(
+      path.join(
+        repoRoot,
+        'build/docs/knowledge/parameter-blueprints/ks-hxfalcon/mutations.json',
+      ),
+    );
   });
 });

@@ -12,8 +12,8 @@ import {describe, it} from 'node:test';
 
 import {executeKnowledgeCliCommand, parseArguments} from '../../../src/cli.js';
 import {startReverseTask} from '../../../src/reverse/ReverseTaskBootstrap.js';
-import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 import {updateReverseTaskState} from '../../../src/reverse/ReverseTaskState.js';
+import {ReverseTaskStore} from '../../../src/reverse/ReverseTaskStore.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
 
 describe('doctor cli', () => {
@@ -24,7 +24,9 @@ describe('doctor cli', () => {
 
   it('prints diagnostics json and exits through standalone command path', async () => {
     const lines: string[] = [];
-    const handled = await executeKnowledgeCliCommand({doctor: true}, (line) => lines.push(line));
+    const handled = await executeKnowledgeCliCommand({doctor: true}, line =>
+      lines.push(line),
+    );
 
     assert.strictEqual(handled, true);
     assert.strictEqual(lines.length, 1);
@@ -65,45 +67,126 @@ describe('doctor cli', () => {
       });
       await mkdir(path.join(rootDir, 'task-cli-001', 'run'), {recursive: true});
       await mkdir(path.join(rootDir, 'task-cli-001', 'env'), {recursive: true});
-      await writeFile(path.join(rootDir, 'task-cli-001', 'run', 'portable.js'), '// portable');
-      await writeFile(path.join(rootDir, 'task-cli-001', 'env', 'replay.js'), '// replay');
+      await writeFile(
+        path.join(rootDir, 'task-cli-001', 'run', 'portable.js'),
+        '// portable',
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-001', 'env', 'replay.js'),
+        '// replay',
+      );
 
       const listLines: string[] = [];
-      const listHandled = await executeKnowledgeCliCommand({manageReverseTask: 'list'}, (line) => listLines.push(line));
+      const listHandled = await executeKnowledgeCliCommand(
+        {manageReverseTask: 'list'},
+        line => listLines.push(line),
+      );
       assert.strictEqual(listHandled, true);
-      const listPayload = JSON.parse(listLines[0]) as {action: string; items: Array<{taskId: string}>};
+      const listPayload = JSON.parse(listLines[0]) as {
+        action: string;
+        items: Array<{taskId: string}>;
+      };
       assert.strictEqual(listPayload.action, 'list');
       assert.strictEqual(listPayload.items[0]?.taskId, 'task-cli-001');
 
       const stateLines: string[] = [];
       const stateHandled = await executeKnowledgeCliCommand(
-        {manageReverseTask: 'get', taskId: 'task-cli-001', reverseTimelineLimit: 3, reverseEvidenceLimit: 3},
-        (line) => stateLines.push(line),
+        {
+          manageReverseTask: 'get',
+          taskId: 'task-cli-001',
+          reverseTimelineLimit: 3,
+          reverseEvidenceLimit: 3,
+        },
+        line => stateLines.push(line),
       );
       assert.strictEqual(stateHandled, true);
-      const statePayload = JSON.parse(stateLines[0]) as {action: string; taskId: string; recentEvidence: Array<{source: string}>; compactDelivery?: {portablePureReady?: boolean; portableReplayReady?: boolean; files?: string[]}};
+      const statePayload = JSON.parse(stateLines[0]) as {
+        action: string;
+        taskId: string;
+        recentEvidence: Array<{source: string}>;
+        compactDelivery?: {
+          portablePureReady?: boolean;
+          portableReplayReady?: boolean;
+          files?: string[];
+        };
+      };
       assert.strictEqual(statePayload.action, 'get');
       assert.strictEqual(statePayload.taskId, 'task-cli-001');
       assert.strictEqual(statePayload.recentEvidence[0]?.source, 'hook');
       assert.strictEqual(statePayload.compactDelivery?.portablePureReady, true);
-      assert.strictEqual(statePayload.compactDelivery?.portableReplayReady, true);
-      assert.deepStrictEqual(statePayload.compactDelivery?.files, ['run/portable.js', 'env/replay.js']);
+      assert.strictEqual(
+        statePayload.compactDelivery?.portableReplayReady,
+        true,
+      );
+      assert.deepStrictEqual(statePayload.compactDelivery?.files, [
+        'run/portable.js',
+        'env/replay.js',
+      ]);
 
       const summaryLines: string[] = [];
-      const summaryHandled = await executeKnowledgeCliCommand({manageReverseTask: 'summarize', taskId: 'task-cli-001'}, (line) => summaryLines.push(line));
+      const summaryHandled = await executeKnowledgeCliCommand(
+        {manageReverseTask: 'summarize', taskId: 'task-cli-001'},
+        line => summaryLines.push(line),
+      );
       assert.strictEqual(summaryHandled, true);
-      const summaryPayload = JSON.parse(summaryLines[0]) as {action: string; taskId: string; goal: string; compactDelivery?: {portablePureReady?: boolean; portableReplayReady?: boolean; files?: string[]}};
+      const summaryPayload = JSON.parse(summaryLines[0]) as {
+        action: string;
+        taskId: string;
+        goal: string;
+        compactDelivery?: {
+          portablePureReady?: boolean;
+          portableReplayReady?: boolean;
+          files?: string[];
+        };
+      };
       assert.strictEqual(summaryPayload.action, 'summarize');
       assert.strictEqual(summaryPayload.taskId, 'task-cli-001');
       assert.strictEqual(summaryPayload.goal, 'cli task flow');
-      assert.strictEqual(summaryPayload.compactDelivery?.portablePureReady, true);
-      assert.strictEqual(summaryPayload.compactDelivery?.portableReplayReady, true);
-      assert.deepStrictEqual(summaryPayload.compactDelivery?.files, ['run/portable.js', 'env/replay.js']);
+      assert.strictEqual(
+        summaryPayload.compactDelivery?.portablePureReady,
+        true,
+      );
+      assert.strictEqual(
+        summaryPayload.compactDelivery?.portableReplayReady,
+        true,
+      );
+      assert.deepStrictEqual(summaryPayload.compactDelivery?.files, [
+        'run/portable.js',
+        'env/replay.js',
+      ]);
 
       const progressLines: string[] = [];
-      const progressHandled = await executeKnowledgeCliCommand({manageReverseTask: 'progress', taskId: 'task-cli-001'}, (line) => progressLines.push(line));
+      const progressHandled = await executeKnowledgeCliCommand(
+        {manageReverseTask: 'progress', taskId: 'task-cli-001'},
+        line => progressLines.push(line),
+      );
       assert.strictEqual(progressHandled, true);
-      const progressPayload = JSON.parse(progressLines[0]) as {action: string; currentStage: string; nextStepHint: string; reasoning: string[]; schemaVersion?: string; outcome?: string; shouldResume?: boolean; nextBestTool?: string; detailLevel?: string; routeGuard?: {preferredToolClass?: string; routeHint?: string}; continuation?: {tool?: string; ready?: boolean; actionKey?: string; toolClass?: string; routeHint?: string; invoke?: {tool?: string; params?: Record<string, unknown>}}; agentGuidance?: {recommendedTool?: string; recommendedStrategy?: string; toolClass?: string; routeHint?: string}};
+      const progressPayload = JSON.parse(progressLines[0]) as {
+        action: string;
+        currentStage: string;
+        nextStepHint: string;
+        reasoning: string[];
+        schemaVersion?: string;
+        outcome?: string;
+        shouldResume?: boolean;
+        nextBestTool?: string;
+        detailLevel?: string;
+        routeGuard?: {preferredToolClass?: string; routeHint?: string};
+        continuation?: {
+          tool?: string;
+          ready?: boolean;
+          actionKey?: string;
+          toolClass?: string;
+          routeHint?: string;
+          invoke?: {tool?: string; params?: Record<string, unknown>};
+        };
+        agentGuidance?: {
+          recommendedTool?: string;
+          recommendedStrategy?: string;
+          toolClass?: string;
+          routeHint?: string;
+        };
+      };
       assert.strictEqual(progressPayload.action, 'progress');
       assert.strictEqual(progressPayload.schemaVersion, '1.0');
       assert.strictEqual(progressPayload.currentStage, 'Rebuild');
@@ -113,33 +196,74 @@ describe('doctor cli', () => {
       assert.strictEqual(progressPayload.shouldResume, true);
       assert.strictEqual(progressPayload.nextBestTool, 'export_rebuild_bundle');
       assert.strictEqual(progressPayload.detailLevel, 'standard');
-      assert.strictEqual(progressPayload.routeGuard?.preferredToolClass, 'rebuild');
-      assert.strictEqual(progressPayload.routeGuard?.routeHint, 'switch_to_rebuild');
+      assert.strictEqual(
+        progressPayload.routeGuard?.preferredToolClass,
+        'rebuild',
+      );
+      assert.strictEqual(
+        progressPayload.routeGuard?.routeHint,
+        'switch_to_rebuild',
+      );
       assert.strictEqual(progressPayload.continuation?.ready, true);
-      assert.strictEqual(progressPayload.continuation?.tool, 'export_rebuild_bundle');
-      assert.strictEqual(progressPayload.continuation?.actionKey, 'export_rebuild_bundle');
-      assert.strictEqual(progressPayload.continuation?.invoke?.tool, 'export_rebuild_bundle');
-      assert.deepStrictEqual(progressPayload.continuation?.invoke?.params, {taskId: 'task-cli-001'});
+      assert.strictEqual(
+        progressPayload.continuation?.tool,
+        'export_rebuild_bundle',
+      );
+      assert.strictEqual(
+        progressPayload.continuation?.actionKey,
+        'export_rebuild_bundle',
+      );
+      assert.strictEqual(
+        progressPayload.continuation?.invoke?.tool,
+        'export_rebuild_bundle',
+      );
+      assert.deepStrictEqual(progressPayload.continuation?.invoke?.params, {
+        taskId: 'task-cli-001',
+      });
       assert.strictEqual(progressPayload.continuation?.toolClass, 'rebuild');
-      assert.strictEqual(progressPayload.continuation?.routeHint, 'switch_to_rebuild');
-      assert.strictEqual(progressPayload.agentGuidance?.recommendedTool, 'export_rebuild_bundle');
-      assert.strictEqual(progressPayload.agentGuidance?.recommendedStrategy, 'rebuild-first');
+      assert.strictEqual(
+        progressPayload.continuation?.routeHint,
+        'switch_to_rebuild',
+      );
+      assert.strictEqual(
+        progressPayload.agentGuidance?.recommendedTool,
+        'export_rebuild_bundle',
+      );
+      assert.strictEqual(
+        progressPayload.agentGuidance?.recommendedStrategy,
+        'rebuild-first',
+      );
       assert.strictEqual(progressPayload.agentGuidance?.toolClass, 'rebuild');
-      assert.strictEqual(progressPayload.agentGuidance?.routeHint, 'switch_to_rebuild');
+      assert.strictEqual(
+        progressPayload.agentGuidance?.routeHint,
+        'switch_to_rebuild',
+      );
 
       const compactLines: string[] = [];
       const compactHandled = await executeKnowledgeCliCommand(
-        {manageReverseTask: 'summarize', taskId: 'task-cli-001', outputMode: 'compact'},
-        (line) => compactLines.push(line),
+        {
+          manageReverseTask: 'summarize',
+          taskId: 'task-cli-001',
+          outputMode: 'compact',
+        },
+        line => compactLines.push(line),
       );
       assert.strictEqual(compactHandled, true);
-      const compactPayload = JSON.parse(compactLines[0]) as {outputMode?: string; recentTimeline?: unknown[]; recentEvidence?: unknown[]};
+      const compactPayload = JSON.parse(compactLines[0]) as {
+        outputMode?: string;
+        recentTimeline?: unknown[];
+        recentEvidence?: unknown[];
+      };
       assert.strictEqual(compactPayload.outputMode, 'compact');
       assert.strictEqual(compactPayload.recentTimeline, undefined);
       assert.strictEqual(compactPayload.recentEvidence, undefined);
 
       await assert.rejects(
-        () => executeKnowledgeCliCommand({manageReverseTask: 'search'}, () => undefined),
+        () =>
+          executeKnowledgeCliCommand(
+            {manageReverseTask: 'search'},
+            () => undefined,
+          ),
         /query or tag is required/,
       );
     } finally {
@@ -153,7 +277,9 @@ describe('doctor cli', () => {
   });
 
   it('resumes orchestrateReverseTask CLI execution from a failed checkpoint', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-orchestrate-resume-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-cli-orchestrate-resume-'),
+    );
     const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
 
     try {
@@ -205,10 +331,13 @@ describe('doctor cli', () => {
       });
 
       const firstLines: string[] = [];
-      const firstHandled = await executeKnowledgeCliCommand({
-        orchestrateReverseTask: 'task-cli-orchestrate-resume-001',
-        execute: true,
-      }, (line) => firstLines.push(line));
+      const firstHandled = await executeKnowledgeCliCommand(
+        {
+          orchestrateReverseTask: 'task-cli-orchestrate-resume-001',
+          execute: true,
+        },
+        line => firstLines.push(line),
+      );
       assert.strictEqual(firstHandled, true);
       const firstPayload = JSON.parse(firstLines[0]) as {
         errorCode?: string;
@@ -216,50 +345,103 @@ describe('doctor cli', () => {
         retryable?: boolean;
         blockedBy?: string;
         execution?: {
-          checkpoint?: {status: string; failedStepKey?: string; failureType?: string; retryable?: boolean};
-          failedStep?: {tool: string; failureType?: string; retryable?: boolean};
+          checkpoint?: {
+            status: string;
+            failedStepKey?: string;
+            failureType?: string;
+            retryable?: boolean;
+          };
+          failedStep?: {
+            tool: string;
+            failureType?: string;
+            retryable?: boolean;
+          };
           recovery?: {recommendedCommand?: string; shouldResume?: boolean};
         };
       };
       assert.strictEqual(firstPayload.execution?.checkpoint?.status, 'failed');
-      assert.strictEqual(firstPayload.execution?.checkpoint?.failedStepKey, 'understand_code');
-      assert.strictEqual(firstPayload.execution?.checkpoint?.failureType, 'tool_error');
+      assert.strictEqual(
+        firstPayload.execution?.checkpoint?.failedStepKey,
+        'understand_code',
+      );
+      assert.strictEqual(
+        firstPayload.execution?.checkpoint?.failureType,
+        'tool_error',
+      );
       assert.strictEqual(firstPayload.execution?.checkpoint?.retryable, true);
-      assert.strictEqual(firstPayload.execution?.failedStep?.tool, 'understand_code');
+      assert.strictEqual(
+        firstPayload.execution?.failedStep?.tool,
+        'understand_code',
+      );
       assert.strictEqual(firstPayload.errorCode, 'tool_error');
       assert.strictEqual(firstPayload.errorType, 'tool_error');
       assert.strictEqual(firstPayload.retryable, true);
       assert.strictEqual(firstPayload.blockedBy, 'tooling');
-      assert.ok(firstPayload.execution?.recovery?.recommendedCommand?.includes('--execute --resume'));
+      assert.ok(
+        firstPayload.execution?.recovery?.recommendedCommand?.includes(
+          '--execute --resume',
+        ),
+      );
+      assert.ok(
+        firstPayload.execution?.recovery?.recommendedCommand?.startsWith(
+          'node ',
+        ),
+      );
+      assert.ok(
+        !firstPayload.execution?.recovery?.recommendedCommand?.startsWith(
+          'jsreverser-mcp ',
+        ),
+      );
       assert.strictEqual(firstPayload.execution?.recovery?.shouldResume, true);
 
       const resumedLines: string[] = [];
-      const resumedHandled = await executeKnowledgeCliCommand({
-        orchestrateReverseTask: 'task-cli-orchestrate-resume-001',
-        execute: true,
-        resume: true,
-        includeSummary: false,
-        executionOverrides: {
-          understand_code: {
-            status: 'ok',
-            result: 'synthetic pure extraction completed after resume',
+      const resumedHandled = await executeKnowledgeCliCommand(
+        {
+          orchestrateReverseTask: 'task-cli-orchestrate-resume-001',
+          execute: true,
+          resume: true,
+          includeSummary: false,
+          executionOverrides: {
+            understand_code: {
+              status: 'ok',
+              result: 'synthetic pure extraction completed after resume',
+            },
           },
         },
-      }, (line) => resumedLines.push(line));
+        line => resumedLines.push(line),
+      );
       assert.strictEqual(resumedHandled, true);
       const resumedPayload = JSON.parse(resumedLines[0]) as {
         execution?: {
           resumed: boolean;
           checkpoint?: {status: string};
-          stepResults: Array<{key: string; status: string; retryCount?: number}>;
+          stepResults: Array<{
+            key: string;
+            status: string;
+            retryCount?: number;
+          }>;
         };
         summary?: unknown;
       };
       assert.strictEqual(resumedPayload.execution?.resumed, true);
-      assert.strictEqual(resumedPayload.execution?.checkpoint?.status, 'passed');
+      assert.strictEqual(
+        resumedPayload.execution?.checkpoint?.status,
+        'passed',
+      );
       assert.strictEqual(resumedPayload.summary, undefined);
-      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'understand_code' && entry.status === 'failed' && entry.retryCount === 1));
-      assert.ok(resumedPayload.execution?.stepResults.some((entry) => entry.key === 'understand_code' && entry.status === 'passed'));
+      assert.ok(
+        resumedPayload.execution?.stepResults.some(
+          entry =>
+            entry.key === 'understand_code' &&
+            entry.status === 'failed' &&
+            entry.retryCount === 1,
+        ),
+      );
+      assert.ok(
+        resumedPayload.execution?.stepResults.some(
+          entry => entry.key === 'understand_code' && entry.status === 'passed',
+        ),
+      );
     } finally {
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;
@@ -271,7 +453,9 @@ describe('doctor cli', () => {
   });
 
   it('supports orchestrateReverseTask CLI execution and extended flags', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-orchestrate-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-cli-orchestrate-'),
+    );
     const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
 
     try {
@@ -323,22 +507,25 @@ describe('doctor cli', () => {
       });
 
       const lines: string[] = [];
-      const handled = await executeKnowledgeCliCommand({
-        orchestrateReverseTask: 'task-cli-orchestrate-001',
-        execute: true,
-        resume: true,
-        outputMode: 'compact',
-        stopOnError: false,
-        onlyStep: ['understand_code'],
-        includeSummary: true,
-        persistState: true,
-        executionOverrides: {
-          understand_code: {
-            status: 'ok',
-            result: 'synthetic pure extraction completed',
+      const handled = await executeKnowledgeCliCommand(
+        {
+          orchestrateReverseTask: 'task-cli-orchestrate-001',
+          execute: true,
+          resume: true,
+          outputMode: 'compact',
+          stopOnError: false,
+          onlyStep: ['understand_code'],
+          includeSummary: true,
+          persistState: true,
+          executionOverrides: {
+            understand_code: {
+              status: 'ok',
+              result: 'synthetic pure extraction completed',
+            },
           },
         },
-      }, (line) => lines.push(line));
+        line => lines.push(line),
+      );
       assert.strictEqual(handled, true);
       const payload = JSON.parse(lines[0]) as {
         taskId: string;
@@ -349,7 +536,11 @@ describe('doctor cli', () => {
         detailLevel?: string;
         agentGuidance?: unknown;
         continuation?: {tool?: string; ready?: boolean; actionKey?: string};
-        execution?: {executed: boolean; resumed: boolean; checkpoint?: {status: string}};
+        execution?: {
+          executed: boolean;
+          resumed: boolean;
+          checkpoint?: {status: string};
+        };
         summary?: {taskId: string};
         orchestration: {primaryStep: {tool: string}};
       };
@@ -367,7 +558,10 @@ describe('doctor cli', () => {
       assert.strictEqual(payload.execution?.resumed, true);
       assert.strictEqual(payload.execution?.checkpoint?.status, 'passed');
       assert.strictEqual(payload.summary, undefined);
-      assert.strictEqual(payload.orchestration.primaryStep.tool, 'understand_code');
+      assert.strictEqual(
+        payload.orchestration.primaryStep.tool,
+        'understand_code',
+      );
     } finally {
       if (originalArtifactsDir === undefined) {
         delete process.env.JSREVERSER_ARTIFACTS_DIR;
@@ -379,7 +573,9 @@ describe('doctor cli', () => {
   });
 
   it('returns env-error recovery guidance when a filtered orchestration step fails', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-orchestrate-env-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-cli-orchestrate-env-'),
+    );
     const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
 
     try {
@@ -431,27 +627,47 @@ describe('doctor cli', () => {
       });
 
       const lines: string[] = [];
-      const handled = await executeKnowledgeCliCommand({
-        orchestrateReverseTask: 'task-cli-orchestrate-env-001',
-        execute: true,
-        onlyStep: ['understand_code'],
-        executionOverrides: {
-          understand_code: {
-            status: 'error',
-            error: 'window is not defined',
+      const handled = await executeKnowledgeCliCommand(
+        {
+          orchestrateReverseTask: 'task-cli-orchestrate-env-001',
+          execute: true,
+          onlyStep: ['understand_code'],
+          executionOverrides: {
+            understand_code: {
+              status: 'error',
+              error: 'window is not defined',
+            },
           },
         },
-      }, (line) => lines.push(line));
+        line => lines.push(line),
+      );
       assert.strictEqual(handled, true);
       const payload = JSON.parse(lines[0]) as {
         execution?: {
           failedStep?: {failureType?: string};
-          recovery?: {recommendedCommand?: string; shouldInspectSummary?: boolean; shouldResume?: boolean};
+          recovery?: {
+            recommendedCommand?: string;
+            shouldInspectSummary?: boolean;
+            shouldResume?: boolean;
+          };
         };
       };
-      assert.strictEqual(payload.execution?.failedStep?.failureType, 'env_error');
-      assert.ok(payload.execution?.recovery?.recommendedCommand?.includes('--manageReverseTask summarize'));
-      assert.strictEqual(payload.execution?.recovery?.shouldInspectSummary, true);
+      assert.strictEqual(
+        payload.execution?.failedStep?.failureType,
+        'env_error',
+      );
+      assert.ok(
+        payload.execution?.recovery?.recommendedCommand?.includes(
+          '--manageReverseTask summarize',
+        ),
+      );
+      assert.ok(
+        payload.execution?.recovery?.recommendedCommand?.startsWith('node '),
+      );
+      assert.strictEqual(
+        payload.execution?.recovery?.shouldInspectSummary,
+        true,
+      );
       assert.strictEqual(payload.execution?.recovery?.shouldResume, true);
     } finally {
       if (originalArtifactsDir === undefined) {
@@ -464,7 +680,9 @@ describe('doctor cli', () => {
   });
 
   it('supports runReverseAgent CLI execution for pure-extraction drafts', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-run-agent-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-cli-run-agent-'),
+    );
     const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
     const runtime = getJSHookRuntime();
     const originals = {
@@ -519,14 +737,30 @@ describe('doctor cli', () => {
         source: 'capture',
         kind: 'sample',
         requestUrl: 'https://example.com/api/h5st',
-        bodyPreview: '{"appid":"app-1","body":{"sku":"1001"},"functionId":"sign.test"}',
+        bodyPreview:
+          '{"appid":"app-1","body":{"sku":"1001"},"functionId":"sign.test"}',
       });
 
       runtime.analyzer.understand = async () => ({
-        structure: {functions: [], classes: [], modules: [], callGraph: {nodes: [], edges: []}},
+        structure: {
+          functions: [],
+          classes: [],
+          modules: [],
+          callGraph: {nodes: [], edges: []},
+        },
         techStack: {other: []},
-        businessLogic: {mainFeatures: ['build h5st'], entities: [], rules: [], dataModel: {}},
-        dataFlow: {graph: {nodes: [], edges: []}, sources: [], sinks: [], taintPaths: []},
+        businessLogic: {
+          mainFeatures: ['build h5st'],
+          entities: [],
+          rules: [],
+          dataModel: {},
+        },
+        dataFlow: {
+          graph: {nodes: [], edges: []},
+          sources: [],
+          sinks: [],
+          taintPaths: [],
+        },
         securityRisks: [],
         qualityScore: 90,
       });
@@ -540,17 +774,24 @@ describe('doctor cli', () => {
       });
 
       const lines: string[] = [];
-      const handled = await executeKnowledgeCliCommand({
-        runReverseAgent: 'task-cli-run-agent-001',
-        maxRounds: 2,
-        goalMode: 'port-ready',
-        autoExportPortable: true,
-        outputMode: 'compact',
-        includeSummary: false,
-      }, (line) => lines.push(line));
+      const handled = await executeKnowledgeCliCommand(
+        {
+          runReverseAgent: 'task-cli-run-agent-001',
+          maxRounds: 2,
+          goalMode: 'port-ready',
+          autoExportPortable: true,
+          outputMode: 'compact',
+          includeSummary: false,
+        },
+        line => lines.push(line),
+      );
       assert.strictEqual(handled, true);
       const payload = JSON.parse(lines[0]) as {
-        run?: {stopReason?: string; goalMode?: string; autoExportPortable?: boolean};
+        run?: {
+          stopReason?: string;
+          goalMode?: string;
+          autoExportPortable?: boolean;
+        };
         outputMode?: string;
         generatedArtifacts?: string[];
       };
@@ -583,7 +824,9 @@ describe('doctor cli', () => {
   });
 
   it('supports exportPortableBundle CLI execution for compact delivery artifacts', async () => {
-    const rootDir = await mkdtemp(path.join(tmpdir(), 'jsreverser-cli-portable-export-'));
+    const rootDir = await mkdtemp(
+      path.join(tmpdir(), 'jsreverser-cli-portable-export-'),
+    );
     const originalArtifactsDir = process.env.JSREVERSER_ARTIFACTS_DIR;
 
     try {
@@ -606,33 +849,68 @@ describe('doctor cli', () => {
         goalMode: 'pure-draft',
         mainFunction: 'signPayload',
       });
-      await mkdir(path.join(rootDir, 'task-cli-portable-001', 'run'), {recursive: true});
-      await mkdir(path.join(rootDir, 'task-cli-portable-001', 'env'), {recursive: true});
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'run', 'fixtures.json'), `${JSON.stringify({
-        goalMode: 'pure-draft',
-        mainFunction: 'signPayload',
-        samples: [{caseId: 'fixture-001', input: {token: 'a'}, runtimeContext: {}}],
-      }, null, 2)}\n`);
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'env', 'capture.json'), `${JSON.stringify({
-        runtimeEvidence: [{functionName: 'signPayload'}],
-      }, null, 2)}\n`);
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'run', 'pure-main.js'), [
-        'export function signPayload(input, runtimeContext = {}) {',
-        '  return {ok: false, input, runtimeContext, signature: null};',
-        '}',
-        'export function runFixture(fixture) {',
-        '  return signPayload(fixture.input ?? {}, fixture.runtimeContext ?? {});',
-        '}',
-      ].join('\n'));
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'env', 'env.js'), 'globalThis.window = globalThis;\n');
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'env', 'polyfills.js'), 'globalThis.atob = (v) => v;\n');
-      await writeFile(path.join(rootDir, 'task-cli-portable-001', 'env', 'entry.js'), 'import "./env.js";\nimport "./polyfills.js";\nconsole.log("replay");\n');
+      await mkdir(path.join(rootDir, 'task-cli-portable-001', 'run'), {
+        recursive: true,
+      });
+      await mkdir(path.join(rootDir, 'task-cli-portable-001', 'env'), {
+        recursive: true,
+      });
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'run', 'fixtures.json'),
+        `${JSON.stringify(
+          {
+            goalMode: 'pure-draft',
+            mainFunction: 'signPayload',
+            samples: [
+              {caseId: 'fixture-001', input: {token: 'a'}, runtimeContext: {}},
+            ],
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'env', 'capture.json'),
+        `${JSON.stringify(
+          {
+            runtimeEvidence: [{functionName: 'signPayload'}],
+          },
+          null,
+          2,
+        )}\n`,
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'run', 'pure-main.js'),
+        [
+          'export function signPayload(input, runtimeContext = {}) {',
+          '  return {ok: false, input, runtimeContext, signature: null};',
+          '}',
+          'export function runFixture(fixture) {',
+          '  return signPayload(fixture.input ?? {}, fixture.runtimeContext ?? {});',
+          '}',
+        ].join('\n'),
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'env', 'env.js'),
+        'globalThis.window = globalThis;\n',
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'env', 'polyfills.js'),
+        'globalThis.atob = (v) => v;\n',
+      );
+      await writeFile(
+        path.join(rootDir, 'task-cli-portable-001', 'env', 'entry.js'),
+        'import "./env.js";\nimport "./polyfills.js";\nconsole.log("replay");\n',
+      );
 
       const lines: string[] = [];
-      const handled = await executeKnowledgeCliCommand({
-        exportPortableBundle: 'task-cli-portable-001',
-        artifactMode: 'pure',
-      }, (line) => lines.push(line));
+      const handled = await executeKnowledgeCliCommand(
+        {
+          exportPortableBundle: 'task-cli-portable-001',
+          artifactMode: 'pure',
+        },
+        line => lines.push(line),
+      );
       assert.strictEqual(handled, true);
 
       const payload = JSON.parse(lines[0]) as {

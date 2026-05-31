@@ -4,25 +4,35 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import assert from 'node:assert';
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { afterEach, describe, it } from 'node:test';
+import {chmodSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {afterEach, describe, it} from 'node:test';
 
-import { GeminiProvider } from '../../../src/services/GeminiProvider.js';
+import {GeminiProvider} from '../../../src/services/GeminiProvider.js';
 
 interface GeminiProviderHarness {
   cliAvailable?: boolean;
   cliPath: string;
   chat(
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-    options?: { model?: string; temperature?: number; maxTokens?: number },
-  ): Promise<{ content: string; usage?: unknown }>;
-  analyzeImage(imageInput: string, prompt: string, isFilePath?: boolean): Promise<string>;
-  formatMessagesForCLI(messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>): string;
+    messages: Array<{role: 'system' | 'user' | 'assistant'; content: string}>,
+    options?: {model?: string; temperature?: number; maxTokens?: number},
+  ): Promise<{content: string; usage?: unknown}>;
+  analyzeImage(
+    imageInput: string,
+    prompt: string,
+    isFilePath?: boolean,
+  ): Promise<string>;
+  formatMessagesForCLI(
+    messages: Array<{role: 'system' | 'user' | 'assistant'; content: string}>,
+  ): string;
   parseCliOutput(output: string): string;
   handleError(error: unknown): Error;
-  executeCLI(prompt: string, options?: { model?: string; temperature?: number; maxTokens?: number }, imagePath?: string): Promise<string>;
+  executeCLI(
+    prompt: string,
+    options?: {model?: string; temperature?: number; maxTokens?: number},
+    imagePath?: string,
+  ): Promise<string>;
   checkCLIAvailable(): boolean;
 }
 
@@ -47,7 +57,7 @@ describe('GeminiProvider extended', () => {
   afterEach(() => {
     while (tempDirs.length > 0) {
       const d = tempDirs.pop();
-      if (d) rmSync(d, { recursive: true, force: true });
+      if (d) rmSync(d, {recursive: true, force: true});
     }
   });
 
@@ -64,25 +74,35 @@ if [ "$1" = "--version" ]; then
 fi
 echo "  OK_RESPONSE  "
 exit 0
-`
+`,
     );
 
-    const provider = new GeminiProvider({ cliPath: cli, useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: cli,
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
     provider.cliAvailable = true;
     const chat = await provider.chat(
       [
-        { role: 'system', content: 'sys' },
-        { role: 'user', content: 'hello' },
-        { role: 'assistant', content: 'world' },
+        {role: 'system', content: 'sys'},
+        {role: 'user', content: 'hello'},
+        {role: 'assistant', content: 'world'},
       ],
-      { model: 'gemini-test', temperature: 0.2, maxTokens: 123 }
+      {model: 'gemini-test', temperature: 0.2, maxTokens: 123},
     );
 
     assert.strictEqual(chat.content, 'OK_RESPONSE');
     assert.strictEqual(chat.usage, undefined);
-    assert.ok(provider.formatMessagesForCLI([{ role: 'user', content: 'x' }]).includes('User: x'));
+    assert.ok(
+      provider
+        .formatMessagesForCLI([{role: 'user', content: 'x'}])
+        .includes('User: x'),
+    );
     assert.strictEqual(provider.parseCliOutput('  hi\n'), 'hi');
-    assert.strictEqual(provider.handleError('x').message.includes('Unknown error'), true);
+    assert.strictEqual(
+      provider.handleError('x').message.includes('Unknown error'),
+      true,
+    );
   });
 
   it('covers analyzeImage CLI success and file-not-found error', async () => {
@@ -97,20 +117,21 @@ if [ "$1" = "--version" ]; then
 fi
 echo "IMAGE_OK"
 exit 0
-`
+`,
     );
     const img = join(dir, 'a.png');
     writeFileSync(img, 'x');
 
-    const provider = new GeminiProvider({ cliPath: cli, useAPI: false });
+    const provider = new GeminiProvider({cliPath: cli, useAPI: false});
     const providerHarness = provider as unknown as GeminiProviderHarness;
     providerHarness.cliAvailable = true;
     const ok = await provider.analyzeImage(img, 'describe', true);
     assert.strictEqual(ok, 'IMAGE_OK');
 
     await assert.rejects(
-      async () => provider.analyzeImage(join(dir, 'missing.png'), 'describe', true),
-      /Image file not found/
+      async () =>
+        provider.analyzeImage(join(dir, 'missing.png'), 'describe', true),
+      /Image file not found/,
     );
   });
 
@@ -126,11 +147,17 @@ if [ "$1" = "--version" ]; then
 fi
 echo "bad stderr" 1>&2
 exit 2
-`
+`,
     );
 
-    const provider = new GeminiProvider({ cliPath: cli, useAPI: false }) as unknown as GeminiProviderHarness;
-    await assert.rejects(async () => provider.executeCLI('prompt'), /exited with code 2/);
+    const provider = new GeminiProvider({
+      cliPath: cli,
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
+    await assert.rejects(
+      async () => provider.executeCLI('prompt'),
+      /exited with code 2/,
+    );
 
     provider.cliAvailable = true;
     provider.cliPath = '/definitely/not/exist';
@@ -138,10 +165,14 @@ exit 2
   });
 
   it('uses static CLI availability cache across instances', () => {
-    const cache = (GeminiProvider as unknown as GeminiProviderConstructor).cliAvailabilityCache;
+    const cache = (GeminiProvider as unknown as GeminiProviderConstructor)
+      .cliAvailabilityCache;
     cache.set('/tmp/fake-cli', true);
 
-    const provider = new GeminiProvider({ cliPath: '/tmp/fake-cli', useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: '/tmp/fake-cli',
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
     provider.cliAvailable = undefined;
     assert.strictEqual(provider.checkCLIAvailable(), true);
   });
@@ -152,14 +183,17 @@ exit 2
     const img = join(dir, 'a.png');
     writeFileSync(img, 'x');
 
-    const provider = new GeminiProvider({ cliPath: 'gemini-cli', useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: 'gemini-cli',
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
     provider.checkCLIAvailable = () => true;
     provider.executeCLI = async () => {
       throw 'cli-unknown';
     };
 
     await assert.rejects(
-      async () => provider.chat([{ role: 'user', content: 'x' }]),
+      async () => provider.chat([{role: 'user', content: 'x'}]),
       /Unknown error: cli-unknown/,
     );
     await assert.rejects(
@@ -169,7 +203,10 @@ exit 2
   });
 
   it('covers executeCLI spawn error branch', async () => {
-    const provider = new GeminiProvider({ cliPath: '/definitely/not-exists-cli', useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: '/definitely/not-exists-cli',
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
     await assert.rejects(
       async () => provider.executeCLI('prompt'),
       /Failed to execute gemini-cli:/,
@@ -177,7 +214,10 @@ exit 2
   });
 
   it('covers checkCLIAvailable catch path when spawnSync throws', () => {
-    const provider = new GeminiProvider({ cliPath: '\u0000', useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: '\u0000',
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
     provider.cliAvailable = undefined;
     assert.strictEqual(provider.checkCLIAvailable(), false);
   });
@@ -196,7 +236,10 @@ echo "DONE"
 exit 0
 `,
     );
-    const provider = new GeminiProvider({ cliPath: cli, useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: cli,
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
 
     const originalSetTimeout = globalThis.setTimeout;
     const originalClearTimeout = globalThis.clearTimeout;
@@ -205,7 +248,8 @@ exit 0
       timeoutCallback = () => cb();
       return originalSetTimeout(() => undefined, 0);
     }) as TimerOverride as typeof globalThis.setTimeout;
-    globalThis.clearTimeout = ((_: TimeoutLike | undefined) => undefined) as typeof globalThis.clearTimeout;
+    globalThis.clearTimeout = ((_: TimeoutLike | undefined) =>
+      undefined) as typeof globalThis.clearTimeout;
 
     try {
       const out = await provider.executeCLI('prompt');
@@ -219,7 +263,10 @@ exit 0
   });
 
   it('covers executeCLI timeout rejection path', async () => {
-    const provider = new GeminiProvider({ cliPath: '/bin/sh', useAPI: false }) as unknown as GeminiProviderHarness;
+    const provider = new GeminiProvider({
+      cliPath: '/bin/sh',
+      useAPI: false,
+    }) as unknown as GeminiProviderHarness;
 
     const originalSetTimeout = globalThis.setTimeout;
     const originalClearTimeout = globalThis.clearTimeout;
@@ -227,7 +274,8 @@ exit 0
       cb();
       return originalSetTimeout(() => undefined, 0);
     }) as TimerOverride as typeof globalThis.setTimeout;
-    globalThis.clearTimeout = ((_: TimeoutLike | undefined) => undefined) as typeof globalThis.clearTimeout;
+    globalThis.clearTimeout = ((_: TimeoutLike | undefined) =>
+      undefined) as typeof globalThis.clearTimeout;
 
     try {
       await assert.rejects(

@@ -2,7 +2,14 @@
   "id": "douyin-a-bogus",
   "title": "Douyin a_bogus Workflow",
   "aliases": ["a_bogus", "a-bogus", "douyin-a-bogus"],
-  "keywords": ["a_bogus", "a-bogus", "douyin", "resource/list", "msToken", "webid"],
+  "keywords": [
+    "a_bogus",
+    "a-bogus",
+    "douyin",
+    "resource/list",
+    "msToken",
+    "webid"
+  ],
   "category": "query-signature",
   "status": "stable",
   "version": "1.0.0",

@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 文档入口
+
+逆向相关任务开场先读：`docs/reference/reverse-bootstrap.md`。
+该入口会继续要求模型读取 `docs/reference/case-safety-policy.md`、`docs/reference/reverse-workflow.md`。
+若已进入 `env-pass` 后的提纯阶段，再读 `docs/reference/pure-extraction.md`。
+
 ## Build and Development Commands
 
 ```bash
@@ -45,7 +51,7 @@ npm run docs
 ## Testing with MCP Inspector
 
 ```bash
-npx @modelcontextprotocol/inspector node build/src/index.js
+npm exec @modelcontextprotocol/inspector -- node build/src/index.js
 ```
 
 ## Architecture Overview

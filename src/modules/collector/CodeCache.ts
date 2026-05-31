@@ -1,13 +1,19 @@
 /**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+/**
  * 代码缓存管理器 - 缓存已收集的代码，避免重复收集
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
-import { logger } from '../../utils/logger.js';
-import type { CodeFile, CollectCodeResult } from '../../types/index.js';
-import { resolveDefaultCodeCacheDir } from '../../utils/projectPaths.js';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+import type {CodeFile, CollectCodeResult} from '../../types/index.js';
+import {logger} from '../../utils/logger.js';
+import {resolveDefaultCodeCacheDir} from '../../utils/projectPaths.js';
 
 export interface CacheEntry {
   url: string;
@@ -22,21 +28,26 @@ export interface CacheOptions {
   cacheDir?: string;
   maxAge?: number; // 缓存过期时间（毫秒）
   maxSize?: number; // 最大缓存大小（字节）
+  cleanupIntervalMs?: number; // 自动清理最小间隔（毫秒）
 }
 
 export class CodeCache {
   private cacheDir: string;
   private maxAge: number;
   private maxSize: number;
-  private memoryCache: Map<string, CacheEntry> = new Map();
+  private cleanupIntervalMs: number;
+  private lastCleanupAt = 0;
+  private memoryCache = new Map<string, CacheEntry>();
 
   // 🆕 内存缓存大小限制（防止内存泄漏）
   private readonly MAX_MEMORY_CACHE_SIZE = 100; // 最多 100 个条目
 
   constructor(options: CacheOptions = {}) {
-    this.cacheDir = options.cacheDir || resolveDefaultCodeCacheDir(import.meta.url);
+    this.cacheDir =
+      options.cacheDir || resolveDefaultCodeCacheDir(import.meta.url);
     this.maxAge = options.maxAge || 24 * 60 * 60 * 1000; // 默认24小时
     this.maxSize = options.maxSize || 100 * 1024 * 1024; // 默认100MB
+    this.cleanupIntervalMs = options.cleanupIntervalMs ?? 60_000;
   }
 
   /**
@@ -44,7 +55,7 @@ export class CodeCache {
    */
   async init(): Promise<void> {
     try {
-      await fs.mkdir(this.cacheDir, { recursive: true });
+      await fs.mkdir(this.cacheDir, {recursive: true});
       logger.debug(`Cache directory initialized: ${this.cacheDir}`);
     } catch (error) {
       logger.error('Failed to initialize cache directory:', error);
@@ -55,7 +66,7 @@ export class CodeCache {
    * 生成缓存键
    */
   private generateKey(url: string, options?: Record<string, unknown>): string {
-    const data = JSON.stringify({ url, options });
+    const data = JSON.stringify({url, options});
     return crypto.createHash('md5').update(data).digest('hex');
   }
 
@@ -66,6 +77,14 @@ export class CodeCache {
     return path.join(this.cacheDir, `${key}.json`);
   }
 
+  private isMissingCacheDirError(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    );
+  }
+
   /**
    * 检查缓存是否过期
    */
@@ -73,20 +92,41 @@ export class CodeCache {
     return Date.now() - entry.timestamp > this.maxAge;
   }
 
+  private rememberInMemory(key: string, entry: CacheEntry): void {
+    if (this.memoryCache.has(key)) {
+      this.memoryCache.delete(key);
+    }
+
+    this.memoryCache.set(key, entry);
+
+    while (this.memoryCache.size > this.MAX_MEMORY_CACHE_SIZE) {
+      const firstKey = this.memoryCache.keys().next().value;
+      if (!firstKey) {
+        break;
+      }
+      this.memoryCache.delete(firstKey);
+      logger.debug(`Memory cache evicted: ${firstKey}`);
+    }
+  }
+
   /**
    * 从缓存获取
    */
-  async get(url: string, options?: Record<string, unknown>): Promise<CollectCodeResult | null> {
+  async get(
+    url: string,
+    options?: Record<string, unknown>,
+  ): Promise<CollectCodeResult | null> {
     const key = this.generateKey(url, options);
 
     // 先检查内存缓存
     if (this.memoryCache.has(key)) {
       const entry = this.memoryCache.get(key)!;
       if (!this.isExpired(entry)) {
+        this.rememberInMemory(key, entry);
         logger.debug(`Cache hit (memory): ${url}`);
         return {
           files: entry.files,
-          dependencies: { nodes: [], edges: [] },
+          dependencies: {nodes: [], edges: []},
           totalSize: entry.totalSize,
           collectTime: entry.collectTime,
         };
@@ -108,16 +148,16 @@ export class CodeCache {
       }
 
       // 加载到内存缓存
-      this.memoryCache.set(key, entry);
+      this.rememberInMemory(key, entry);
 
       logger.debug(`Cache hit (disk): ${url}`);
       return {
         files: entry.files,
-        dependencies: { nodes: [], edges: [] },
+        dependencies: {nodes: [], edges: []},
         totalSize: entry.totalSize,
         collectTime: entry.collectTime,
       };
-    } catch (error) {
+    } catch {
       // 缓存不存在或读取失败
       return null;
     }
@@ -126,9 +166,16 @@ export class CodeCache {
   /**
    * 保存到缓存
    */
-  async set(url: string, result: CollectCodeResult, options?: Record<string, unknown>): Promise<void> {
+  async set(
+    url: string,
+    result: CollectCodeResult,
+    options?: Record<string, unknown>,
+  ): Promise<void> {
     const key = this.generateKey(url, options);
-    const hash = crypto.createHash('md5').update(JSON.stringify(result.files)).digest('hex');
+    const hash = crypto
+      .createHash('md5')
+      .update(JSON.stringify(result.files))
+      .digest('hex');
 
     const entry: CacheEntry = {
       url,
@@ -140,39 +187,38 @@ export class CodeCache {
     };
 
     // 保存到内存缓存
-    this.memoryCache.set(key, entry);
-
-    // ✅ 修复：限制内存缓存大小（LRU 策略）
-    if (this.memoryCache.size > this.MAX_MEMORY_CACHE_SIZE) {
-      // 删除最早的条目（Map 保持插入顺序）
-      const firstKey = this.memoryCache.keys().next().value;
-      if (firstKey) {
-        this.memoryCache.delete(firstKey);
-        logger.debug(`Memory cache evicted: ${firstKey}`);
-      }
-    }
+    this.rememberInMemory(key, entry);
 
     // 保存到磁盘缓存
     try {
+      await fs.mkdir(this.cacheDir, {recursive: true});
       const cachePath = this.getCachePath(key);
       await fs.writeFile(cachePath, JSON.stringify(entry, null, 2), 'utf-8');
-      logger.debug(`Cache saved: ${url} (${(result.totalSize / 1024).toFixed(2)} KB)`);
+      logger.debug(
+        `Cache saved: ${url} (${(result.totalSize / 1024).toFixed(2)} KB)`,
+      );
     } catch (error) {
       logger.error('Failed to save cache:', error);
     }
 
-    // 检查缓存大小
-    await this.cleanup();
+    // 节流自动清理，避免批量采集时每次写入都扫描磁盘目录。
+    await this.cleanup(false);
   }
 
   /**
    * 清理过期缓存
    */
-  async cleanup(): Promise<void> {
+  async cleanup(force = true): Promise<void> {
     try {
+      const now = Date.now();
+      if (!force && now - this.lastCleanupAt < this.cleanupIntervalMs) {
+        return;
+      }
+      this.lastCleanupAt = now;
+
       const files = await fs.readdir(this.cacheDir);
       let totalSize = 0;
-      const entries: Array<{ file: string; mtime: Date; size: number }> = [];
+      const entries: Array<{file: string; mtime: Date; size: number}> = [];
 
       for (const file of files) {
         if (!file.endsWith('.json')) continue;
@@ -203,6 +249,9 @@ export class CodeCache {
         logger.info(`Cache cleanup: removed ${removedSize} bytes`);
       }
     } catch (error) {
+      if (this.isMissingCacheDirError(error)) {
+        return;
+      }
       logger.error('Failed to cleanup cache:', error);
     }
   }
@@ -223,6 +272,9 @@ export class CodeCache {
 
       logger.info('All cache cleared');
     } catch (error) {
+      if (this.isMissingCacheDirError(error)) {
+        return;
+      }
       logger.error('Failed to clear cache:', error);
     }
   }
@@ -255,6 +307,13 @@ export class CodeCache {
         totalSize,
       };
     } catch (error) {
+      if (this.isMissingCacheDirError(error)) {
+        return {
+          memoryEntries: this.memoryCache.size,
+          diskEntries: 0,
+          totalSize: 0,
+        };
+      }
       logger.error('Failed to get cache stats:', error);
       return {
         memoryEntries: this.memoryCache.size,

@@ -98,23 +98,23 @@ node build/src/index.js --doctor
   - `goalMode=pure-draft`：默认，生成 PureExtraction 草稿
   - `goalMode=port-ready`：生成更适合 port 的返回契约草稿
   - `autoExportPortable=true`：配合 `goalMode=port-ready` 时，完成后直接自动导出 `run/portable.js`
-- 如果你暂时不想走 MCP，也可以直接用统一 CLI：
-  - `jsreverser-mcp --manageReverseTask list`
-  - `jsreverser-mcp --manageReverseTask get --taskId <taskId>`
-  - `jsreverser-mcp --manageReverseTask summarize --taskId <taskId>`
-  - `jsreverser-mcp --manageReverseTask progress --taskId <taskId>`
-  - `jsreverser-mcp --manageReverseTask search --query sign --tag jd`
-  - `jsreverser-mcp --manageReverseTask archive --taskId <taskId>`
-  - `jsreverser-mcp --orchestrateReverseTask <taskId>`
-  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --resume`
-  - `jsreverser-mcp --orchestrateReverseTask <taskId> --strategy env-fix`
-  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --stopOnError=false`
-  - `jsreverser-mcp --orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
-  - `jsreverser-mcp --runReverseAgent <taskId>`
-  - `jsreverser-mcp --runReverseAgent <taskId> --goalMode signature-only`
-  - `jsreverser-mcp --runReverseAgent <taskId> --maxRounds 4 --outputMode compact`
-  - `jsreverser-mcp --runReverseAgent <taskId> --goalMode port-ready --outputMode compact`
-  - `jsreverser-mcp --runReverseAgent <taskId> --goalMode port-ready --autoExportPortable`
+- 如果你暂时不想走 MCP，也可以直接用本仓库构建产物跑统一 CLI：
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask list`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask get --taskId <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask summarize --taskId <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask progress --taskId <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask search --query sign --tag jd`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --manageReverseTask archive --taskId <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --orchestrateReverseTask <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --orchestrateReverseTask <taskId> --execute --resume`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --orchestrateReverseTask <taskId> --strategy env-fix`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --orchestrateReverseTask <taskId> --execute --stopOnError=false`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --orchestrateReverseTask <taskId> --execute --executionOverrides '{"inject_hook":{"status":"ok","result":"done"}}'`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --runReverseAgent <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --runReverseAgent <taskId> --goalMode signature-only`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --runReverseAgent <taskId> --maxRounds 4 --outputMode compact`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --runReverseAgent <taskId> --goalMode port-ready --outputMode compact`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --runReverseAgent <taskId> --goalMode port-ready --autoExportPortable`
 - `run_reverse_agent` 进入 `PureExtraction` 后，会自动落：
   - `run/fixtures.json`
   - `run/pure-main.js`
@@ -124,8 +124,8 @@ node build/src/index.js --doctor
   - `artifactMode=pure`：只导出 `run/portable.js`
   - `artifactMode=rebuild`：只导出 `env/replay.js`
 - CLI 例子：
-  - `jsreverser-mcp --exportPortableBundle <taskId>`
-  - `jsreverser-mcp --exportPortableBundle <taskId> --artifactMode pure`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --exportPortableBundle <taskId>`
+  - `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --exportPortableBundle <taskId> --artifactMode pure`
 - 编排 checkpoint、`orchestration-checkpoint.json` 结构，以及它和 `codex --resume` 的区别见 [docs/guides/reverse-task-orchestration.md](./reverse-task-orchestration.md)
 - 如果你是给大模型 / agent 接 MCP，先看一页版速查：[docs/guides/mcp-agent-quick-reference.md](./mcp-agent-quick-reference.md)
 - 如果你要自己写 Node.js / TypeScript client 自动续跑，可直接抄：[docs/guides/mcp-client-auto-resume-example.md](./mcp-client-auto-resume-example.md)
@@ -149,11 +149,7 @@ node build/src/index.js --show-parameter-workflow jd-h5st
 
 - `docs/guides/parameter-workflow-contribution.md`
 
-如果你使用的是 `npx -y jsreverser-mcp@latest`，任务证据默认不会写到当前目录，而是写到：
-
-- `~/.local/state/jsreverser-mcp/artifacts/tasks`
-
-如果要改位置，设置：
+任务证据默认写到当前源码仓库的 `artifacts/tasks`。如果要改位置，设置：
 
 ```bash
 export JSREVERSER_ARTIFACTS_DIR=/your/path/artifacts/tasks

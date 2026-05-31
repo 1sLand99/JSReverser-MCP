@@ -1,11 +1,23 @@
+/**
+ * @license
+ * Copyright 2026 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
+import {readFile, writeFile} from 'node:fs/promises';
+
 import {zod} from '../third_party/index.js';
-import {defineTool, type Context} from './ToolDefinition.js';
+
 import {ToolCategory} from './categories.js';
 import {getJSHookRuntime} from './runtime.js';
-import {readFile, writeFile} from 'node:fs/promises';
-import {createCipheriv, createDecipheriv, createHash, randomBytes} from 'node:crypto';
+import {defineTool, type Context} from './ToolDefinition.js';
 
-type SessionSnapshot = {
+interface SessionSnapshot {
   id: string;
   savedAt: string;
   expiresAt: string;
@@ -14,11 +26,17 @@ type SessionSnapshot = {
   cookies: any[];
   localStorage: Record<string, string>;
   sessionStorage: Record<string, string>;
-};
+}
 
 const sessionSnapshots = new Map<string, SessionSnapshot>();
-const sessionTtlMs = Math.max(60_000, Number(process.env.SESSION_STATE_TTL_MS ?? 30 * 60_000));
-const cleanupIntervalMs = Math.max(15_000, Number(process.env.SESSION_STATE_CLEANUP_INTERVAL_MS ?? 5 * 60_000));
+const sessionTtlMs = Math.max(
+  60_000,
+  Number(process.env.SESSION_STATE_TTL_MS ?? 30 * 60_000),
+);
+const cleanupIntervalMs = Math.max(
+  15_000,
+  Number(process.env.SESSION_STATE_CLEANUP_INTERVAL_MS ?? 5 * 60_000),
+);
 
 let cleanupInitialized = false;
 let cleanupTimer: ReturnType<typeof setInterval> | undefined;
@@ -67,7 +85,10 @@ function encryptText(plainText: string): {
   }
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
-  const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
+  const encrypted = Buffer.concat([
+    cipher.update(plainText, 'utf8'),
+    cipher.final(),
+  ]);
   const tag = cipher.getAuthTag();
   return {
     encrypted: true,
@@ -94,28 +115,44 @@ function decryptText(payload: {
   const encrypted = Buffer.from(payload.data, 'base64');
   const decipher = createDecipheriv('aes-256-gcm', key, iv);
   decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString(
+    'utf8',
+  );
 }
 
-function normalizeSnapshot(snapshot: unknown, fallbackId?: string): SessionSnapshot {
+function normalizeSnapshot(
+  snapshot: unknown,
+  fallbackId?: string,
+): SessionSnapshot {
   if (!snapshot || typeof snapshot !== 'object') {
     throw new Error('Invalid session snapshot payload: expected object.');
   }
   const raw = snapshot as Partial<SessionSnapshot>;
-  const id = typeof raw.id === 'string' && raw.id.length > 0
-    ? raw.id
-    : (fallbackId ?? `session_${Date.now()}`);
+  const id =
+    typeof raw.id === 'string' && raw.id.length > 0
+      ? raw.id
+      : (fallbackId ?? `session_${Date.now()}`);
   return {
     id,
-    savedAt: typeof raw.savedAt === 'string' && raw.savedAt.length > 0 ? raw.savedAt : new Date().toISOString(),
-    expiresAt: typeof raw.expiresAt === 'string' && raw.expiresAt.length > 0
-      ? raw.expiresAt
-      : new Date(Date.now() + sessionTtlMs).toISOString(),
+    savedAt:
+      typeof raw.savedAt === 'string' && raw.savedAt.length > 0
+        ? raw.savedAt
+        : new Date().toISOString(),
+    expiresAt:
+      typeof raw.expiresAt === 'string' && raw.expiresAt.length > 0
+        ? raw.expiresAt
+        : new Date(Date.now() + sessionTtlMs).toISOString(),
     url: typeof raw.url === 'string' ? raw.url : '',
     title: typeof raw.title === 'string' ? raw.title : '',
     cookies: Array.isArray(raw.cookies) ? raw.cookies : [],
-    localStorage: raw.localStorage && typeof raw.localStorage === 'object' ? raw.localStorage : {},
-    sessionStorage: raw.sessionStorage && typeof raw.sessionStorage === 'object' ? raw.sessionStorage : {},
+    localStorage:
+      raw.localStorage && typeof raw.localStorage === 'object'
+        ? raw.localStorage
+        : {},
+    sessionStorage:
+      raw.sessionStorage && typeof raw.sessionStorage === 'object'
+        ? raw.sessionStorage
+        : {},
   };
 }
 
@@ -127,7 +164,10 @@ async function withRuntimePageContext<T>(
   if (pageIdx === undefined) {
     return action();
   }
-  if (typeof context.getPageByOptionalIdx !== 'function' || typeof context.getSelectedPage !== 'function') {
+  if (
+    typeof context.getPageByOptionalIdx !== 'function' ||
+    typeof context.getSelectedPage !== 'function'
+  ) {
     return action();
   }
   const runtime = getJSHookRuntime();
@@ -178,17 +218,22 @@ async function createPageClickPromise(
   selector: string,
 ): Promise<void> {
   const runtime = getJSHookRuntime();
-  const page = await (
-    typeof context.getPageByOptionalIdx === 'function'
-      ? Promise.resolve(context.getPageByOptionalIdx(pageIdx))
-      : typeof context.getSelectedPage === 'function'
-        ? Promise.resolve(context.getSelectedPage())
-        : runtime.collector.getActivePage()
-  ) as Context['getSelectedPage'] extends () => infer T ? T : never;
+  const page = (await (typeof context.getPageByOptionalIdx === 'function'
+    ? Promise.resolve(context.getPageByOptionalIdx(pageIdx))
+    : typeof context.getSelectedPage === 'function'
+      ? Promise.resolve(context.getSelectedPage())
+      : runtime.collector.getActivePage())) as Context['getSelectedPage'] extends () => infer T
+    ? T
+    : never;
   if (typeof (page as {evaluate?: unknown}).evaluate === 'function') {
-    return (page as {
-      evaluate: <T>(fn: (selector: string) => T, selector: string) => Promise<T>;
-    }).evaluate((targetSelector: string) => {
+    return (
+      page as {
+        evaluate: <T>(
+          fn: (selector: string) => T,
+          selector: string,
+        ) => Promise<T>;
+      }
+    ).evaluate((targetSelector: string) => {
       const element = document.querySelector(targetSelector);
       if (!element) {
         throw new Error(`No element found for selector: ${targetSelector}`);
@@ -220,7 +265,11 @@ export const clickElement = defineTool({
     cleanupExpiredSessions();
     const outcome = await clickWithPauseAwareness(
       context,
-      createPageClickPromise(context, request.params.pageIdx, request.params.selector),
+      createPageClickPromise(
+        context,
+        request.params.pageIdx,
+        request.params.selector,
+      ),
     );
     response.appendResponseLine(
       outcome === 'paused'
@@ -247,9 +296,13 @@ export const typeText = defineTool({
     cleanupExpiredSessions();
     const runtime = getJSHookRuntime();
     await withRuntimePageContext(context, request.params.pageIdx, () =>
-      runtime.pageController.type(request.params.selector, request.params.text, {
-        delay: request.params.delay,
-      }),
+      runtime.pageController.type(
+        request.params.selector,
+        request.params.text,
+        {
+          delay: request.params.delay,
+        },
+      ),
     );
     response.appendResponseLine('Text typed.');
   },
@@ -271,7 +324,11 @@ export const waitForElement = defineTool({
     const result = await withRuntimePageContext(
       context,
       request.params.pageIdx,
-      () => runtime.pageController.waitForSelector(request.params.selector, request.params.timeout),
+      () =>
+        runtime.pageController.waitForSelector(
+          request.params.selector,
+          request.params.timeout,
+        ),
     );
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(result, null, 2));
@@ -312,34 +369,50 @@ async function handleSessionStateSave(
   const includeLocalStorage = request.params.includeLocalStorage !== false;
   const includeSessionStorage = request.params.includeSessionStorage !== false;
 
-  const snapshot = await withRuntimePageContext(context, request.params.pageIdx, async (): Promise<SessionSnapshot> => {
-    const page = await runtime.pageController.getPage();
-    return {
-      id: sessionId,
-      savedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
-      url: page.url(),
-      title: await page.title(),
-      cookies: includeCookies ? await runtime.pageController.getCookies() : [],
-      localStorage: includeLocalStorage ? await runtime.pageController.getLocalStorage() : {},
-      sessionStorage: includeSessionStorage ? await runtime.pageController.getSessionStorage() : {},
-    };
-  });
+  const snapshot = await withRuntimePageContext(
+    context,
+    request.params.pageIdx,
+    async (): Promise<SessionSnapshot> => {
+      const page = await runtime.pageController.getPage();
+      return {
+        id: sessionId,
+        savedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + sessionTtlMs).toISOString(),
+        url: page.url(),
+        title: await page.title(),
+        cookies: includeCookies
+          ? await runtime.pageController.getCookies()
+          : [],
+        localStorage: includeLocalStorage
+          ? await runtime.pageController.getLocalStorage()
+          : {},
+        sessionStorage: includeSessionStorage
+          ? await runtime.pageController.getSessionStorage()
+          : {},
+      };
+    },
+  );
   sessionSnapshots.set(sessionId, snapshot);
 
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({
-    action: 'save',
-    sessionId,
-    savedAt: snapshot.savedAt,
-    url: snapshot.url,
-    title: snapshot.title,
-    counts: {
-      cookies: snapshot.cookies.length,
-      localStorage: Object.keys(snapshot.localStorage).length,
-      sessionStorage: Object.keys(snapshot.sessionStorage).length,
-    },
-  }, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'save',
+        sessionId,
+        savedAt: snapshot.savedAt,
+        url: snapshot.url,
+        title: snapshot.title,
+        counts: {
+          cookies: snapshot.cookies.length,
+          localStorage: Object.keys(snapshot.localStorage).length,
+          sessionStorage: Object.keys(snapshot.sessionStorage).length,
+        },
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
@@ -378,23 +451,29 @@ async function handleSessionStateRestore(
   });
 
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({
-    action: 'restore',
-    sessionId: snapshot.id,
-    restoredAt: new Date().toISOString(),
-    url: snapshot.url,
-    restored: {
-      cookies: snapshot.cookies.length,
-      localStorage: Object.keys(snapshot.localStorage).length,
-      sessionStorage: Object.keys(snapshot.sessionStorage).length,
-    },
-  }, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'restore',
+        sessionId: snapshot.id,
+        restoredAt: new Date().toISOString(),
+        url: snapshot.url,
+        restored: {
+          cookies: snapshot.cookies.length,
+          localStorage: Object.keys(snapshot.localStorage).length,
+          sessionStorage: Object.keys(snapshot.sessionStorage).length,
+        },
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
 function handleSessionStateList(response: any): void {
   const removed = cleanupExpiredSessions();
-  const sessions = Array.from(sessionSnapshots.values()).map((snapshot) => ({
+  const sessions = Array.from(sessionSnapshots.values()).map(snapshot => ({
     sessionId: snapshot.id,
     savedAt: snapshot.savedAt,
     url: snapshot.url,
@@ -408,26 +487,49 @@ function handleSessionStateList(response: any): void {
   }));
 
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({action: 'list', total: sessions.length, cleanedExpired: removed, sessions}, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'list',
+        total: sessions.length,
+        cleanedExpired: removed,
+        sessions,
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
-function handleSessionStateDelete(request: {params: Record<string, any>}, response: any): void {
+function handleSessionStateDelete(
+  request: {params: Record<string, any>},
+  response: any,
+): void {
   if (!request.params.sessionId) {
     throw new Error('sessionId is required for action=delete.');
   }
   const deleted = sessionSnapshots.delete(request.params.sessionId);
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({
-    action: 'delete',
-    sessionId: request.params.sessionId,
-    deleted,
-    remaining: sessionSnapshots.size,
-  }, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'delete',
+        sessionId: request.params.sessionId,
+        deleted,
+        remaining: sessionSnapshots.size,
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
-async function handleSessionStateDump(request: {params: Record<string, any>}, response: any): Promise<void> {
+async function handleSessionStateDump(
+  request: {params: Record<string, any>},
+  response: any,
+): Promise<void> {
   if (!request.params.sessionId) {
     throw new Error('sessionId is required for action=dump.');
   }
@@ -438,7 +540,8 @@ async function handleSessionStateDump(request: {params: Record<string, any>}, re
 
   const pretty = request.params.pretty !== false;
   const rawJson = JSON.stringify(snapshot, null, pretty ? 2 : 0);
-  const encryptedPayload = request.params.encrypt === true ? encryptText(rawJson) : null;
+  const encryptedPayload =
+    request.params.encrypt === true ? encryptText(rawJson) : null;
   const json = encryptedPayload
     ? JSON.stringify(encryptedPayload, null, pretty ? 2 : 0)
     : rawJson;
@@ -447,23 +550,34 @@ async function handleSessionStateDump(request: {params: Record<string, any>}, re
   }
 
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({
-    action: 'dump',
-    sessionId: snapshot.id,
-    path: request.params.path ?? null,
-    bytes: Buffer.byteLength(json, 'utf8'),
-    encrypted: request.params.encrypt === true,
-    snapshot,
-  }, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'dump',
+        sessionId: snapshot.id,
+        path: request.params.path ?? null,
+        bytes: Buffer.byteLength(json, 'utf8'),
+        encrypted: request.params.encrypt === true,
+        snapshot,
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
-async function handleSessionStateLoad(request: {params: Record<string, any>}, response: any): Promise<void> {
+async function handleSessionStateLoad(
+  request: {params: Record<string, any>},
+  response: any,
+): Promise<void> {
   const rawJson = request.params.path
     ? await readFile(request.params.path, 'utf8')
     : request.params.snapshotJson;
   if (!rawJson) {
-    throw new Error('Either path or snapshotJson must be provided for action=load.');
+    throw new Error(
+      'Either path or snapshotJson must be provided for action=load.',
+    );
   }
 
   let parsed: unknown;
@@ -472,40 +586,50 @@ async function handleSessionStateLoad(request: {params: Record<string, any>}, re
   } catch {
     throw new Error('Invalid snapshot JSON content.');
   }
-  const normalizedRaw = parsed
-    && typeof parsed === 'object'
-    && (parsed as any).encrypted === true
-    && (parsed as any).algorithm === 'aes-256-gcm'
-    ? JSON.parse(decryptText(parsed as any))
-    : parsed;
+  const normalizedRaw =
+    parsed &&
+    typeof parsed === 'object' &&
+    (parsed as any).encrypted === true &&
+    (parsed as any).algorithm === 'aes-256-gcm'
+      ? JSON.parse(decryptText(parsed as any))
+      : parsed;
   const snapshot = normalizeSnapshot(normalizedRaw, request.params.sessionId);
   const targetId = request.params.sessionId ?? snapshot.id;
   const existing = sessionSnapshots.has(targetId);
   if (existing && request.params.overwrite !== true) {
-    throw new Error(`Session snapshot already exists: ${targetId}. Set overwrite=true to replace.`);
+    throw new Error(
+      `Session snapshot already exists: ${targetId}. Set overwrite=true to replace.`,
+    );
   }
 
   const normalized = normalizeSnapshot({...snapshot, id: targetId}, targetId);
   sessionSnapshots.set(targetId, normalized);
 
   response.appendResponseLine('```json');
-  response.appendResponseLine(JSON.stringify({
-    action: 'load',
-    sessionId: targetId,
-    loaded: true,
-    overwritten: existing,
-    counts: {
-      cookies: normalized.cookies.length,
-      localStorage: Object.keys(normalized.localStorage).length,
-      sessionStorage: Object.keys(normalized.sessionStorage).length,
-    },
-  }, null, 2));
+  response.appendResponseLine(
+    JSON.stringify(
+      {
+        action: 'load',
+        sessionId: targetId,
+        loaded: true,
+        overwritten: existing,
+        counts: {
+          cookies: normalized.cookies.length,
+          localStorage: Object.keys(normalized.localStorage).length,
+          sessionStorage: Object.keys(normalized.sessionStorage).length,
+        },
+      },
+      null,
+      2,
+    ),
+  );
   response.appendResponseLine('```');
 }
 
 export const sessionState = defineTool({
   name: 'session_state',
-  description: 'Manage in-memory session snapshots: save, restore, list, delete, dump, or load.',
+  description:
+    'Manage in-memory session snapshots: save, restore, list, delete, dump, or load.',
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
   schema: {
     action: zod.enum(['save', 'restore', 'list', 'delete', 'dump', 'load']),
@@ -551,7 +675,8 @@ export const sessionState = defineTool({
 
 export const checkBrowserHealth = defineTool({
   name: 'check_browser_health',
-  description: 'Check browser connectivity and active page readiness before running reverse workflows.',
+  description:
+    'Check browser connectivity and active page readiness before running reverse workflows.',
   annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
   schema: {
     pageIdx: zod.number().int().min(0).optional(),
@@ -574,14 +699,18 @@ export const checkBrowserHealth = defineTool({
     let url: string | null = null;
     let title: string | null = null;
     try {
-      await withRuntimePageContext(context, request.params.pageIdx, async () => {
-        const page = await runtime.pageController.getPage();
-        pageReady = true;
-        connected = true;
-        url = page.url();
-        title = await page.title();
-        await runtime.pageController.evaluate('1+1');
-      });
+      await withRuntimePageContext(
+        context,
+        request.params.pageIdx,
+        async () => {
+          const page = await runtime.pageController.getPage();
+          pageReady = true;
+          connected = true;
+          url = page.url();
+          title = await page.title();
+          await runtime.pageController.evaluate('1+1');
+        },
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push({
@@ -593,7 +722,8 @@ export const checkBrowserHealth = defineTool({
     if (!connected) {
       issues.push({
         code: 'BROWSER_DISCONNECTED',
-        message: 'Browser is not connected. Use browserUrl/wsEndpoint or start remote debugging.',
+        message:
+          'Browser is not connected. Use browserUrl/wsEndpoint or start remote debugging.',
       });
     }
 
@@ -606,8 +736,12 @@ export const checkBrowserHealth = defineTool({
       pageReady,
       currentPage: {url, title},
       recommendations: [
-        !connected ? 'Start Chrome with --remote-debugging-port and reconnect MCP.' : null,
-        connected && !pageReady ? 'Open/select a target page, then retry health check.' : null,
+        !connected
+          ? 'Start Chrome with --remote-debugging-port and reconnect MCP.'
+          : null,
+        connected && !pageReady
+          ? 'Open/select a target page, then retry health check.'
+          : null,
       ].filter((item): item is string => Boolean(item)),
       issues,
     };
