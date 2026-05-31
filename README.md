@@ -284,7 +284,7 @@ GEMINI_CLI_PATH=gemini-cli
 
 如果没配外部 AI，典型影响是：
 
-- `understand_code` 会直接报 provider 未配置
+- `understand_code` 会先返回本地静态分析结果，并在 `aiRuntime` 里提示 provider / CLI fallback 状态
 - `detect_crypto(useAI=true)` 会退回本地分析或忽略 AI 增强
 - `deobfuscate_code` 仍可跑，但某些高难度混淆的解释和清理质量会下降
 
@@ -488,6 +488,8 @@ npm run coverage:full
 更多问题排查请看：
 
 - [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/guides/troubleshooting.md](docs/guides/troubleshooting.md)
 
 ## 参考项目
 

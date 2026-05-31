@@ -487,3 +487,26 @@ GEMINI_CLI_PATH = "gemini-cli"
 5. 调用 `understand_code` 分析一小段代码
 
 如果返回 provider 未配置错误，通常说明 MCP server 的 `env` 没有传进去，而不是工具本身有问题。
+
+## 常见配置问题
+
+### `tools: none`
+
+`tools: none` 不是 compact 模式。compact 仍会暴露 47 个高频工具，full 会暴露全部 94 个工具。
+
+如果客户端显示 none，优先检查：
+
+- `npm run build` 是否已经成功执行
+- `args` 里是否使用绝对路径 `/ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js`
+- 客户端是否在改完配置后完全重启
+- 本地执行 `node /ABSOLUTE/PATH/JSReverser-MCP/build/src/index.js --doctor` 是否正常
+
+更多排查见 [docs/guides/troubleshooting.md](troubleshooting.md)。
+
+### AI 和 `useAI`
+
+`useAI` 是工具调用参数，不需要也不能配成环境变量。
+
+- `understand_code` 会先做本地静态分析；AI 不可用时会回退，并通过 `aiRuntime` 暴露原因
+- `detect_crypto` 只有在调用参数里传 `useAI=true` 时才启用 AI 增强
+- 外部 AI provider 通过 MCP server 的 `env` 配置，例如 `DEFAULT_LLM_PROVIDER` 和对应 API key

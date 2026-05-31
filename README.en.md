@@ -229,6 +229,8 @@ Notes:
 - `DEFAULT_LLM_PROVIDER` selects the default provider.
 - `gemini` supports two modes: API mode when `GEMINI_API_KEY` is present, or CLI mode via `GEMINI_CLI_PATH`.
 - `openai` and `anthropic` require their own API keys.
+- `understand_code` still returns local static analysis when AI is unavailable and includes `aiRuntime` so clients can see provider or fallback status.
+- `useAI` is a tool parameter, not an environment variable. Pass it on tools such as `detect_crypto` when you want optional AI enhancement.
 
 ## Standard Task Layout
 
@@ -418,6 +420,8 @@ npm run coverage:full
 See:
 
 - [docs/guides/browser-connection.md](docs/guides/browser-connection.md)
+- [docs/guides/client-configuration.md](docs/guides/client-configuration.md)
+- [docs/guides/troubleshooting.md](docs/guides/troubleshooting.md)
 
 ## Upstream References
 

@@ -45,6 +45,15 @@ describe('reverse workflow docs', () => {
     const clientConfigurationGuide = await readRepoFile(
       'docs/guides/client-configuration.md',
     );
+    const troubleshootingGuide = await readRepoFile(
+      'docs/guides/troubleshooting.md',
+    );
+    const browserConnectionGuide = await readRepoFile(
+      'docs/guides/browser-connection.md',
+    );
+    const clientSystemPromptGuide = await readRepoFile(
+      'docs/guides/client-system-prompt.md',
+    );
     const quickReferenceGuide = await readRepoFile(
       'docs/guides/mcp-agent-quick-reference.md',
     );
@@ -120,6 +129,21 @@ describe('reverse workflow docs', () => {
     );
     assert.ok(clientConfigurationGuide.includes('只暴露 47 个高频工具'));
     assert.ok(clientConfigurationGuide.includes('暴露全部 94 个工具'));
+    assert.ok(clientConfigurationGuide.includes('`tools: none`'));
+    assert.ok(clientConfigurationGuide.includes('useAI` 是工具调用参数'));
+    assert.ok(troubleshootingGuide.includes('客户端显示 `tools: none`'));
+    assert.ok(troubleshootingGuide.includes('启动后访问地址不通'));
+    assert.ok(troubleshootingGuide.includes('AI 配置和 `useAI`'));
+    assert.ok(troubleshootingGuide.includes('Codex 不愿意继续分析'));
+    assert.ok(troubleshootingGuide.includes('webSocketDebuggerUrl'));
+    assert.ok(troubleshootingGuide.includes('`understand_code` 的行为'));
+    assert.ok(troubleshootingGuide.includes('返回里会带 `aiRuntime`'));
+    assert.ok(
+      browserConnectionGuide.includes(
+        '不是 HTTP Web 服务；没有项目主页需要访问',
+      ),
+    );
+    assert.ok(clientSystemPromptGuide.includes('Codex 使用边界'));
     assert.ok(readme.includes('文档入口'));
     assert.match(
       readme,
