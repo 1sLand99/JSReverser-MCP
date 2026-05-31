@@ -135,7 +135,12 @@ node build/src/index.js --validate-parameter-workflow docs/knowledge/parameter-b
 - `navigate_page`：跳转、回退、刷新当前页面。
 - `query_dom`：查询页面元素，确认选择器和节点状态。
 - `click_element`：按选择器触发点击，复现页面动作。
+- `hover_element` / `select_option`：处理菜单悬停和原生下拉框选择。
 - `type_text`：向输入框写入文本，驱动表单交互。
+- `press_key` / `upload_file`：补齐键盘提交和文件上传场景。
+- `scroll_page` / `wait_for_network_idle`：稳定触发懒加载和请求结束后的取证。
+- `set_viewport` / `emulate_device`：复现移动端或特定视口下的签名链路。
+- `get_all_links`：快速盘点页面链接，辅助发现跳转入口。
 - `take_screenshot`：截取页面当前状态，保留可视化证据。
 
 ### 深度分析
@@ -367,11 +372,11 @@ GEMINI_CLI_PATH=gemini-cli
 ## 工具暴露模式
 
 默认启动使用 `--toolProfile compact`。
-该模式只暴露 38 个高频工具，用来减少 MCP tool list 占用的 token。
+该模式只暴露 47 个高频工具，用来减少 MCP tool list 占用的 token。
 这不是缺工具，而是默认把低频手工调试工具隐藏起来。
 
 需要全量工具时，使用 `--toolProfile full`。
-`full` 会暴露全部 85 个工具，包括暂停、单步、断点、WebSocket 细节和 DOM 细调工具。
+`full` 会暴露全部 94 个工具，包括暂停、单步、断点、WebSocket 细节和 DOM 细调工具。
 深度人工调试、精确断点排查、WebSocket 消息深挖时再切换到 `full`。
 
 ```bash
@@ -490,6 +495,7 @@ npm run coverage:full
 
 - https://github.com/wuji66dde/jshook-skill
 - https://github.com/zhizhuodemao/js-reverse-mcp
+- https://github.com/ChromeDevTools/chrome-devtools-mcp
 
 ## License
 

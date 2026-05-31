@@ -107,16 +107,19 @@ describe('reverse workflow docs', () => {
     assert.ok(readme.includes('第一次启动建议'));
     assert.ok(readme.includes('工具暴露模式'));
     assert.ok(readme.includes('默认启动使用 `--toolProfile compact`'));
-    assert.ok(readme.includes('只暴露 38 个高频工具'));
-    assert.ok(readme.includes('`full` 会暴露全部 85 个工具'));
+    assert.ok(readme.includes('只暴露 47 个高频工具'));
+    assert.ok(readme.includes('`full` 会暴露全部 94 个工具'));
+    assert.ok(
+      readme.includes('https://github.com/ChromeDevTools/chrome-devtools-mcp'),
+    );
     assert.ok(readme.includes('--traceOutput errors'));
     assert.ok(
       clientConfigurationGuide.includes(
         '默认配置不写 `--toolProfile`，等价于 `--toolProfile compact`。',
       ),
     );
-    assert.ok(clientConfigurationGuide.includes('只暴露 38 个高频工具'));
-    assert.ok(clientConfigurationGuide.includes('暴露全部 85 个工具'));
+    assert.ok(clientConfigurationGuide.includes('只暴露 47 个高频工具'));
+    assert.ok(clientConfigurationGuide.includes('暴露全部 94 个工具'));
     assert.ok(readme.includes('文档入口'));
     assert.match(
       readme,
@@ -241,6 +244,10 @@ describe('reverse workflow docs', () => {
     assert.ok(toolReference.includes('diagnose_environment'));
     assert.ok(toolReference.includes('recommend_next_step'));
     assert.ok(toolReference.includes('explain_reverse_stage'));
+    assert.ok(toolReference.includes('hover_element'));
+    assert.ok(toolReference.includes('select_option'));
+    assert.ok(toolReference.includes('wait_for_network_idle'));
+    assert.ok(toolReference.includes('set_viewport'));
     assert.ok(toolReference.includes('orchestrate_reverse_task'));
     assert.ok(toolReference.includes('run_reverse_agent'));
     assert.ok(toolReference.includes('generatedArtifacts'));

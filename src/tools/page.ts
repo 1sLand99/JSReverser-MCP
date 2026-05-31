@@ -308,6 +308,113 @@ export const typeText = defineTool({
   },
 });
 
+export const hoverElement = defineTool({
+  name: 'hover_element',
+  description: 'Hover over an element by selector.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    selector: zod.string(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.hover(request.params.selector),
+    );
+    response.appendResponseLine('Element hovered.');
+  },
+});
+
+export const selectOption = defineTool({
+  name: 'select_option',
+  description: 'Select one or more values in a native select element.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    selector: zod.string(),
+    values: zod.array(zod.string()).min(1),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.select(
+        request.params.selector,
+        ...request.params.values,
+      ),
+    );
+    response.appendResponseLine('Option selected.');
+  },
+});
+
+export const scrollPage = defineTool({
+  name: 'scroll_page',
+  description: 'Scroll the page to absolute x/y coordinates.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    x: zod.number().optional(),
+    y: zod.number().optional(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.scroll({
+        x: request.params.x,
+        y: request.params.y,
+      }),
+    );
+    response.appendResponseLine('Page scrolled.');
+  },
+});
+
+export const pressKey = defineTool({
+  name: 'press_key',
+  description: 'Press a keyboard key on the active page.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    key: zod.string(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.pressKey(request.params.key),
+    );
+    response.appendResponseLine('Key pressed.');
+  },
+});
+
+export const uploadFile = defineTool({
+  name: 'upload_file',
+  description: 'Upload a local file through a file input selector.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    selector: zod.string(),
+    filePath: zod.string(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.uploadFile(
+        request.params.selector,
+        request.params.filePath,
+      ),
+    );
+    response.appendResponseLine('File uploaded.');
+  },
+});
+
 export const waitForElement = defineTool({
   name: 'wait_for_element',
   description: 'Wait for selector to appear.',
@@ -336,6 +443,25 @@ export const waitForElement = defineTool({
   },
 });
 
+export const waitForNetworkIdle = defineTool({
+  name: 'wait_for_network_idle',
+  description: 'Wait until the page network becomes idle.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    timeout: zod.number().int().positive().optional(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.waitForNetworkIdle(request.params.timeout),
+    );
+    response.appendResponseLine('Network is idle.');
+  },
+});
+
 export const getPerformanceMetrics = defineTool({
   name: 'get_performance_metrics',
   description: 'Get page performance metrics from Performance API.',
@@ -354,6 +480,70 @@ export const getPerformanceMetrics = defineTool({
     );
     response.appendResponseLine('```json');
     response.appendResponseLine(JSON.stringify(metrics, null, 2));
+    response.appendResponseLine('```');
+  },
+});
+
+export const setViewport = defineTool({
+  name: 'set_viewport',
+  description: 'Set the active page viewport size.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    width: zod.number().int().positive(),
+    height: zod.number().int().positive(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.setViewport(
+        request.params.width,
+        request.params.height,
+      ),
+    );
+    response.appendResponseLine('Viewport updated.');
+  },
+});
+
+export const emulateDevice = defineTool({
+  name: 'emulate_device',
+  description: 'Emulate a common mobile device profile.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: false},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+    deviceName: zod.enum(['iPhone', 'iPad', 'Android']),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    await withRuntimePageContext(context, request.params.pageIdx, () =>
+      runtime.pageController.emulateDevice(request.params.deviceName),
+    );
+    response.appendResponseLine('Device emulation updated.');
+  },
+});
+
+export const getAllLinks = defineTool({
+  name: 'get_all_links',
+  description: 'List links on the active page.',
+  annotations: {category: ToolCategory.NAVIGATION, readOnlyHint: true},
+  schema: {
+    pageIdx: zod.number().int().min(0).optional(),
+  },
+  handler: async (request, response, context) => {
+    ensureCleanupLoop();
+    cleanupExpiredSessions();
+    const runtime = getJSHookRuntime();
+    const links = await withRuntimePageContext(
+      context,
+      request.params.pageIdx,
+      () => runtime.pageController.getAllLinks(),
+    );
+    response.appendResponseLine('```json');
+    response.appendResponseLine(JSON.stringify(links, null, 2));
     response.appendResponseLine('```');
   },
 });

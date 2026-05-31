@@ -4,33 +4,102 @@
 
 > 快速按逆向目标查工具，请先看：[`docs/reference/reverse-task-index.md`](./reverse-task-index.md)
 
-- **[Navigation automation](#navigation-automation)** (14 tools)
+## Agent Response Contracts
+
+Reverse-task tools return agent-oriented response fields for low-token continuation and recovery.
+
+Common fields include `schemaVersion`, `responseSummary`, `diagnostics`, `outcome`, `agentGuidance`, `recommendedStrategy`, `artifacts`, `generatedArtifacts`, `outputMode`, `fallbackPlan`, `continuation`, `targetActionDescription`, `otherTaskId`, `pruneOlderThanDays`, and `strategy`.
+
+### Compact response example (`manage_reverse_task:get`)
+
+```json
+{
+  "schemaVersion": "1.0",
+  "responseSummary": "Task loaded.",
+  "continuation": {
+    "invoke": "manage_reverse_task",
+    "invokeHint": {
+      "requiredParams": ["taskId"],
+      "optionalParams": ["outputMode"]
+    }
+  },
+  "agentGuidance": {
+    "recommendedStrategy": "observe-first"
+  },
+  "artifacts": ["task.json"]
+}
+```
+
+### Failure response example (`env_error`, resumable)
+
+```json
+{
+  "schemaVersion": "1.0",
+  "outcome": "blocked",
+  "errorType": "env_error",
+  "fallbackPlan": {
+    "recommendedStrategy": "env-fix"
+  },
+  "continuation": {
+    "invoke": "orchestrate_reverse_task",
+    "invokeHint": {
+      "requiredParams": ["runtimeError", "observedCapabilities"]
+    }
+  }
+}
+```
+
+### Blocked response example
+
+```json
+{
+  "schemaVersion": "1.0",
+  "outcome": "blocked",
+  "blockedBy": ["missing runtime evidence"],
+  "agentGuidance": {
+    "recommendedStrategy": "evidence-only"
+  }
+}
+```
+
+- **[Navigation automation](#navigation-automation)** (23 tools)
   - [`check_browser_health`](#check_browser_health)
   - [`click_element`](#click_element)
   - [`diagnose_environment`](#diagnose_environment)
+  - [`emulate_device`](#emulate_device)
   - [`find_clickable_elements`](#find_clickable_elements)
+  - [`get_all_links`](#get_all_links)
   - [`get_dom_structure`](#get_dom_structure)
   - [`get_performance_metrics`](#get_performance_metrics)
+  - [`hover_element`](#hover_element)
   - [`list_pages`](#list_pages)
   - [`navigate_page`](#navigate_page)
   - [`new_page`](#new_page)
+  - [`press_key`](#press_key)
   - [`query_dom`](#query_dom)
+  - [`scroll_page`](#scroll_page)
+  - [`select_option`](#select_option)
   - [`select_page`](#select_page)
   - [`session_state`](#session_state)
+  - [`set_viewport`](#set_viewport)
   - [`type_text`](#type_text)
+  - [`upload_file`](#upload_file)
   - [`wait_for_element`](#wait_for_element)
+  - [`wait_for_network_idle`](#wait_for_network_idle)
 - **[Network](#network)** (5 tools)
   - [`analyze_websocket_messages`](#analyze_websocket_messages)
   - [`get_websocket_message`](#get_websocket_message)
   - [`get_websocket_messages`](#get_websocket_messages)
   - [`list_websocket_connections`](#list_websocket_connections)
   - [`network_request`](#network_request)
-- **[Debugging](#debugging)** (4 tools)
+- **[Debugging](#debugging)** (6 tools)
   - [`console_message`](#console_message)
   - [`evaluate_script`](#evaluate_script)
   - [`inject_preload_script`](#inject_preload_script)
+  - [`list_frames`](#list_frames)
+  - [`select_frame`](#select_frame)
   - [`take_screenshot`](#take_screenshot)
-- **[JS Reverse Engineering](#js-reverse-engineering)** (53 tools)
+- **[JS Reverse Engineering](#js-reverse-engineering)** (60 tools)
   - [`analyze_target`](#analyze_target)
   - [`breakpoint`](#breakpoint)
   - [`collect_code`](#collect_code)
@@ -39,13 +108,18 @@
   - [`create_reverse_task_from_request`](#create_reverse_task_from_request)
   - [`deobfuscate_code`](#deobfuscate_code)
   - [`detect_crypto`](#detect_crypto)
+  - [`diff_env_requirements`](#diff_env_requirements)
   - [`evaluate_on_callframe`](#evaluate_on_callframe)
   - [`explain_reverse_stage`](#explain_reverse_stage)
+  - [`export_portable_bundle`](#export_portable_bundle)
+  - [`export_rebuild_bundle`](#export_rebuild_bundle)
   - [`export_session_report`](#export_session_report)
+  - [`extract_function_tree`](#extract_function_tree)
   - [`find_in_script`](#find_in_script)
   - [`get_hook_data`](#get_hook_data)
   - [`get_parameter_workflow`](#get_parameter_workflow)
   - [`get_paused_info`](#get_paused_info)
+  - [`get_rebuild_health_report`](#get_rebuild_health_report)
   - [`get_reference`](#get_reference)
   - [`get_reference_route`](#get_reference_route)
   - [`get_request_initiator`](#get_request_initiator)
@@ -60,10 +134,10 @@
   - [`list_scripts`](#list_scripts)
   - [`list_stealth_features`](#list_stealth_features)
   - [`list_stealth_presets`](#list_stealth_presets)
+  - [`locate_signature_function`](#locate_signature_function)
   - [`manage_reverse_task`](#manage_reverse_task)
   - [`monitor_events`](#monitor_events)
   - [`orchestrate_reverse_task`](#orchestrate_reverse_task)
-  - [`run_reverse_agent`](#run_reverse_agent)
   - [`pause`](#pause)
   - [`recommend_next_step`](#recommend_next_step)
   - [`recommend_parameter_workflow`](#recommend_parameter_workflow)
@@ -71,7 +145,7 @@
   - [`remove_hook`](#remove_hook)
   - [`resume`](#resume)
   - [`risk_panel`](#risk_panel)
-  - [`export_portable_bundle`](#export_portable_bundle)
+  - [`run_reverse_agent`](#run_reverse_agent)
   - [`search_in_scripts`](#search_in_scripts)
   - [`search_in_sources`](#search_in_sources)
   - [`set_breakpoint_on_text`](#set_breakpoint_on_text)
@@ -110,6 +184,15 @@
 
 **Description:** Run static environment diagnostics for startup, AI provider setup, and artifact output paths.
 
+### `emulate_device`
+
+**Description:** Emulate a common mobile device profile.
+
+**Parameters:**
+
+- `pageIdx`
+- `deviceName`
+
 ### `find_clickable_elements`
 
 **Description:** Find clickable buttons/links, optionally filtered by text.
@@ -118,6 +201,14 @@
 
 - `pageIdx`
 - `filterText`
+
+### `get_all_links`
+
+**Description:** List links on the active page.
+
+**Parameters:**
+
+- `pageIdx`
 
 ### `get_dom_structure`
 
@@ -136,6 +227,15 @@
 **Parameters:**
 
 - `pageIdx`
+
+### `hover_element`
+
+**Description:** Hover over an element by selector.
+
+**Parameters:**
+
+- `pageIdx`
+- `selector`
 
 ### `list_pages`
 
@@ -162,6 +262,15 @@
 - `url`
 - `timeout`
 
+### `press_key`
+
+**Description:** Press a keyboard key on the active page.
+
+**Parameters:**
+
+- `pageIdx`
+- `key`
+
 ### `query_dom`
 
 **Description:** Query one or multiple elements by CSS selector.
@@ -172,6 +281,26 @@
 - `selector`
 - `all`
 - `limit`
+
+### `scroll_page`
+
+**Description:** Scroll the page to absolute x/y coordinates.
+
+**Parameters:**
+
+- `pageIdx`
+- `x`
+- `y`
+
+### `select_option`
+
+**Description:** Select one or more values in a native select element.
+
+**Parameters:**
+
+- `pageIdx`
+- `selector`
+- `values`
 
 ### `select_page`
 
@@ -201,6 +330,16 @@
 - `snapshotJson`
 - `overwrite`
 
+### `set_viewport`
+
+**Description:** Set the active page viewport size.
+
+**Parameters:**
+
+- `pageIdx`
+- `width`
+- `height`
+
 ### `type_text`
 
 **Description:** Type text into an input element.
@@ -212,6 +351,16 @@
 - `text`
 - `delay`
 
+### `upload_file`
+
+**Description:** Upload a local file through a file input selector.
+
+**Parameters:**
+
+- `pageIdx`
+- `selector`
+- `filePath`
+
 ### `wait_for_element`
 
 **Description:** Wait for selector to appear.
@@ -220,6 +369,15 @@
 
 - `pageIdx`
 - `selector`
+- `timeout`
+
+### `wait_for_network_idle`
+
+**Description:** Wait until the page network becomes idle.
+
+**Parameters:**
+
+- `pageIdx`
 - `timeout`
 
 ## Network
@@ -317,6 +475,18 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `script`
+
+### `list_frames`
+
+**Description:** Lists all frames (including iframes) in the current page as a tree. Shows frame index, name, and URL. Use select_frame to switch execution context to a specific frame.
+
+### `select_frame`
+
+**Description:** Selects a frame (by index from list_frames) as the execution context for evaluate_script, hook_function, inspect_object, and other tools that run JavaScript in the page.
+
+**Parameters:**
+
+- `frameIdx`
 
 ### `take_screenshot`
 
@@ -436,6 +606,15 @@ so returned values have to JSON-serializable.
 - `code`
 - `useAI`
 
+### `diff_env_requirements`
+
+**Description:** Compare local runtime failures with observed browser capabilities and suggest the next environment patches.
+
+**Parameters:**
+
+- `runtimeError`
+- `observedCapabilities`
+
 ### `evaluate_on_callframe`
 
 **Description:** Evaluates a JavaScript expression in the context of a specific call frame while paused. This allows you to inspect variables and execute code in the paused scope.
@@ -444,19 +623,6 @@ so returned values have to JSON-serializable.
 
 - `expression`
 - `frameIndex`
-
-### `extract_function_tree`
-
-**Description:** Extract a target function and its local dependency tree from one script, returning a compact code slice for follow-up reverse analysis.
-
-**Parameters:**
-
-- `pageIdx`
-- `scriptId`
-- `functionName`
-- `maxDepth`
-- `maxSize`
-- `includeComments`
 
 ### `explain_reverse_stage`
 
@@ -467,6 +633,40 @@ so returned values have to JSON-serializable.
 - `stage`
 - `includeDocs`
 
+### `export_portable_bundle`
+
+**Description:** Collapse existing analysis artifacts into portable single-file outputs for pure extraction and local rebuild.
+
+**Parameters:**
+
+- `taskId`
+- `artifactMode`
+- `includePurePortable`
+- `includeRebuildPortable`
+
+### `export_rebuild_bundle`
+
+**Description:** Export a local Node rebuild bundle from observed reverse-engineering evidence.
+
+**Parameters:**
+
+- `taskId`
+- `taskSlug`
+- `targetUrl`
+- `goal`
+- `autoGenerate`
+- `autoExportPortable`
+- `targetKeywords`
+- `targetUrlPatterns`
+- `targetFunctionNames`
+- `targetActionDescription`
+- `maxEvidenceItems`
+- `entryCode`
+- `envCode`
+- `polyfillsCode`
+- `capture`
+- `notes`
+
 ### `export_session_report`
 
 **Description:** Export current reverse-engineering session as JSON or Markdown.
@@ -475,6 +675,24 @@ so returned values have to JSON-serializable.
 
 - `format`
 - `includeHookData`
+
+### `extract_function_tree`
+
+**Description:** Extracts a target function and its local dependency tree from a script, returning a compact code slice for follow-up reverse analysis.
+
+**Parameters:**
+
+- `pageIdx`
+- `taskId`
+- `taskSlug`
+- `targetUrl`
+- `goal`
+- `persistResult`
+- `scriptId`
+- `functionName`
+- `maxDepth`
+- `maxSize`
+- `includeComments`
 
 ### `find_in_script`
 
@@ -516,6 +734,16 @@ so returned values have to JSON-serializable.
 - `pageIdx`
 - `includeScopes`
 - `maxScopeDepth`
+
+### `get_rebuild_health_report`
+
+**Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
+
+**Parameters:**
+
+- `taskId`
+- `outputMode`
+- `observedCapabilities`
 
 ### `get_reference`
 
@@ -631,19 +859,6 @@ so returned values have to JSON-serializable.
 - `pageIdx`
 - `filter`
 
-### `locate_signature_function`
-
-**Description:** Collect candidate scripts and rank likely signature-generation functions for a target parameter.
-
-**Parameters:**
-
-- `url`
-- `targetParam`
-- `relatedParams`
-- `topN`
-- `maxCandidates`
-- `collect`
-
 ### `list_stealth_features`
 
 **Description:** List available stealth feature toggles.
@@ -652,11 +867,29 @@ so returned values have to JSON-serializable.
 
 **Description:** List available stealth presets.
 
+### `locate_signature_function`
+
+**Description:** Collect candidate scripts and rank likely signature-generation functions for a target parameter.
+
+**Parameters:**
+
+- `url`
+- `taskId`
+- `taskSlug`
+- `goal`
+- `persistResult`
+- `targetParam`
+- `relatedParams`
+- `candidateScripts`
+- `observedFunctions`
+- `preferredUrlPatterns`
+- `topN`
+- `maxCandidates`
+- `collect`
+
 ### `manage_reverse_task`
 
 **Description:** Unified reverse task entry for list/get/summarize/progress/update/timeline/archive/restore/search/tag/prune/compare actions. Preferred task-management entry to reduce tool-selection overhead.
-
-**Response note:** Returns `agentGuidance` for agent-ready next-step hints, including `recommendedStrategy`, plus `artifacts` for the main task files touched/read by the action. Also exposes top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for agent callers. `continuation.invoke` can be used as the direct next MCP call, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, redundant next-step fields may be trimmed in favor of `continuation`. Some actions also enforce action-specific validation such as `search => query|tag`, `tag => tags`, and `update => at least one mutable field`.
 
 **Parameters:**
 
@@ -688,54 +921,6 @@ so returned values have to JSON-serializable.
 - `next`
 - `detail`
 
-**Compact response example (`manage_reverse_task:get`):**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "responseSummary": "已返回任务 task-demo-001 的快照。",
-  "diagnostics": {
-    "responseStatus": "ok",
-    "action": "get",
-    "outputMode": "compact",
-    "taskId": "task-demo-001"
-  },
-  "continuation": {
-    "invoke": {
-      "tool": "manage_reverse_task",
-      "params": {
-        "action": "progress",
-        "taskId": "task-demo-001"
-      }
-    },
-    "invokeHint": {
-      "requiredParams": ["action", "taskId"],
-      "example": {
-        "action": "progress",
-        "taskId": "task-demo-001"
-      }
-    }
-  }
-}
-```
-
-**Blocked response example:**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "outcome": "blocked",
-  "shouldResume": false,
-  "errorType": "task_blocked",
-  "retryable": false,
-  "blockedBy": "task_state",
-  "continuation": {
-    "ready": false,
-    "reason": "任务当前处于 blocked 状态，需先解除阻塞。"
-  }
-}
-```
-
 ### `monitor_events`
 
 **Description:** Monitors DOM events on a specified element or window. Events will be logged to console.
@@ -754,191 +939,20 @@ so returned values have to JSON-serializable.
 
 **Description:** High-level reverse-task orchestrator that syncs task state, picks the primary next step, and returns a compact execution plan.
 
-**Response note:** Returns `agentGuidance` with a recommended next tool / params / strategy / resume hint, plus top-level `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation` for low-token continuation. `continuation.invoke` can be executed directly, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, prefer `continuation` because duplicate guidance blocks may be omitted.
-
 **Parameters:**
 
 - `taskId`
 - `persistState`
 - `includeSummary`
-- `outputMode`
 - `execute`
 - `resume`
 - `stopOnError`
+- `strategy`
+- `outputMode`
 - `skipSteps`
 - `fromStep`
 - `onlySteps`
-- `strategy`
 - `executionOverrides`
-
-**Failure note:** May also return `fallbackPlan` when execution fails and the orchestrator can suggest a safer next path. `fallbackPlan` may include `recommendedStrategy`.
-
-**Compact response example:**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "responseSummary": "已生成任务 task-demo-001 的 compact orchestration plan。",
-  "detailLevel": "minimal",
-  "continuation": {
-    "invoke": {
-      "tool": "export_rebuild_bundle",
-      "params": {
-        "taskId": "task-demo-001"
-      }
-    },
-    "invokeHint": {
-      "requiredParams": ["taskId"],
-      "example": {
-        "taskId": "task-demo-001"
-      }
-    }
-  }
-}
-```
-
-**Failure response example (`env_error`, resumable):**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "outcome": "partial",
-  "shouldResume": true,
-  "shouldSwitchStrategy": true,
-  "errorType": "env_error",
-  "retryable": true,
-  "blockedBy": "environment",
-  "continuation": {
-    "invoke": {
-      "tool": "diff_env_requirements",
-      "params": {
-        "runtimeError": "window is not defined",
-        "observedCapabilities": ["window", "document"]
-      }
-    }
-  }
-}
-```
-
-### `run_reverse_agent`
-
-**Description:** One-shot reverse agent entry that repeatedly advances the reverse main chain. It supports `goalMode` to stop at function-slice only, generate normal PureExtraction drafts, or generate a more explicit port-ready return contract draft.
-
-**Response note:** Returns the same agent-facing continuation fields as orchestration tools, plus a `run` block describing `roundsExecuted`, `stopReason`, and each round's `primaryTool`. Also returns `generatedArtifacts` so external agent/client can directly read the newly scaffolded task-local files.
-
-**Parameters:**
-
-- `taskId`
-- `maxRounds`
-- `strategy`
-- `goalMode`
-- `outputMode`
-- `includeSummary`
-
-**Goal modes:**
-
-- `signature-only`
-- `pure-draft`
-- `port-ready`（会在 `run/pure-main.js` 里补 `PORT_CONTRACT` 和 adapter boundary 草稿）
-
-**Typical stop reasons:**
-
-- `pure_extraction_ready`
-- `blocked`
-- `checkpoint_required`
-- `stalled`
-- `max_rounds`
-
-**Compact response example:**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "responseSummary": "已自动执行 task task-demo-001 的 reverse agent，共 4 轮，停止原因：pure_extraction_ready。",
-  "detailLevel": "minimal",
-  "generatedArtifacts": [
-    "understand-code.json",
-    "deobfuscate-code.json",
-    "pure-extraction.json",
-    "run/fixtures.json",
-    "run/pure-main.js",
-    "run/pure-selftest.test.mjs"
-  ],
-  "run": {
-    "roundsExecuted": 4,
-    "stopReason": "pure_extraction_ready",
-    "goalMode": "pure-draft"
-  },
-  "continuation": {
-    "invoke": {
-      "tool": "manage_reverse_task",
-      "params": {
-        "action": "summarize",
-        "taskId": "task-demo-001"
-      }
-    }
-  }
-}
-```
-
-### `export_portable_bundle`
-
-**Description:** Collapse existing task-local analysis artifacts into portable delivery files. It keeps the original analysis artifacts untouched and only generates compact outputs for carrying or handoff.
-
-**Parameters:**
-
-- `taskId`
-- `artifactMode`
-- `includePurePortable`
-- `includeRebuildPortable`
-
-**Artifact modes:**
-
-- `portable`
-- `pure`
-- `rebuild`
-
-**Typical outputs:**
-
-- `run/portable.js`
-- `env/replay.js`
-
-### `get_rebuild_health_report`
-
-**Description:** Produce a compact rebuild health report for one reverse task, including env blockers, evidence aggregates, and next fixes.
-
-**Response note:** Returns `agentGuidance` plus a top-level `recommendedNextAction`, `artifacts`, `responseSummary`, `diagnostics`, `outcome`, `shouldResume`, `shouldSwitchStrategy`, `nextBestTool`, `nextBestParams`, `errorCode`, `errorType`, `retryable`, `blockedBy`, `detailLevel`, `routeGuard`, and `continuation`; `agentGuidance.recommendedStrategy` can be used to pick the next orchestration template. `continuation.invoke` can be executed directly, and `continuation.invokeHint` exposes required / optional params plus an example payload. In `outputMode=compact`, duplicate guidance blocks may be trimmed while `continuation` remains available.
-
-**Parameters:**
-
-- `taskId`
-- `outputMode`
-- `observedCapabilities`
-
-**Compact response example:**
-
-```json
-{
-  "schemaVersion": "1.0",
-  "responseSummary": "已生成任务 task-demo-001 的 rebuild health report。",
-  "continuation": {
-    "invoke": {
-      "tool": "diff_env_requirements",
-      "params": {
-        "runtimeError": "window is not defined",
-        "observedCapabilities": ["window", "document"]
-      }
-    },
-    "invokeHint": {
-      "requiredParams": ["runtimeError", "observedCapabilities"],
-      "example": {
-        "runtimeError": "window is not defined",
-        "observedCapabilities": ["window", "document"]
-      }
-    }
-  }
-}
-```
 
 ### `pause`
 
@@ -1019,6 +1033,20 @@ so returned values have to JSON-serializable.
 - `hookId`
 - `topN`
 
+### `run_reverse_agent`
+
+**Description:** One-shot reverse agent entry: repeatedly plans and executes the main reverse chain until blocked, stalled, or reaching the analysis checkpoint.
+
+**Parameters:**
+
+- `taskId`
+- `maxRounds`
+- `strategy`
+- `goalMode`
+- `autoExportPortable`
+- `outputMode`
+- `includeSummary`
+
 ### `search_in_scripts`
 
 **Description:** Search in collected script cache with regex pattern.
@@ -1036,6 +1064,11 @@ so returned values have to JSON-serializable.
 **Parameters:**
 
 - `pageIdx`
+- `taskId`
+- `taskSlug`
+- `targetUrl`
+- `goal`
+- `persistResult`
 - `query`
 - `caseSensitive`
 - `isRegex`

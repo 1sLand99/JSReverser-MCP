@@ -132,7 +132,12 @@ Use the minimum page actions needed to reproduce a flow.
 - `navigate_page`
 - `query_dom`
 - `click_element`
+- `hover_element` / `select_option`
 - `type_text`
+- `press_key` / `upload_file`
+- `scroll_page` / `wait_for_network_idle`
+- `set_viewport` / `emulate_device`
+- `get_all_links`
 - `take_screenshot`
 
 ### Deep Analysis
@@ -300,11 +305,11 @@ See:
 ## Tool Exposure Modes
 
 The default startup mode is `--toolProfile compact`.
-This mode exposes 38 high-frequency tools to reduce MCP tool-list token usage.
+This mode exposes 47 high-frequency tools to reduce MCP tool-list token usage.
 It does not mean tools are missing; low-frequency manual debugging tools are hidden by default.
 
 Use `--toolProfile full` when you need the complete tool set.
-`full` exposes all 85 tools, including pause, stepping, breakpoints, WebSocket details, and fine-grained DOM controls.
+`full` exposes all 94 tools, including pause, stepping, breakpoints, WebSocket details, and fine-grained DOM controls.
 Switch to `full` for deep manual debugging, precise breakpoint work, or WebSocket message inspection.
 
 ```bash
@@ -421,6 +426,7 @@ Actual licenses such as MIT should be checked in the corresponding upstream repo
 
 - https://github.com/wuji66dde/jshook-skill
 - https://github.com/zhizhuodemao/js-reverse-mcp
+- https://github.com/ChromeDevTools/chrome-devtools-mcp
 
 ## License
 

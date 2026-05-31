@@ -17,7 +17,7 @@
 ## 工具暴露模式
 
 默认配置不写 `--toolProfile`，等价于 `--toolProfile compact`。
-`compact` 只暴露 38 个高频工具，目的是减少 MCP tool list 进入模型上下文时的 token 占用。
+`compact` 只暴露 47 个高频工具，目的是减少 MCP tool list 进入模型上下文时的 token 占用。
 这不是缺工具；低频手工调试工具只是默认隐藏。
 
 需要全量工具时，在 `args` 里加入：
@@ -27,7 +27,7 @@
 "full"
 ```
 
-`full` 会暴露全部 85 个工具。
+`full` 会暴露全部 94 个工具。
 适合需要暂停、单步、断点、WebSocket 细节、DOM 细调等深度人工调试场景。
 
 成功响应默认使用 `--traceOutput errors`，只在错误响应中携带 `traceId`。

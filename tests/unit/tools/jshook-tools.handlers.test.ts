@@ -39,9 +39,18 @@ import {
 import {
   checkBrowserHealth,
   clickElement,
+  emulateDevice,
+  getAllLinks,
   getPerformanceMetrics,
+  hoverElement,
+  pressKey,
+  scrollPage,
+  selectOption,
   sessionState,
+  setViewport,
   typeText,
+  uploadFile,
+  waitForNetworkIdle,
   waitForElement,
 } from '../../../src/tools/page.js';
 import {getJSHookRuntime} from '../../../src/tools/runtime.js';
@@ -111,10 +120,19 @@ interface RuntimeHarness {
     injectScript: RuntimeMethod;
     navigate: RuntimeMethod;
     click: RuntimeMethod;
+    hover: RuntimeMethod;
+    select: RuntimeMethod;
+    scroll: RuntimeMethod;
     type: RuntimeMethod;
+    pressKey: RuntimeMethod;
+    uploadFile: RuntimeMethod;
     waitForSelector: RuntimeMethod;
+    waitForNetworkIdle: RuntimeMethod;
     screenshot: RuntimeMethod;
     getPerformanceMetrics: RuntimeMethod;
+    setViewport: RuntimeMethod;
+    emulateDevice: RuntimeMethod;
+    getAllLinks: RuntimeMethod;
     getPage: RuntimeMethod;
     getCookies: RuntimeMethod;
     getLocalStorage: RuntimeMethod;
@@ -192,10 +210,19 @@ describe('jshook tools handlers', () => {
       injectScript: runtime.pageController.injectScript,
       navigate: runtime.pageController.navigate,
       click: runtime.pageController.click,
+      hover: runtime.pageController.hover,
+      select: runtime.pageController.select,
+      scroll: runtime.pageController.scroll,
       type: runtime.pageController.type,
+      pressKey: runtime.pageController.pressKey,
+      uploadFile: runtime.pageController.uploadFile,
       waitForSelector: runtime.pageController.waitForSelector,
+      waitForNetworkIdle: runtime.pageController.waitForNetworkIdle,
       screenshot: runtime.pageController.screenshot,
       metrics: runtime.pageController.getPerformanceMetrics,
+      setViewport: runtime.pageController.setViewport,
+      emulateDevice: runtime.pageController.emulateDevice,
+      getAllLinks: runtime.pageController.getAllLinks,
       getPage: runtime.pageController.getPage,
       getCookies: runtime.pageController.getCookies,
       getLocalStorage: runtime.pageController.getLocalStorage,
@@ -388,10 +415,21 @@ describe('jshook tools handlers', () => {
       url: 'https://a.com',
     });
     runtime.pageController.click = async () => undefined;
+    runtime.pageController.hover = async () => undefined;
+    runtime.pageController.select = async () => undefined;
+    runtime.pageController.scroll = async () => undefined;
     runtime.pageController.type = async () => undefined;
+    runtime.pageController.pressKey = async () => undefined;
+    runtime.pageController.uploadFile = async () => undefined;
     runtime.pageController.waitForSelector = async () => ({found: true});
+    runtime.pageController.waitForNetworkIdle = async () => undefined;
     runtime.pageController.screenshot = async () => Buffer.from('shot');
     runtime.pageController.getPerformanceMetrics = async () => ({fcp: 100});
+    runtime.pageController.setViewport = async () => undefined;
+    runtime.pageController.emulateDevice = async () => undefined;
+    runtime.pageController.getAllLinks = async () => [
+      {text: 'Home', href: 'https://example.com/'},
+    ];
     runtime.pageController.getCookies = async () => [{name: 'sid', value: '1'}];
     runtime.pageController.getLocalStorage = async () => ({token: 'abc'});
     runtime.pageController.getSessionStorage = async () => ({nonce: 'n'});
@@ -762,8 +800,33 @@ describe('jshook tools handlers', () => {
         res,
       );
       await invokeTool(
+        hoverElement as unknown as ToolDefinitionHarness,
+        {selector: '#menu'},
+        res,
+      );
+      await invokeTool(
+        selectOption as unknown as ToolDefinitionHarness,
+        {selector: 'select', values: ['a', 'b']},
+        res,
+      );
+      await invokeTool(
+        scrollPage as unknown as ToolDefinitionHarness,
+        {x: 0, y: 400},
+        res,
+      );
+      await invokeTool(
         typeText as unknown as ToolDefinitionHarness,
         {selector: '#x', text: 'abc', delay: 10},
+        res,
+      );
+      await invokeTool(
+        pressKey as unknown as ToolDefinitionHarness,
+        {key: 'Enter'},
+        res,
+      );
+      await invokeTool(
+        uploadFile as unknown as ToolDefinitionHarness,
+        {selector: 'input[type=file]', filePath: '/tmp/a.txt'},
         res,
       );
       await invokeTool(
@@ -772,7 +835,27 @@ describe('jshook tools handlers', () => {
         res,
       );
       await invokeTool(
+        waitForNetworkIdle as unknown as ToolDefinitionHarness,
+        {timeout: 100},
+        res,
+      );
+      await invokeTool(
         getPerformanceMetrics as unknown as ToolDefinitionHarness,
+        {},
+        res,
+      );
+      await invokeTool(
+        setViewport as unknown as ToolDefinitionHarness,
+        {width: 390, height: 844},
+        res,
+      );
+      await invokeTool(
+        emulateDevice as unknown as ToolDefinitionHarness,
+        {deviceName: 'Android'},
+        res,
+      );
+      await invokeTool(
+        getAllLinks as unknown as ToolDefinitionHarness,
         {},
         res,
       );
@@ -1082,10 +1165,19 @@ describe('jshook tools handlers', () => {
       runtime.pageController.injectScript = originals.injectScript;
       runtime.pageController.navigate = originals.navigate;
       runtime.pageController.click = originals.click;
+      runtime.pageController.hover = originals.hover;
+      runtime.pageController.select = originals.select;
+      runtime.pageController.scroll = originals.scroll;
       runtime.pageController.type = originals.type;
+      runtime.pageController.pressKey = originals.pressKey;
+      runtime.pageController.uploadFile = originals.uploadFile;
       runtime.pageController.waitForSelector = originals.waitForSelector;
+      runtime.pageController.waitForNetworkIdle = originals.waitForNetworkIdle;
       runtime.pageController.screenshot = originals.screenshot;
       runtime.pageController.getPerformanceMetrics = originals.metrics;
+      runtime.pageController.setViewport = originals.setViewport;
+      runtime.pageController.emulateDevice = originals.emulateDevice;
+      runtime.pageController.getAllLinks = originals.getAllLinks;
       runtime.pageController.getPage = originals.getPage;
       runtime.pageController.getCookies = originals.getCookies;
       runtime.pageController.getLocalStorage = originals.getLocalStorage;

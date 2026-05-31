@@ -21,7 +21,16 @@ import {createHook, getHookData} from '../../../src/tools/hook.js';
 import {
   clickElement,
   checkBrowserHealth,
+  emulateDevice,
+  getAllLinks,
+  hoverElement,
+  pressKey,
+  scrollPage,
+  selectOption,
   sessionState,
+  setViewport,
+  uploadFile,
+  waitForNetworkIdle,
 } from '../../../src/tools/page.js';
 import {injectStealth} from '../../../src/tools/stealth.js';
 
@@ -138,11 +147,29 @@ describe('jshook tools schema', () => {
   it('validates dom and page schemas', () => {
     const domSchema = zod.object(queryDom.schema);
     const pageSchema = zod.object(clickElement.schema);
+    const hoverSchema = zod.object(hoverElement.schema);
+    const selectSchema = zod.object(selectOption.schema);
+    const scrollSchema = zod.object(scrollPage.schema);
+    const keySchema = zod.object(pressKey.schema);
+    const uploadSchema = zod.object(uploadFile.schema);
+    const viewportSchema = zod.object(setViewport.schema);
+    const emulateSchema = zod.object(emulateDevice.schema);
+    const networkIdleSchema = zod.object(waitForNetworkIdle.schema);
+    const linksSchema = zod.object(getAllLinks.schema);
     const healthSchema = zod.object(checkBrowserHealth.schema);
     const sessionStateSchema = zod.object(sessionState.schema);
 
     const dom = domSchema.parse({selector: 'button'});
     const page = pageSchema.parse({selector: '#x'});
+    const hover = hoverSchema.parse({selector: '#menu'});
+    const select = selectSchema.parse({selector: 'select', values: ['a']});
+    const scroll = scrollSchema.parse({x: 10, y: 20});
+    const key = keySchema.parse({key: 'Enter'});
+    const upload = uploadSchema.parse({selector: 'input', filePath: '/tmp/a'});
+    const viewport = viewportSchema.parse({width: 390, height: 844});
+    const emulate = emulateSchema.parse({deviceName: 'iPhone'});
+    const networkIdle = networkIdleSchema.parse({timeout: 1000});
+    const links = linksSchema.parse({pageIdx: 1});
     const health = healthSchema.parse({});
     const saveSession = sessionStateSchema.parse({
       action: 'save',
@@ -172,6 +199,15 @@ describe('jshook tools schema', () => {
 
     assert.strictEqual(dom.selector, 'button');
     assert.strictEqual(page.selector, '#x');
+    assert.strictEqual(hover.selector, '#menu');
+    assert.deepStrictEqual(select.values, ['a']);
+    assert.strictEqual(scroll.y, 20);
+    assert.strictEqual(key.key, 'Enter');
+    assert.strictEqual(upload.filePath, '/tmp/a');
+    assert.strictEqual(viewport.width, 390);
+    assert.strictEqual(emulate.deviceName, 'iPhone');
+    assert.strictEqual(networkIdle.timeout, 1000);
+    assert.strictEqual(links.pageIdx, 1);
     assert.deepStrictEqual(health, {});
     assert.strictEqual(saveSession.action, 'save');
     assert.strictEqual(saveSession.sessionId, 's1');
